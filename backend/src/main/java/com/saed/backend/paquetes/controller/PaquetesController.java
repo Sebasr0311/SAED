@@ -1,5 +1,6 @@
 package com.saed.backend.paquetes.controller;
 
+import com.saed.backend.platform.annotation.RequireModule;
 import com.saed.backend.paquetes.dto.PaqueteDTO;
 import com.saed.backend.paquetes.dto.PaqueteEntregaDTO;
 import com.saed.backend.paquetes.dto.PaqueteRequestDTO;
@@ -23,6 +24,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 @Tag(name = "Paquetes", description = "API para la gestion de Paquetes")
+@RequireModule("PAQUETES")
 @RestController
 @RequestMapping("/api/v1/paquetes")
 public class PaquetesController {
@@ -67,6 +69,13 @@ public class PaquetesController {
     @PreAuthorize("hasAnyAuthority('SCOPE_PORTERO', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<PaqueteDTO> actualizarPaquete(@PathVariable Long id, @Valid @RequestBody PaqueteRequestDTO request) {
         return ResponseEntity.ok(paquetesService.actualizarPaquete(id, request));
+    }
+
+    /** F08-02: re-sends a missing pickup notification to the residents of the package unit. */
+    @PostMapping("/{id}/notificar")
+    @PreAuthorize("hasAnyAuthority('SCOPE_PORTERO', 'SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<java.util.Map<String, Object>> reenviarNotificacion(@PathVariable Long id) {
+        return ResponseEntity.ok(java.util.Map.of("notificados", paquetesService.reenviarNotificacion(id)));
     }
 
     @PostMapping("/{id}/entrega")

@@ -139,7 +139,7 @@ export default function MantenimientoAdminPage() {
         api.get('/mantenimientos/kpis'),
         api.get('/activos'),
         api.get('/proveedores'),
-        api.get('/reservas/zonas'),
+        api.get('/zonas-comunes'),
       ]);
 
       if (mantsRes.status === 'fulfilled') {

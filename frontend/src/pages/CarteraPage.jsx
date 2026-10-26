@@ -153,12 +153,14 @@ export default function CarteraPage() {
         : unidades.filter((u) => (u.ESTADO_CARTERA || 'AL_DIA') === 'AL_DIA').length;
 
     const unidadesEnMora =
-      resumen.COUNT_MORA_LEVE != null ||
-      resumen.COUNT_MORA_MEDIA != null ||
-      resumen.COUNT_MORA_GRAVE != null
-        ? Number(resumen.COUNT_MORA_LEVE || 0) +
-          Number(resumen.COUNT_MORA_MEDIA || 0) +
-          Number(resumen.COUNT_MORA_GRAVE || 0)
+      resumen.COUNT_MORA_30 != null ||
+      resumen.COUNT_MORA_60 != null ||
+      resumen.COUNT_MORA_CRITICA != null ||
+      resumen.COUNT_COBRO_JURIDICO != null
+        ? Number(resumen.COUNT_MORA_30 || 0) +
+          Number(resumen.COUNT_MORA_60 || 0) +
+          Number(resumen.COUNT_MORA_CRITICA || 0) +
+          Number(resumen.COUNT_COBRO_JURIDICO || 0)
         : unidades.filter((u) => (u.ESTADO_CARTERA || 'AL_DIA') !== 'AL_DIA').length;
 
     return {
@@ -214,12 +216,14 @@ export default function CarteraPage() {
     switch (e) {
       case 'AL_DIA':
         return <Badge variant="success">Al día</Badge>;
-      case 'MORA_LEVE':
+      case 'MORA_30':
         return <Badge variant="warning">Mora 30d</Badge>;
-      case 'MORA_MEDIA':
+      case 'MORA_60':
         return <Badge variant="warning">Mora 60d</Badge>;
-      case 'MORA_GRAVE':
-        return <Badge variant="destructive">Mora 90d+</Badge>;
+      case 'MORA_CRITICA':
+        return <Badge variant="destructive">Mora crítica</Badge>;
+      case 'COBRO_JURIDICO':
+        return <Badge variant="destructive">Cobro jurídico</Badge>;
       default:
         return <Badge variant="secondary">{e.replace('_', ' ')}</Badge>;
     }
@@ -233,6 +237,8 @@ export default function CarteraPage() {
         return <Badge variant="success">Pagada</Badge>;
       case 'PENDIENTE':
         return <Badge variant="warning">Pendiente</Badge>;
+      case 'PAGADA_PARCIAL':
+        return <Badge variant="warning">Pago parcial</Badge>;
       case 'VENCIDA':
         return <Badge variant="destructive">Vencida</Badge>;
       default:
@@ -419,9 +425,10 @@ export default function CarteraPage() {
                   <option value="TODOS">Todos los estados</option>
                   <option value="AL_DIA">Al día</option>
                   <option value="EN_MORA">En mora (cualquiera)</option>
-                  <option value="MORA_LEVE">Mora 30d</option>
-                  <option value="MORA_MEDIA">Mora 60d</option>
-                  <option value="MORA_GRAVE">Mora 90d+</option>
+                  <option value="MORA_30">Mora 30d</option>
+                  <option value="MORA_60">Mora 60d</option>
+                  <option value="MORA_CRITICA">Mora crítica</option>
+                  <option value="COBRO_JURIDICO">Cobro jurídico</option>
                 </select>
               </div>
 

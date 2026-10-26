@@ -40,6 +40,7 @@ import { Modal } from '../components/ui/Modal.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { formatDate, formatDateTime, formatApto, imageSrc } from '../lib/utils.js';
 import { VideoCamara } from '../components/ui/VideoCamara.jsx';
+import { KpiSummaryPanel } from '../components/KpiSummaryPanel.jsx';
 
 const ACCIONES_OPERATIVAS = [
   {
@@ -993,6 +994,7 @@ export default function PorteroDashboardPage() {
 
   return (
     <PageContainer breadcrumbs={breadcrumbs} maxWidth="max-w-7xl">
+      <KpiSummaryPanel />
       {/* Header Contextual */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

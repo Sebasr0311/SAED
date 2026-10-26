@@ -542,7 +542,7 @@ public class ModelCLimitsSecurityIntegrationTest {
 
         // Verificar existencia en esquema Oracle
         Integer tableCount = jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM USER_TABLES WHERE TABLE_NAME IN ('MODULOS', 'PLAN_MODULOS')",
+                "SELECT COUNT(1) FROM ALL_TABLES WHERE OWNER = SYS_CONTEXT('USERENV','CURRENT_SCHEMA') AND TABLE_NAME IN ('MODULOS', 'PLAN_MODULOS')",
                 Integer.class
         );
         assertNotNull(tableCount);

@@ -6,6 +6,7 @@ import com.saed.backend.audit.Auditable;
 import com.saed.backend.common.dto.ApiResponse;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
+import com.saed.backend.identity.service.PendingAccountCredentials;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
@@ -31,8 +32,10 @@ public class UsuarioController {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
+    private final com.saed.backend.identity.service.UserRegistrationPolicy registrationPolicy;
+    private final com.saed.backend.identity.service.CohabitantAccountRegistry cohabitantRegistry;
+    private final com.saed.backend.identity.service.AdministratorAccountRegistry accountRegistry;
     private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider;
-    private final com.saed.backend.common.service.EmailService emailService;
     private final com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService;
     private final com.saed.backend.platform.service.PlanLimitService planLimitService;
 
@@ -40,13 +43,14 @@ public class UsuarioController {
             NamedParameterJdbcTemplate jdbcTemplate,
             PasswordEncoder passwordEncoder,
             org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider,
-            com.saed.backend.common.service.EmailService emailService,
             com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService,
             com.saed.backend.platform.service.PlanLimitService planLimitService) {
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
+        this.registrationPolicy = new com.saed.backend.identity.service.UserRegistrationPolicy(jdbcTemplate);
+        this.cohabitantRegistry = new com.saed.backend.identity.service.CohabitantAccountRegistry(jdbcTemplate);
+        this.accountRegistry = new com.saed.backend.identity.service.AdministratorAccountRegistry(jdbcTemplate);
         this.tokenServiceProvider = tokenServiceProvider;
-        this.emailService = emailService;
         this.convivienteQuotaService = convivienteQuotaService;
         this.planLimitService = planLimitService;
     }
@@ -97,7 +101,10 @@ public class UsuarioController {
             } else {
                 sql.append(" AND 1=0");
             }
-        } else if (!"SUPERADMIN".equals(roleCode)) {
+        } else if ("SUPERADMIN".equals(roleCode)) {
+            // DEC-02: the platform administrator sees platform accounts only, never residents or staff.
+            sql.append(" AND r.CODIGO IN ('SUPERADMIN', 'ADMIN_ORGANIZACION')");
+        } else {
             Long userId = ctx != null ? ctx.getUserId() : null;
             if (userId != null) {
                 sql.append(" AND u.ID_USUARIO = :userId");
@@ -123,15 +130,8 @@ public class UsuarioController {
         }
         username = username.trim().toLowerCase();
 
-        String rawPassword = (String) payload.getOrDefault("password", payload.get("passwordHash"));
-        boolean enviarActivacion = Boolean.TRUE.equals(payload.get("enviarCorreoActivacion"))
-                || Boolean.TRUE.equals(payload.get("activacionPorCorreo"))
-                || "true".equalsIgnoreCase(String.valueOf(payload.get("enviarCorreoActivacion")));
-
-        if (rawPassword == null || rawPassword.trim().isBlank()) {
-            rawPassword = com.saed.backend.common.util.PasswordGenerator.generate();
-            enviarActivacion = true;
-        }
+        // DEC-13: a password supplied in the request is ignored. The account starts with an unusable credential
+        // and its owner sets a password through the single-use activation link.
 
         String rol = (String) payload.getOrDefault("rol", "PORTERO");
         if (rol == null || rol.trim().isBlank()) {
@@ -153,6 +153,9 @@ public class UsuarioController {
         Long propId = ctx != null ? ctx.getPropertyId() : null;
         Long callerUnitId = ctx != null ? ctx.getUnitId() : null;
 
+        if (ctx == null || ctx.getUserId() == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Se requiere un contexto autenticado");
+        }
         Long targetUnitId = null;
 
         // Anti-escalamiento de privilegios por rol
@@ -162,22 +165,6 @@ public class UsuarioController {
                         .body(ApiResponse.error("Como Residente solo puede registrar personas para su unidad de convivencia"));
             }
             rol = "RESIDENTE_CONVIVENCIA";
-            if (callerUnitId == null && ctx.getUserId() != null) {
-                try {
-                    List<Long> uList = jdbcTemplate.queryForList(
-                        "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON ru.ID_PERSONA = u.ID_PERSONA WHERE u.ID_USUARIO = :uid AND ru.ESTADO = 'ACTIVO' AND ROWNUM = 1",
-                        Map.of("uid", ctx.getUserId()), Long.class
-                    );
-                    if (!uList.isEmpty()) callerUnitId = uList.get(0);
-                    if (callerUnitId == null) {
-                        List<Long> aList = jdbcTemplate.queryForList(
-                            "SELECT ID_UNIDAD FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :uid AND ESTADO = 'ACTIVA' AND ID_UNIDAD IS NOT NULL AND ROWNUM = 1",
-                            Map.of("uid", ctx.getUserId()), Long.class
-                        );
-                        if (!aList.isEmpty()) callerUnitId = aList.get(0);
-                    }
-                } catch (Exception ignored) {}
-            }
             if (callerUnitId == null) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body(ApiResponse.error("No se encontró una unidad asignada a su usuario de residente"));
@@ -217,45 +204,40 @@ public class UsuarioController {
             }
         }
 
-        // Si es registro de habitante de convivencia, validar y bloquear cuota con bloqueo pesimista
-        if ("RESIDENTE_CONVIVENCIA".equals(rol) && targetUnitId != null) {
-            convivienteQuotaService.validateAndLockQuota(targetUnitId);
+        var registrationScope = registrationPolicy.authorizeScope(ctx, rol, payload.get("idUnidad"),
+                payload.get("idPropiedad"), payload.get("idOrganizacion"));
+        targetUnitId = registrationScope.unitId();
+        Long effectiveOrgId = registrationScope.organizationId();
+        Long effectivePropId = registrationScope.propertyId();
+
+        // DEC-12: a registered RESIDENTE is stored with a real domain relation, never a synthetic value.
+        String residenceType = null;
+        if ("RESIDENTE".equals(rol)) {
+            Object requested = payload.get("tipoResidente");
+            String normalized = requested == null || requested.toString().isBlank()
+                    ? "PROPIETARIO" : requested.toString().trim().toUpperCase();
+            if (!"PROPIETARIO".equals(normalized) && !"ARRENDATARIO".equals(normalized)) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("El tipo de residente debe ser PROPIETARIO o ARRENDATARIO"));
+            }
+            residenceType = normalized;
         }
-
-        if (orgId == null) orgId = 1L;
-        if (propId == null) propId = 1L;
-
-        SaedContext prevCtx = SaedContextHolder.getContext();
-        Long effectiveOrgId = orgId;
-        Long effectivePropId = propId;
-        SaedContext systemCtx = SaedContext.builder()
-                .userId(1L)
-                .organizationId(effectiveOrgId)
-                .propertyId(effectivePropId)
-                .roleCode("SUPERADMIN")
-                .roleScope("GLOBAL")
-                .build();
-        SaedContextHolder.setContext(systemCtx);
-        try {
-            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
-            jdbcTemplate.getJdbcOperations().execute(
-                String.format("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, 'SUPERADMIN'); END;", effectiveOrgId, effectivePropId)
-            );
-        } catch (Exception ignored) {}
 
         Long idPersona = null;
         Long idUsuario = null;
-        Long existingUserToReactivate = null;
-        String creatorName = "Un usuario de SAED";
-        String orgName = null;
-        String propName = null;
-        String unidadNombre = null;
-
-        try {
+        Long existingUserId = null;
+        {
             // 1. Resolver o Crear PERSONA
             Object idPersonaObj = payload.getOrDefault("idPersona", payload.get("idResidente"));
             if (idPersonaObj != null && !idPersonaObj.toString().isBlank()) {
-                try { idPersona = Long.valueOf(idPersonaObj.toString()); } catch (Exception ignored) {}
+                try {
+                    idPersona = Long.valueOf(idPersonaObj.toString());
+                    if (idPersona <= 0) {
+                        throw new NumberFormatException();
+                    }
+                } catch (NumberFormatException invalidId) {
+                    throw new org.springframework.security.access.AccessDeniedException("El destino del registro no es válido");
+                }
             }
             String doc = (String) payload.getOrDefault("numeroDocumento", "");
             if (idPersona == null && doc != null && !doc.trim().isBlank()) {
@@ -270,6 +252,7 @@ public class UsuarioController {
             }
 
             if (idPersona != null) {
+                registrationPolicy.authorizePerson(ctx, registrationScope, idPersona);
                 List<Map<String, Object>> existingUsers = jdbcTemplate.queryForList(
                         "SELECT ID_USUARIO, NOMBRE_USUARIO, EMAIL, ESTADO FROM USUARIOS WHERE ID_PERSONA = :p",
                         Map.of("p", idPersona)
@@ -280,9 +263,11 @@ public class UsuarioController {
                     List<Map<String, Object>> activeAssignments = jdbcTemplate.queryForList(
                             "SELECT ua.ID_ASIGNACION, ua.ID_UNIDAD, ua.ID_PROPIEDAD, r.CODIGO AS ROL_CODIGO " +
                             "FROM USUARIO_ASIGNACIONES ua JOIN ROLES r ON r.ID_ROL = ua.ID_ROL " +
-                            "WHERE ua.ID_USUARIO = :uid AND ua.ESTADO IN ('ACTIVA', 'ACTIVO')",
+                            "WHERE ua.ID_USUARIO = :uid",
                             Map.of("uid", foundUid)
                     );
+
+                    registrationPolicy.authorizeAccount((String) existingUsers.get(0).get("ESTADO"), activeAssignments);
 
                     if ("RESIDENTE".equals(callerRole)) {
                         Long callerUserId = ctx != null ? ctx.getUserId() : null;
@@ -312,12 +297,23 @@ public class UsuarioController {
                                     .body(ApiResponse.error("La persona ya cuenta con un usuario activo vinculado a otra unidad residencial"));
                         }
                     }
-                    existingUserToReactivate = foundUid;
+                    existingUserId = foundUid;
                 }
             }
 
+            if ("RESIDENTE_CONVIVENCIA".equals(rol)) {
+                convivienteQuotaService.validateAndLockQuota(targetUnitId);
+            }
+            List<Long> validRoles = jdbcTemplate.query(
+                    "SELECT ID_ROL FROM ROLES WHERE CODIGO = :cod AND ESTADO = 'ACTIVO'",
+                    Map.of("cod", rol), (rs, rowNum) -> rs.getLong(1));
+            if (validRoles.size() != 1) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("El rol especificado no está disponible"));
+            }
+            Long idRol = validRoles.get(0);
+
             // Validar límite de usuarios de la organización según su membresía SaaS
-            planLimitService.validateAndLockUserLimit(effectiveOrgId, existingUserToReactivate);
+            planLimitService.validateAndLockUserLimit(effectiveOrgId, existingUserId);
 
             // Verificar unicidad de username (permitiendo reutilización si es la misma cuenta que se reactiva)
             List<Long> uCheck = jdbcTemplate.query(
@@ -327,7 +323,7 @@ public class UsuarioController {
             );
             if (!uCheck.isEmpty()) {
                 Long foundUid = uCheck.get(0);
-                if (existingUserToReactivate == null || !existingUserToReactivate.equals(foundUid)) {
+                if (existingUserId == null || !existingUserId.equals(foundUid)) {
                     return ResponseEntity.badRequest().body(ApiResponse.error("El nombre de usuario '" + username + "' ya existe"));
                 }
             }
@@ -341,7 +337,7 @@ public class UsuarioController {
                 );
                 if (!eCheck.isEmpty()) {
                     Long foundEUid = eCheck.get(0);
-                    if (existingUserToReactivate == null || !existingUserToReactivate.equals(foundEUid)) {
+                    if (existingUserId == null || !existingUserId.equals(foundEUid)) {
                         return ResponseEntity.status(HttpStatus.CONFLICT)
                                 .body(ApiResponse.error("El correo electrónico '" + userEmail + "' ya se encuentra registrado en otra cuenta"));
                     }
@@ -360,19 +356,9 @@ public class UsuarioController {
                     try { idTipoDoc = Long.valueOf(tipoDocObj.toString()); } catch (Exception ignored) {}
                 }
 
-                KeyHolder khPersona = new GeneratedKeyHolder();
-                String sqlPersona = """
-                    INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, TELEFONO, ESTADO)
-                    VALUES (:tipoDoc, :doc, 'NATURAL', :nombre, :apellido, :email, :tel, 'ACTIVO')
-                    """;
-                MapSqlParameterSource paramP = new MapSqlParameterSource()
-                        .addValue("tipoDoc", idTipoDoc)
-                        .addValue("doc", docFinal)
-                        .addValue("nombre", primerNombre)
-                        .addValue("apellido", primerApellido)
-                        .addValue("email", userEmail)
-                        .addValue("tel", tel);
-                jdbcTemplate.update(sqlPersona, paramP, khPersona, new String[]{"ID_PERSONA"});
+                // DEC-01: the person belongs to the organization of the validated registration scope.
+                KeyHolder khPersona = com.saed.backend.person.service.PersonaOrganizationBinding.insertNaturalPerson(
+                        jdbcTemplate, effectiveOrgId, idTipoDoc, docFinal, primerNombre, primerApellido, userEmail, tel);
                 idPersona = extractGeneratedKey(khPersona, "ID_PERSONA");
                 if (idPersona == null) {
                     List<Long> pIds = jdbcTemplate.query(
@@ -382,52 +368,37 @@ public class UsuarioController {
                     );
                     if (!pIds.isEmpty()) idPersona = pIds.get(0);
                 }
-            } else {
-                jdbcTemplate.update("""
-                    UPDATE PERSONAS
-                    SET PRIMER_NOMBRE = COALESCE(:nombre, PRIMER_NOMBRE),
-                        PRIMER_APELLIDO = COALESCE(:apellido, PRIMER_APELLIDO),
-                        EMAIL = :email,
-                        TELEFONO = COALESCE(:tel, TELEFONO),
-                        ESTADO = 'ACTIVO'
-                    WHERE ID_PERSONA = :pid
-                """, Map.of(
-                    "nombre", primerNombre,
-                    "apellido", primerApellido,
-                    "email", userEmail,
-                    "tel", tel,
-                    "pid", idPersona
-                ));
+                if (idPersona == null) {
+                    throw new IllegalStateException("No se pudo crear la persona del registro");
+                }
             }
 
+            // A resident session cannot insert users or assignments (row-level policies): the validated
+            // security-schema procedure creates the cohabitant account and its assignment (V5.66).
+            boolean viaSecurityProcedure = "RESIDENTE".equals(callerRole) && "RESIDENTE_CONVIVENCIA".equals(rol);
+
             // 2. Insertar o Reactivar USUARIO
-            if (existingUserToReactivate != null) {
-                idUsuario = existingUserToReactivate;
-                jdbcTemplate.update("""
-                    UPDATE USUARIOS
-                    SET NOMBRE_USUARIO = :username,
-                        EMAIL = :email,
-                        HASH_PASSWORD = :pwd,
-                        ESTADO = 'ACTIVO',
-                        INTENTOS_FALLIDOS = 0
-                    WHERE ID_USUARIO = :id
-                """, Map.of(
-                    "username", username,
-                    "email", userEmail,
-                    "pwd", passwordEncoder.encode(rawPassword.trim()),
-                    "id", idUsuario
-                ));
+            if (viaSecurityProcedure) {
+                idUsuario = cohabitantRegistry.register(targetUnitId, idPersona, existingUserId, username, userEmail,
+                        existingUserId == null ? PendingAccountCredentials.unusableHash(passwordEncoder) : null);
+            } else if (existingUserId != null) {
+                idUsuario = existingUserId;
+                // Registration adds an authorized assignment; it never resets an existing identity.
+            } else if ("ADMIN_PROPIEDAD".equals(callerRole) || "ADMIN_ORGANIZACION".equals(callerRole)) {
+                // V5.68: the USUARIOS policy refuses the first row of an account that has no assignment yet.
+                idUsuario = accountRegistry.create(idPersona, username, userEmail,
+                        PendingAccountCredentials.unusableHash(passwordEncoder));
             } else {
                 KeyHolder khUsuario = new GeneratedKeyHolder();
                 String sqlUsuario = """
                     INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS)
-                    VALUES (:idPersona, :username, :email, :pwd, 'ACTIVO', 0)
+                    VALUES (:idPersona, :username, :email, :pwd, 'PENDIENTE_VERIFICACION', 0)
                     """;
                 MapSqlParameterSource paramU = new MapSqlParameterSource()
                         .addValue("idPersona", idPersona)
                         .addValue("username", username)
                         .addValue("email", userEmail)
-                        .addValue("pwd", passwordEncoder.encode(rawPassword.trim()));
+                        .addValue("pwd", PendingAccountCredentials.unusableHash(passwordEncoder));
                 jdbcTemplate.update(sqlUsuario, paramU, khUsuario, new String[]{"ID_USUARIO"});
                 idUsuario = extractGeneratedKey(khUsuario, "ID_USUARIO");
                 if (idUsuario == null) {
@@ -439,102 +410,23 @@ public class UsuarioController {
                     if (!uIds.isEmpty()) idUsuario = uIds.get(0);
                 }
                 if (idUsuario == null) {
-                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                            .body(ApiResponse.error("No se pudo generar el ID del usuario"));
+                    throw new IllegalStateException("No se pudo crear el usuario del registro");
                 }
             }
 
-            // 3. Obtener ID_ROL
-            Long idRol = null;
-            try {
-                List<Long> rList = jdbcTemplate.query(
-                    "SELECT ID_ROL FROM ROLES WHERE CODIGO = :cod AND ESTADO = 'ACTIVO'",
-                    Map.of("cod", rol),
-                    (rs, rowNum) -> rs.getLong(1)
-                );
-                if (!rList.isEmpty()) idRol = rList.get(0);
-            } catch (Exception ignored) {}
-            if (idRol == null) {
-                return ResponseEntity.badRequest()
-                        .body(ApiResponse.error("El rol especificado no existe o no está activo en el sistema: " + rol));
-            }
-
-            // 4. Crear Asignación
             Long idUnidad = targetUnitId;
-            if (idUnidad == null && ("RESIDENTE".equals(rol) || "PROPIETARIO".equals(rol) || "RESIDENTE_CONVIVENCIA".equals(rol))) {
-                Object uObj = payload.get("idUnidad");
-                if (uObj != null && !uObj.toString().isBlank()) {
-                    try {
-                        idUnidad = Long.valueOf(uObj.toString().trim());
-                    } catch (NumberFormatException ignored) {}
-                } else if (callerUnitId != null) {
-                    idUnidad = callerUnitId;
-                } else if (idPersona != null) {
-                    List<Long> uList = jdbcTemplate.queryForList(
-                            "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = :p AND ESTADO IN ('ACTIVO', 'ACTIVA') ORDER BY ID_RESIDENTE_UNIDAD DESC FETCH FIRST 1 ROWS ONLY",
-                            Map.of("p", idPersona),
-                            Long.class
-                    );
-                    if (uList.isEmpty()) {
-                        uList = jdbcTemplate.queryForList(
-                                "SELECT ID_UNIDAD FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA = :p AND ESTADO = 'ACTIVO' ORDER BY ID_PROPIETARIO_UNIDAD DESC FETCH FIRST 1 ROWS ONLY",
-                                Map.of("p", idPersona),
-                                Long.class
-                        );
-                    }
-                    if (!uList.isEmpty()) {
-                        idUnidad = uList.get(0);
-                    }
-                }
-            }
-
-            // Alinear propiedad y organización con la unidad para satisfacer TRG_ASIGNACION_VALIDA_JERARQUIA
-            if (idUnidad != null) {
-                try {
-                    List<Map<String, Object>> uProps = jdbcTemplate.query(
-                        "SELECT u.ID_PROPIEDAD, p.ID_ORGANIZACION FROM UNIDADES u JOIN PROPIEDADES p ON p.ID_PROPIEDAD = u.ID_PROPIEDAD WHERE u.ID_UNIDAD = :u",
-                        Map.of("u", idUnidad),
-                        (rs, rowNum) -> Map.of(
-                            "ID_PROPIEDAD", rs.getLong("ID_PROPIEDAD"),
-                            "ID_ORGANIZACION", rs.getLong("ID_ORGANIZACION")
-                        )
-                    );
-                    if (!uProps.isEmpty()) {
-                        Number pId = (Number) uProps.get(0).get("ID_PROPIEDAD");
-                        Number oId = (Number) uProps.get(0).get("ID_ORGANIZACION");
-                        if (pId != null) effectivePropId = pId.longValue();
-                        if (oId != null) effectiveOrgId = oId.longValue();
-                    }
-                } catch (Exception ignored) {}
-            }
 
             // Verificar si ya existe asignación previa para esta unidad o si se crea nueva
-            List<Long> asigExistentes = List.of();
-            if (idUnidad != null) {
-                asigExistentes = jdbcTemplate.query(
-                    "SELECT ID_ASIGNACION FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :uid AND ID_UNIDAD = :u",
-                    Map.of("uid", idUsuario, "u", idUnidad),
-                    (rs, r) -> rs.getLong(1)
-                );
-            }
-
-            if (!asigExistentes.isEmpty()) {
-                jdbcTemplate.update("""
-                    UPDATE USUARIO_ASIGNACIONES
-                    SET ID_ROL = :idRol,
-                        ID_ORGANIZACION = :orgId,
-                        ID_PROPIEDAD = :propId,
-                        ESTADO = 'ACTIVA',
-                        FECHA_INICIO = TRUNC(SYSDATE),
-                        FECHA_FIN = NULL
-                    WHERE ID_ASIGNACION = :asigId
-                """, Map.of(
-                    "idRol", idRol,
-                    "orgId", effectiveOrgId,
-                    "propId", effectivePropId,
-                    "asigId", asigExistentes.get(0)
-                ));
-            } else {
+            List<Long> asigExistentes = jdbcTemplate.query(
+                    "SELECT ID_ASIGNACION FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :uid "
+                            + "AND ID_ROL = :roleId AND ID_ORGANIZACION = :orgId "
+                            + "AND (ID_PROPIEDAD = :propId OR (ID_PROPIEDAD IS NULL AND :propId IS NULL)) "
+                            + "AND (ID_UNIDAD = :unitId OR (ID_UNIDAD IS NULL AND :unitId IS NULL)) "
+                            + "AND ESTADO IN ('ACTIVA', 'ACTIVO')",
+                    new MapSqlParameterSource("uid", idUsuario).addValue("roleId", idRol)
+                            .addValue("orgId", effectiveOrgId).addValue("propId", effectivePropId)
+                            .addValue("unitId", idUnidad), (rs, r) -> rs.getLong(1));
+            if (!viaSecurityProcedure && asigExistentes.isEmpty()) {
                 String sqlAsig = """
                     INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO)
                     VALUES (:idUsuario, :idRol, :orgId, :propId, :idUnidad, 'ACTIVA', TRUNC(SYSDATE))
@@ -548,91 +440,40 @@ public class UsuarioController {
                 jdbcTemplate.update(sqlAsig, paramA);
             }
 
-            // Si es habitante de unidad, asegurar registro en RESIDENTES_UNIDAD
+            // Registration must not rewrite an existing habitation relationship.
             if (idUnidad != null && ("RESIDENTE".equals(rol) || "RESIDENTE_CONVIVENCIA".equals(rol))) {
-                try {
-                    Integer ruCount = jdbcTemplate.queryForObject(
+                Integer ruCount = jdbcTemplate.queryForObject(
                         "SELECT COUNT(1) FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = :u AND ID_PERSONA = :p",
-                        Map.of("u", idUnidad, "p", idPersona),
-                        Integer.class
-                    );
-                    String tipoRes = "RESIDENTE_CONVIVENCIA".equals(rol) ? "CONVIVIENTE" : "TITULAR";
-                    if (ruCount == null || ruCount == 0) {
-                        jdbcTemplate.update(
+                        Map.of("u", idUnidad, "p", idPersona), Integer.class);
+                if (ruCount == null) {
+                    throw new IllegalStateException("No se pudo validar la relación residencial");
+                }
+                if (ruCount == 0) {
+                    String tipoRes = "RESIDENTE_CONVIVENCIA".equals(rol) ? "CONVIVIENTE" : residenceType;
+                    jdbcTemplate.update(
                             "INSERT INTO RESIDENTES_UNIDAD (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE, FECHA_INICIO, ESTADO) VALUES (:u, :p, :tipo, TRUNC(SYSDATE), 'ACTIVO')",
-                            Map.of("u", idUnidad, "p", idPersona, "tipo", tipoRes)
-                        );
-                    } else {
-                        jdbcTemplate.update(
-                            "UPDATE RESIDENTES_UNIDAD SET ESTADO = 'ACTIVO', FECHA_FIN = NULL, TIPO_RESIDENTE = :tipo WHERE ID_UNIDAD = :u AND ID_PERSONA = :p",
-                            Map.of("u", idUnidad, "p", idPersona, "tipo", tipoRes)
-                        );
-                    }
-                } catch (Exception e) {
-                    log.warn("Aviso al asegurar RESIDENTES_UNIDAD para persona {} y unidad {}: {}", idPersona, idUnidad, e.getMessage());
+                            Map.of("u", idUnidad, "p", idPersona, "tipo", tipoRes));
                 }
             }
 
-            // Datos para correo
-            try {
-                if (ctx != null && ctx.getUserId() != null) {
-                    List<String> names = jdbcTemplate.query(
-                        "SELECT TRIM(p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO) FROM PERSONAS p JOIN USUARIOS u ON u.ID_PERSONA = p.ID_PERSONA WHERE u.ID_USUARIO = :uid",
-                        Map.of("uid", ctx.getUserId()),
-                        (rs, rowNum) -> rs.getString(1)
-                    );
-                    if (!names.isEmpty() && names.get(0) != null && !names.get(0).isBlank()) {
-                        creatorName = names.get(0);
-                    }
-                }
-            } catch (Exception ignored) {}
-
-            try {
-                List<String> oNames = jdbcTemplate.query("SELECT NOMBRE FROM ORGANIZACIONES WHERE ID_ORGANIZACION = :oid", Map.of("oid", effectiveOrgId), (rs, r) -> rs.getString(1));
-                if (!oNames.isEmpty()) orgName = oNames.get(0);
-            } catch (Exception ignored) {}
-
-            try {
-                List<String> pNames = jdbcTemplate.query("SELECT NOMBRE FROM PROPIEDADES WHERE ID_PROPIEDAD = :pid", Map.of("pid", effectivePropId), (rs, r) -> rs.getString(1));
-                if (!pNames.isEmpty()) propName = pNames.get(0);
-            } catch (Exception ignored) {}
-
-            if (idUnidad != null) {
-                try {
-                    List<String> uNames = jdbcTemplate.query("SELECT IDENTIFICADOR FROM UNIDADES WHERE ID_UNIDAD = :uid", Map.of("uid", idUnidad), (rs, r) -> rs.getString(1));
-                    if (!uNames.isEmpty()) unidadNombre = uNames.get(0);
-                } catch (Exception ignored) {}
-            }
-        } finally {
-            restoreSaedContext(prevCtx);
         }
 
-        String recipientFullName = ((payload.get("primerNombre") != null ? payload.get("primerNombre") : username) + " " +
-                                     (payload.get("primerApellido") != null ? payload.get("primerApellido") : "")).trim();
+        if (existingUserId != null) {
+            return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(Map.of(
+                    "idUsuario", idUsuario, "rol", rol, "accountCreated", false,
+                    "message", "Asignación registrada sin modificar las credenciales existentes")));
+        }
 
-        try {
-            emailService.enviarCredencialesCreadoPorUsuarioAsync(
-                userEmail,
-                recipientFullName,
-                creatorName,
-                callerRole,
-                orgName,
-                propName,
-                unidadNombre,
-                rol,
-                username,
-                rawPassword,
-                "https://saedfront.vercel.app/login"
-            );
-        } catch (Exception ignored) {}
+        // DEC-13: the owner receives a single-use activation link (hash stored only); no password is sent or returned.
+        tokenServiceProvider.getObject().generarYEnviarTokenActivacion(idUsuario, null);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(Map.of(
                 "idUsuario", idUsuario,
                 "username", username,
                 "rol", rol,
-                "passwordGenerada", rawPassword,
+                "accountCreated", true,
                 "email", userEmail,
-                "message", "Usuario creado exitosamente. Se han enviado las credenciales de acceso a " + userEmail
+                "message", "Usuario creado exitosamente. Se envió un enlace de activación a " + userEmail
         )));
     }
 

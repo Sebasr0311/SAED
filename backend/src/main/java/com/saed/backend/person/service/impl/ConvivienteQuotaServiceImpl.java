@@ -204,7 +204,7 @@ public class ConvivienteQuotaServiceImpl implements ConvivienteQuotaService {
     }
 
     private int countActiveConvivientes(Long unitId) {
-        // Excluye explícitamente titular/principal ('PROPIETARIO', 'ARRENDATARIO', 'TITULAR')
+        // Excluye explícitamente titular/principal ('PROPIETARIO', 'ARRENDATARIO')
         // Solo computan convivientes activos: ('CONVIVIENTE')
         String sql = """
             SELECT COUNT(1)
@@ -229,16 +229,18 @@ public class ConvivienteQuotaServiceImpl implements ConvivienteQuotaService {
         return "CONVIVIENTE".equals(t);
     }
 
-    private void validateUnitScope(Long unitId) {
+    /** Fails closed: no context and SUPERADMIN (DEC-02) have no operational access to a household. */
+    private static SaedContext requireTenantContext() {
         SaedContext ctx = SaedContextHolder.getContext();
-        if (ctx == null) {
-            return;
+        if (ctx == null || "SUPERADMIN".equals(ctx.getRoleCode()) || "GLOBAL".equals(ctx.getRoleScope())) {
+            throw new AccessDeniedException("Acceso denegado: operación sin contexto de tenant");
         }
+        return ctx;
+    }
 
+    private void validateUnitScope(Long unitId) {
+        SaedContext ctx = requireTenantContext();
         String roleCode = ctx.getRoleCode();
-        if ("SUPERADMIN".equals(roleCode)) {
-            return;
-        }
 
         if ("RESIDENTE".equals(roleCode) || "RESIDENTE_CONVIVENCIA".equals(roleCode) || "UNIDAD".equals(ctx.getRoleScope())) {
             Long callerUnitId = ctx.getUnitId();
@@ -260,24 +262,19 @@ public class ConvivienteQuotaServiceImpl implements ConvivienteQuotaService {
     }
 
     private void validatePropertyScope(Long propertyId) {
-        SaedContext ctx = SaedContextHolder.getContext();
-        if (ctx == null) {
-            return;
-        }
-
+        SaedContext ctx = requireTenantContext();
         String roleCode = ctx.getRoleCode();
-        if ("SUPERADMIN".equals(roleCode)) {
-            return;
-        }
 
         if ("ADMIN_PROPIEDAD".equals(roleCode) || "PROPIEDAD".equals(ctx.getRoleScope())) {
             Long callerPropId = ctx.getPropertyId();
-            if (callerPropId != null && !callerPropId.equals(propertyId)) {
+            if (callerPropId == null || !callerPropId.equals(propertyId)) {
                 throw new AccessDeniedException("Acceso denegado: la unidad no pertenece a su propiedad asignada");
             }
         } else if ("ADMIN_ORGANIZACION".equals(roleCode) || "ORGANIZACION".equals(ctx.getRoleScope())) {
             Long callerOrgId = ctx.getOrganizationId();
-            if (callerOrgId != null) {
+            if (callerOrgId == null) {
+                throw new AccessDeniedException("Acceso denegado: organización no establecida");
+            } else {
                 Integer propInOrg = jdbcTemplate.queryForObject(
                         "SELECT COUNT(1) FROM PROPIEDADES WHERE ID_PROPIEDAD = :propId AND ID_ORGANIZACION = :orgId",
                         new MapSqlParameterSource("propId", propertyId).addValue("orgId", callerOrgId),

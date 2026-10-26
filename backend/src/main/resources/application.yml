@@ -6,7 +6,8 @@ spring:
   application:
     name: saed-backend
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}
+    # No development fallback: an unset SPRING_PROFILES_ACTIVE runs as prod and must be fully configured.
+    active: ${SPRING_PROFILES_ACTIVE:prod}
   config:
     import: optional:file:.env[.properties]
   mail:
@@ -21,6 +22,18 @@ spring:
           starttls:
             enable: ${SPRING_MAIL_SMTP_STARTTLS:false}
 
+# Secrets and origins have no fallback outside the dev profile. ProductionConfigurationGuard refuses
+# to start a production-like profile when any of them is missing or uses a repository-published value.
+saed:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  wompi:
+    # SANDBOX or LIVE, declared explicitly; key prefixes must match the declared environment.
+    environment: ${WOMPI_ENVIRONMENT:}
+    public-key: ${WOMPI_PUBLIC_KEY:}
+    integrity-secret: ${WOMPI_INTEGRITY_SECRET:}
+    events-secret: ${WOMPI_EVENTS_SECRET:}
+
 ---
 spring:
   config:
@@ -29,8 +42,8 @@ spring:
   datasource:
     driver-class-name: oracle.jdbc.OracleDriver
     url: ${DB_URL:jdbc:oracle:thin:@localhost:1521/XEPDB1}
-    username: ${DB_USERNAME:SAED_BASELINE_TEST_01}
-    password: ${DB_PASSWORD:saed2026}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     hikari:
       maximum-pool-size: 20
       minimum-idle: 2
@@ -39,9 +52,24 @@ spring:
       leak-detection-threshold: 60000
 
 jwt:
-  secret: ${JWT_SECRET:c2VjcmV0LWtleS1kZWJlLXNlci1sYXJnYS1wYXJhLWhtYWMtc2hhMjU2}
+  secret: ${JWT_SECRET}
   expiration:
     ms: 86400000
+
+# Development-only fallbacks: local frontend origins and the sandbox environment label. Credentials
+# (JWT_SECRET, DB_*, WOMPI_*) have NO fallback in any profile: supply them through the environment or
+# an untracked .env file (see backend/.env.example).
+saed:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+  wompi:
+    environment: ${WOMPI_ENVIRONMENT:SANDBOX}
+
+# Public frontend base URL used to build activation links (DEC-13). Dev falls back to the local Vite server;
+# the prod profile has no fallback (APP_FRONTEND_URL is required and must not be a local address).
+app:
+  frontend:
+    url: ${APP_FRONTEND_URL:http://localhost:5173}
 
 ---
 spring:
@@ -62,7 +90,15 @@ spring:
       leak-detection-threshold: 60000
 
 
+# CORS_ALLOWED_ORIGINS and WOMPI_* use the empty base defaults above; ProductionConfigurationGuard
+# rejects them when missing, so the failure message lists every missing variable at once.
 jwt:
   secret: ${JWT_SECRET}
   expiration:
     ms: 86400000
+
+# Activation links (DEC-13): no fallback in prod; the empty value is rejected by ProductionConfigurationGuard
+# (APP_FRONTEND_URL is required and must be the public frontend, not a local address).
+app:
+  frontend:
+    url: ${APP_FRONTEND_URL:}

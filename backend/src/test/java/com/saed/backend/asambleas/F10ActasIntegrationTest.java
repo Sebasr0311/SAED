@@ -258,7 +258,7 @@ public class F10ActasIntegrationTest {
     private void ensureOrganizacion(long id, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     id, nombre, nit, email);
         }
     }
@@ -1181,7 +1181,7 @@ public class F10ActasIntegrationTest {
 
     @Test
     @Order(33)
-    @DisplayName("F10-05-33: SUPERADMIN puede crear acta para cualquier propiedad")
+    @DisplayName("F10-05-33: SUPERADMIN no crea actas (dato operativo, DEC-02)")
     public void test33_superAdminAccesoGlobal() throws Exception {
         Long idAsamblea = crearAsambleaEnEstado("33-SUPERADMIN", "EN_CURSO");
 
@@ -1196,8 +1196,8 @@ public class F10ActasIntegrationTest {
                         .header("X-Assignment-Id", ASSIGN_SUPERADMIN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.estado").value("BORRADOR"));
+                // DEC-02 / c074514: the SUPERADMIN scope was removed from operational endpoints (assemblies and minutes).
+                .andExpect(status().isForbidden());
     }
 
     // =========================================================================
@@ -1420,22 +1420,20 @@ public class F10ActasIntegrationTest {
 
     @Test
     @Order(38)
-    @DisplayName("F10-05-38: SUPERADMIN puede listar y leer actas de todas las propiedades")
+    @DisplayName("F10-05-38: SUPERADMIN no lee ni lista actas (dato operativo, DEC-02)")
     public void test38_superAdminVeTodo() throws Exception {
         Long idAsamblea = crearAsambleaEnEstado("38-SA-VE-TODO", "EN_CURSO");
         Long idActa = crearActaBorrador(idAsamblea, "ACTA-SA-ALL-001");
 
-        // SuperAdmin reads the acta
+        // DEC-02 / c074514: SUPERADMIN has no operational data access (assemblies and minutes included).
         mockMvc.perform(get("/api/v1/actas/" + idActa)
                         .header("Authorization", "Bearer " + tokenSuperAdmin)
                         .header("X-Assignment-Id", ASSIGN_SUPERADMIN))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.idActa").value(idActa));
+                .andExpect(status().isForbidden());
 
-        // SuperAdmin listing should return at least 1
         mockMvc.perform(get("/api/v1/actas")
                         .header("Authorization", "Bearer " + tokenSuperAdmin)
                         .header("X-Assignment-Id", ASSIGN_SUPERADMIN))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 }

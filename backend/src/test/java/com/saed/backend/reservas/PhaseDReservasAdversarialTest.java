@@ -28,11 +28,11 @@ public class PhaseDReservasAdversarialTest {
 
     @Test
     @WithMockUser(username = "admin_org1", authorities = {"SCOPE_SUPERADMIN"})
-    public void adminOrg1_NoDebeVerReservasDeOrg2() throws Exception {
+    public void superAdmin_NoDebeVerReservasDeNingunaOrganizacion() throws Exception {
+        // DEC-02 / c074514: SUPERADMIN has no operational data access, so reservations of every organization are denied
+        // (previously the call returned an empty list for the platform administrator).
         mockMvc.perform(get("/api/v1/reservas/todas")
                 .header("X-Organization-Id", "1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$").isEmpty());
+                .andExpect(status().isForbidden());
     }
 }

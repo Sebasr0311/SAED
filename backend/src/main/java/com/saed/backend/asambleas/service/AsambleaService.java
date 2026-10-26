@@ -28,7 +28,7 @@ public interface AsambleaService {
 
     PoderDTO radicarPoder(Long idAsamblea, PoderRequestDTO request);
 
-    PoderDTO decidirPoder(Long idPoder, String nuevoEstado);
+    PoderDTO decidirPoder(Long idAsamblea, Long idPoder, String nuevoEstado);
 
     List<VotacionDTO> listarVotaciones(Long idAsamblea);
 

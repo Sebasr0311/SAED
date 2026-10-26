@@ -4,16 +4,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * Ensures critical database tables, constraints, indexes, and initial seeds
- * exist in all runtime profiles (including 'prod' on Render / Oracle Cloud ATP).
- * Fully idempotent.
+ * Legacy schema maintenance, available only through explicit operator configuration.
+ * Disabled by default. Must be replaced with reviewed versioned migrations before production rollout.
+ * Never provisions credentials or purges tenant data.
  */
 @Component
+@Profile("!prod")
+@ConditionalOnProperty(name = "saed.database.maintenance.enabled", havingValue = "true", matchIfMissing = false)
 @Order(1)
 public class ProductionSchemaInitializer implements ApplicationRunner {
 
@@ -35,16 +39,13 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        log.info("[SchemaInit] Verificando integridad de esquema para producción...");
+        log.info("[SchemaInit] Running explicitly requested legacy schema maintenance; this is not a deployment readiness check.");
 
         initSaedContext();
         initSecurityRlsPackage();
         initCoreRlsPoliciesClean();
         initPlantillasContratos();
         initRoles();
-        initSuperAdminUser();
-        // initJjuanAdminPropiedad(); // Desactivado para no re-crear cuenta demo jjuan123
-        purgeDemoSeedData(); // Purga definitiva de cuentas y asignaciones demo de prueba
         initResidentesUnidadConstraints();
         initTokensActivacion();
         initOnboardingIntenciones();
@@ -69,7 +70,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         initCarteraVirtualColumn();
         initTriggerAsignacionValidaScope();
 
-        log.info("[SchemaInit] Verificación de esquema completada.");
+        log.info("[SchemaInit] Legacy maintenance finished; independent database verification remains required.");
     }
 
     private void initSaedContext() {
@@ -543,28 +544,6 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             refreshRlsPolicy("TRANSACCIONES_PAGO", "POL_RLS_UNI_TRANSACCIONES_P", "PKG_SAED_SECURITY_RLS.FN_FILTRO_UNIDAD");
             log.info("[SchemaInit] Políticas RLS limpias y normalizadas aplicadas a todas las tablas del sistema.");
 
-            // Limpieza de personas o usuarios truncos sin asignaciones activas para documento 1066268898
-            try {
-                jdbcTemplate.execute("""
-                    BEGIN
-                        FOR r IN (
-                            SELECT p.ID_PERSONA, u.ID_USUARIO 
-                            FROM PERSONAS p
-                            LEFT JOIN USUARIOS u ON u.ID_PERSONA = p.ID_PERSONA
-                            LEFT JOIN USUARIO_ASIGNACIONES ua ON ua.ID_USUARIO = u.ID_USUARIO
-                            WHERE p.NUMERO_DOCUMENTO = '1066268898'
-                              AND ua.ID_ASIGNACION IS NULL
-                        ) LOOP
-                            IF r.ID_USUARIO IS NOT NULL THEN
-                                DELETE FROM USUARIOS WHERE ID_USUARIO = r.ID_USUARIO;
-                            END IF;
-                            DELETE FROM PERSONAS WHERE ID_PERSONA = r.ID_PERSONA;
-                        END LOOP;
-                        COMMIT;
-                    EXCEPTION WHEN OTHERS THEN NULL;
-                    END;
-                """);
-            } catch (Exception ignored) {}
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso en initCoreRlsPoliciesClean: {}", e.getMessage());
         }
@@ -665,13 +644,6 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                 """, defaultHtml);
             }
 
-            // Purgar plantillas auto-sembradas en organizaciones que no sean la demo 1 para mantenerlas 100% limpias
-            try {
-                int purged = jdbcTemplate.update("DELETE FROM PLANTILLAS_CONTRATOS WHERE ID_ORGANIZACION != 1 AND CODIGO = 'CONTRATO_ESTANDAR_2026'");
-                if (purged > 0) {
-                    log.info("[SchemaInit] Se purgaron {} plantillas de contrato auto-sembradas en organizaciones de clientes.", purged);
-                }
-            } catch (Exception ignored) {}
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso al verificar PLANTILLAS_CONTRATOS: {}", e.getMessage());
         }
@@ -682,8 +654,8 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD DROP CONSTRAINT CK_RESIDUNIDAD_TIPO");
         } catch (Exception ignored) {}
         try {
-            jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD ADD CONSTRAINT CK_RESIDUNIDAD_TIPO CHECK (tipo_residente IN ('PROPIETARIO', 'ARRENDATARIO', 'FAMILIAR', 'CONVIVIENTE', 'OTRO', 'TITULAR'))");
-            log.info("[SchemaInit] Restricción CK_RESIDUNIDAD_TIPO actualizada para soportar CONVIVIENTE y TITULAR.");
+            jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD ADD CONSTRAINT CK_RESIDUNIDAD_TIPO CHECK (tipo_residente IN ('PROPIETARIO', 'ARRENDATARIO', 'FAMILIAR', 'CONVIVIENTE', 'OTRO'))");
+            log.info("[SchemaInit] Restricción CK_RESIDUNIDAD_TIPO actualizada para soportar CONVIVIENTE.");
         } catch (Exception e) {
             log.debug("[SchemaInit] Aviso al actualizar CK_RESIDUNIDAD_TIPO: {}", e.getMessage());
         }
@@ -763,153 +735,6 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         }
     }
 
-    private void initSuperAdminUser() {
-        try {
-            jdbcTemplate.execute("""
-                BEGIN
-                    BEGIN EXECUTE IMMEDIATE 'ALTER SESSION DISABLE PARALLEL DML'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); EXCEPTION WHEN OTHERS THEN NULL; END;
-
-                    MERGE INTO PERSONAS p
-                    USING (SELECT 1 AS ID_PERSONA, 1 AS ID_TIPO_DOCUMENTO, 'DOC000' AS NUMERO_DOCUMENTO, 'NATURAL' AS TIPO_PERSONA, 'Admin' AS PRIMER_NOMBRE, 'Global' AS PRIMER_APELLIDO, 'admin_global@saed.com' AS EMAIL, 'ACTIVO' AS ESTADO FROM DUAL) src
-                    ON (p.ID_PERSONA = src.ID_PERSONA)
-                    WHEN NOT MATCHED THEN
-                        INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, ESTADO)
-                        VALUES (src.ID_PERSONA, src.ID_TIPO_DOCUMENTO, src.NUMERO_DOCUMENTO, src.TIPO_PERSONA, src.PRIMER_NOMBRE, src.PRIMER_APELLIDO, src.EMAIL, src.ESTADO);
-                    COMMIT;
-
-                    MERGE INTO USUARIOS u
-                    USING (SELECT 1 AS ID_USUARIO, 1 AS ID_PERSONA, 'admin_global' AS NOMBRE_USUARIO, 'admin_global@saed.com' AS EMAIL, '$2a$10$3jMwzV4asc7476tUcNa2GeahAAIhOz0.R9Clt8FCC5Kq5al1TGdxC' AS HASH_PASSWORD, 'ACTIVO' AS ESTADO, 0 AS INTENTOS_FALLIDOS FROM DUAL) src
-                    ON (u.ID_USUARIO = src.ID_USUARIO)
-                    WHEN NOT MATCHED THEN
-                        INSERT (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS)
-                        VALUES (src.ID_USUARIO, src.ID_PERSONA, src.NOMBRE_USUARIO, src.EMAIL, src.HASH_PASSWORD, src.ESTADO, src.INTENTOS_FALLIDOS)
-                    WHEN MATCHED THEN
-                        UPDATE SET NOMBRE_USUARIO = src.NOMBRE_USUARIO, HASH_PASSWORD = src.HASH_PASSWORD, ESTADO = 'ACTIVO', INTENTOS_FALLIDOS = 0;
-                    COMMIT;
-
-                    MERGE INTO ADMINISTRADORES_SAED a
-                    USING (SELECT 1 AS ID_ADMINISTRADOR_SAED, 1 AS ID_USUARIO, 'SUPERADMIN' AS NIVEL, 'ACTIVO' AS ESTADO FROM DUAL) src
-                    ON (a.ID_ADMINISTRADOR_SAED = src.ID_ADMINISTRADOR_SAED)
-                    WHEN NOT MATCHED THEN
-                        INSERT (ID_ADMINISTRADOR_SAED, ID_USUARIO, NIVEL, ESTADO)
-                        VALUES (src.ID_ADMINISTRADOR_SAED, src.ID_USUARIO, src.NIVEL, src.ESTADO)
-                    WHEN MATCHED THEN
-                        UPDATE SET ID_USUARIO = src.ID_USUARIO, NIVEL = src.NIVEL, ESTADO = 'ACTIVO';
-                    COMMIT;
-
-                    MERGE INTO USUARIO_ASIGNACIONES ua
-                    USING (SELECT 1 AS ID_USUARIO, 1 AS ID_ROL, CAST(NULL AS NUMBER) AS ID_ORGANIZACION, CAST(NULL AS NUMBER) AS ID_PROPIEDAD, CAST(NULL AS NUMBER) AS ID_UNIDAD, 'ACTIVA' AS ESTADO FROM DUAL) src
-                    ON (ua.ID_USUARIO = src.ID_USUARIO AND ua.ID_ROL = src.ID_ROL)
-                    WHEN NOT MATCHED THEN
-                        INSERT (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO)
-                        VALUES (src.ID_USUARIO, src.ID_ROL, src.ID_ORGANIZACION, src.ID_PROPIEDAD, src.ID_UNIDAD, src.ESTADO)
-                    WHEN MATCHED THEN
-                        UPDATE SET ESTADO = 'ACTIVA';
-                    COMMIT;
-                END;
-            """);
-            log.info("[SchemaInit] SuperAdmin 'admin_global' asegurado y normalizado con éxito.");
-        } catch (Exception e) {
-            log.warn("[SchemaInit] Aviso al asegurar superadmin: {}", e.getMessage());
-        }
-    }
-
-    private void initJjuanAdminPropiedad() {
-        try {
-            jdbcTemplate.execute("""
-                BEGIN
-                    BEGIN EXECUTE IMMEDIATE 'ALTER SESSION DISABLE PARALLEL DML'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); EXCEPTION WHEN OTHERS THEN NULL; END;
-
-                    DECLARE
-                        v_id_org NUMBER;
-                        v_id_prop NUMBER;
-                        v_id_rol_admin_prop NUMBER;
-                        v_id_persona NUMBER;
-                        v_id_usuario NUMBER;
-                    BEGIN
-                        -- 1. Resolver ID del rol ADMIN_PROPIEDAD
-                        SELECT ID_ROL INTO v_id_rol_admin_prop FROM ROLES WHERE CODIGO = 'ADMIN_PROPIEDAD' AND ESTADO = 'ACTIVO' AND ROWNUM = 1;
-
-                        -- 2. Asegurar que la cuenta de daniela este activa y desbloqueada si existe
-                        BEGIN
-                            UPDATE USUARIOS SET ESTADO = 'ACTIVO', INTENTOS_FALLIDOS = 0 
-                            WHERE (LOWER(NOMBRE_USUARIO) LIKE '%daniela%' OR LOWER(EMAIL) LIKE '%daniela%');
-                            COMMIT;
-                        EXCEPTION WHEN OTHERS THEN NULL;
-                        END;
-
-                        -- 3. Buscar organizacion y propiedad de daniela.acua (o fallback a organizacion 1)
-                        BEGIN
-                            SELECT ua.ID_ORGANIZACION, ua.ID_PROPIEDAD 
-                              INTO v_id_org, v_id_prop
-                              FROM USUARIOS u
-                              JOIN USUARIO_ASIGNACIONES ua ON ua.ID_USUARIO = u.ID_USUARIO
-                             WHERE (LOWER(u.NOMBRE_USUARIO) LIKE '%daniela%' OR LOWER(u.EMAIL) LIKE '%daniela%')
-                               AND ua.ESTADO IN ('ACTIVO', 'ACTIVA')
-                               AND ROWNUM = 1;
-                        EXCEPTION WHEN OTHERS THEN
-                            v_id_org := 1;
-                            BEGIN
-                                SELECT ID_PROPIEDAD INTO v_id_prop FROM PROPIEDADES WHERE ID_ORGANIZACION = v_id_org AND ROWNUM = 1;
-                            EXCEPTION WHEN OTHERS THEN
-                                v_id_prop := 1;
-                            END;
-                        END;
-
-                        IF v_id_prop IS NULL THEN
-                            BEGIN
-                                SELECT ID_PROPIEDAD INTO v_id_prop FROM PROPIEDADES WHERE ID_ORGANIZACION = v_id_org AND ROWNUM = 1;
-                            EXCEPTION WHEN OTHERS THEN
-                                v_id_prop := 1;
-                            END;
-                        END IF;
-
-                        -- 4. Asegurar PERSONA para jjuan123
-                        BEGIN
-                            SELECT ID_PERSONA INTO v_id_persona FROM PERSONAS WHERE EMAIL = 'jjuan123@saed.com' OR NUMERO_DOCUMENTO = '1099999123' AND ROWNUM = 1;
-                        EXCEPTION WHEN NO_DATA_FOUND THEN
-                            INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, ESTADO)
-                            VALUES (1, '1099999123', 'NATURAL', 'Juan', 'AdminPropiedad', 'jjuan123@saed.com', 'ACTIVO')
-                            RETURNING ID_PERSONA INTO v_id_persona;
-                        END;
-
-                        -- 5. Asegurar USUARIO jjuan123 con password admin123
-                        BEGIN
-                            SELECT ID_USUARIO INTO v_id_usuario FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'jjuan123' AND ROWNUM = 1;
-                            UPDATE USUARIOS 
-                               SET HASH_PASSWORD = '$2a$10$GgD55/V69k3srfTRGpzcQOluOfNNRP0ng2u50OKmazWToPRDQWK32',
-                                   ESTADO = 'ACTIVO',
-                                   INTENTOS_FALLIDOS = 0,
-                                   ID_PERSONA = NVL(ID_PERSONA, v_id_persona)
-                             WHERE ID_USUARIO = v_id_usuario;
-                        EXCEPTION WHEN NO_DATA_FOUND THEN
-                            INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS)
-                            VALUES (v_id_persona, 'jjuan123', 'jjuan123@saed.com', '$2a$10$GgD55/V69k3srfTRGpzcQOluOfNNRP0ng2u50OKmazWToPRDQWK32', 'ACTIVO', 0)
-                            RETURNING ID_USUARIO INTO v_id_usuario;
-                        END;
-
-                        -- 6. Asegurar asignacion como ADMIN_PROPIEDAD en la propiedad
-                        MERGE INTO USUARIO_ASIGNACIONES ua
-                        USING (SELECT v_id_usuario AS ID_USUARIO, v_id_rol_admin_prop AS ID_ROL, v_id_org AS ID_ORGANIZACION, v_id_prop AS ID_PROPIEDAD FROM DUAL) src
-                        ON (ua.ID_USUARIO = src.ID_USUARIO AND ua.ID_ROL = src.ID_ROL AND ua.ID_PROPIEDAD = src.ID_PROPIEDAD)
-                        WHEN MATCHED THEN
-                            UPDATE SET ESTADO = 'ACTIVA'
-                        WHEN NOT MATCHED THEN
-                            INSERT (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO)
-                            VALUES (src.ID_USUARIO, src.ID_ROL, src.ID_ORGANIZACION, src.ID_PROPIEDAD, 'ACTIVA', TRUNC(SYSDATE));
-
-                        COMMIT;
-                    END;
-                END;
-            """);
-            log.info("[SchemaInit] Administrador de propiedad 'jjuan123' (password: admin123) asegurado con éxito.");
-        } catch (Exception e) {
-            log.warn("[SchemaInit] Aviso al asegurar administrador jjuan123: {}", e.getMessage());
-        }
-    }
-
     private void initPersonasTenantColumns() {
         try {
             // 1. Agregar ID_ORGANIZACION e ID_PROPIEDAD a PERSONAS si no existen
@@ -965,12 +790,6 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                         SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA
                     );
 
-                    -- Limpiar ID_PROPIEDAD para jjuan123 y admin org para garantizar que el nuevo edificio inicie limpio con 0 registros
-                    UPDATE PERSONAS
-                    SET ID_PROPIEDAD = NULL
-                    WHERE EMAIL IN ('jjuan123@saed.com', 'juanrinconfarelo@gmail.com')
-                      OR NUMERO_DOCUMENTO IN ('1099999123', '1066268898');
-
                     COMMIT;
                 EXCEPTION WHEN OTHERS THEN NULL;
                 END;
@@ -978,397 +797,6 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             log.info("[SchemaInit] Columnas de tenant de PERSONAS inicializadas y retroalimentadas exitosamente.");
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso al inicializar columnas tenant en PERSONAS: {}", e.getMessage());
-        }
-    }
-
-    public java.util.Map<String, Object> executeFullCascadePurge() {
-        purgeDemoSeedData();
-        java.util.Map<String, Object> result = new java.util.HashMap<>();
-        try {
-            Long orgCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ORGANIZACIONES", Long.class);
-            Long propCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM PROPIEDADES", Long.class);
-            Long unitCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM UNIDADES", Long.class);
-            result.put("organizacionesRestantes", orgCount);
-            result.put("propiedadesRestantes", propCount);
-            result.put("unidadesRestantes", unitCount);
-            result.put("status", "SUCCESS");
-            result.put("mensaje", "Purga en cascada ejecutada exitosamente en Oracle ATP.");
-        } catch (Exception e) {
-            result.put("status", "WARNING");
-            result.put("mensaje", e.getMessage());
-        }
-        return result;
-    }
-
-    public void purgeDemoSeedData() {
-        try {
-            log.info("[SchemaInit] Ejecutando purga de cuentas y asignaciones demo residuales...");
-            jdbcTemplate.execute("""
-                DECLARE
-                    CURSOR c_demo_users IS
-                        SELECT u.ID_USUARIO, u.ID_PERSONA, u.NOMBRE_USUARIO, u.EMAIL
-                        FROM USUARIOS u
-                        WHERE u.ID_USUARIO != 1
-                          AND LOWER(u.NOMBRE_USUARIO) != 'admin_global'
-                          AND LOWER(u.EMAIL) NOT LIKE '%gmail.com%'
-                          AND LOWER(u.EMAIL) NOT LIKE '%daniela%'
-                          AND LOWER(u.NOMBRE_USUARIO) NOT LIKE '%daniela%'
-                          AND LOWER(u.EMAIL) NOT LIKE '%rincon%'
-                          AND (
-                              LOWER(u.NOMBRE_USUARIO) IN ('admin', 'carlos_admin', 'admin_org', 'portero01', 'camartinez', 'residente_sol', 'residente_hor', 'anagomez', 'jjuan123', 'visitante.demo', 'carlos.mendez.demo', 'resident', 'propadmin', 'orgadmin', 'admin888', 'residente9927', 'portero9929', 'admin_org9921', 'admin_prop9923', 'admin_prop9925')
-                              OR LOWER(u.EMAIL) IN ('admin@saed.com', 'admin_org@saed.com', 'portero01@saed.com', 'camartinez@saed.com', 'jjuan123@saed.com', 'residente_sol@saed.com', 'residente_hor@saed.com', 'anagomez@saed.com', 'visitante.demo@saed.com', 'carlos.nuevo@ejemplo.com', 'adminorg9921@saed.com', 'adminprop9923@saed.com', 'adminprop9925@saed.com', 'residente9927@saed.com', 'portero9929@saed.com')
-                              OR LOWER(u.EMAIL) LIKE '%@test.com'
-                              OR (u.ID_USUARIO IN (2, 3, 4, 5, 6, 7, 8) AND LOWER(u.EMAIL) LIKE '%saed.com%')
-                          );
-
-                    CURSOR c_demo_personas IS
-                        SELECT p.ID_PERSONA, p.EMAIL
-                        FROM PERSONAS p
-                        WHERE p.ID_PERSONA != 1
-                          AND LOWER(p.EMAIL) NOT LIKE '%gmail.com%'
-                          AND LOWER(p.EMAIL) NOT LIKE '%daniela%'
-                          AND LOWER(p.EMAIL) NOT LIKE '%rincon%'
-                          AND (
-                              p.ID_PERSONA IN (2, 3, 4, 5, 6, 7, 8)
-                              OR LOWER(p.EMAIL) IN ('admin@saed.com', 'admin_org@saed.com', 'portero01@saed.com', 'camartinez@saed.com', 'jjuan123@saed.com', 'residente_sol@saed.com', 'residente_hor@saed.com', 'anagomez@saed.com', 'visitante.demo@saed.com', 'carlos.nuevo@ejemplo.com')
-                              OR LOWER(p.EMAIL) LIKE '%@test.com'
-                              OR p.NUMERO_DOCUMENTO IN ('1000000002', '1000000003', '1000000004', '1000000005', '1099999123')
-                          );
-                BEGIN
-                    BEGIN EXECUTE IMMEDIATE 'ALTER SESSION DISABLE PARALLEL DML'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); EXCEPTION WHEN OTHERS THEN NULL; END;
-
-                    -- 1. Limpiar dependencias de personas demo
-                    FOR rp IN c_demo_personas LOOP
-                        BEGIN DELETE FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM CONTRATO_RESIDENTE WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM CONTRATOS WHERE ID_ARRENDATARIO_PRINCIPAL = rp.ID_PERSONA OR ID_TUTOR = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM PAZ_Y_SALVOS WHERE ID_PERSONA_SOLICITANTE = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM RESERVAS WHERE ID_PERSONA_SOLICITA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM PQRS_TICKETS WHERE ID_PERSONA_RADICA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM VISITANTES WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM TRABAJADORES WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM VEHICULOS WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM MASCOTAS WHERE ID_PERSONA_RESPONSABLE = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM ASISTENCIAS_ASAMBLEA WHERE ID_PERSONA_ASISTENTE = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM VOTOS WHERE ID_PERSONA_VOTANTE = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM PODERES_REPRESENTACION WHERE ID_PERSONA_PROPIETARIO = rp.ID_PERSONA OR ID_PERSONA_APODERADO = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM SANCIONES WHERE ID_PERSONA_IMPUTADA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM SANCION_DESCARGOS WHERE ID_PERSONA_PRESENTA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM ENCUESTA_RESPUESTAS WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM INCIDENTE_INVOLUCRADOS WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM REGISTROS_ACCESO WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM PAQUETES WHERE ID_PERSONA_DESTINATARIO = rp.ID_PERSONA OR ENTREGADO_A_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM PAGOS WHERE ID_PERSONA_PAGA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    END LOOP;
-
-                    -- 2. Limpiar dependencias y eliminar usuarios demo
-                    FOR ru IN c_demo_users LOOP
-                        IF ru.ID_PERSONA IS NOT NULL AND ru.ID_PERSONA != 1 THEN
-                            BEGIN DELETE FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                            BEGIN DELETE FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                            BEGIN DELETE FROM CONTRATO_RESIDENTE WHERE ID_PERSONA = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                            BEGIN DELETE FROM CONTRATOS WHERE ID_ARRENDATARIO_PRINCIPAL = ru.ID_PERSONA OR ID_TUTOR = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                            BEGIN DELETE FROM PAZ_Y_SALVOS WHERE ID_PERSONA_SOLICITANTE = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                            BEGIN DELETE FROM RESERVAS WHERE ID_PERSONA_SOLICITA = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                            BEGIN DELETE FROM PQRS_TICKETS WHERE ID_PERSONA_RADICA = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                            BEGIN DELETE FROM VISITANTES WHERE ID_PERSONA = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                            BEGIN DELETE FROM TRABAJADORES WHERE ID_PERSONA = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                            BEGIN DELETE FROM VEHICULOS WHERE ID_PERSONA = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                            BEGIN DELETE FROM MASCOTAS WHERE ID_PERSONA_RESPONSABLE = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        END IF;
-
-                        BEGIN DELETE FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM ADMINISTRADORES_SAED WHERE ID_USUARIO = ru.ID_USUARIO AND ID_USUARIO != 1; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM TOKENS_ACTIVACION WHERE ID_USUARIO = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM PORTERIA_TURNOS WHERE ID_USUARIO = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM NOTIFICACIONES WHERE ID_USUARIO_DESTINATARIO = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
-
-                        BEGIN UPDATE COMUNICADOS SET PUBLICADO_POR = NULL WHERE PUBLICADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN UPDATE DOCUMENTOS SET CREADO_POR = NULL WHERE CREADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN UPDATE REGLAMENTOS_NORMATIVA SET PUBLICADO_POR = NULL, CREADO_POR = NULL WHERE PUBLICADO_POR = ru.ID_USUARIO OR CREADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN UPDATE INCIDENTES SET REGISTRADO_POR = NULL, INVESTIGADO_POR = NULL, ESCALADO_POR = NULL WHERE REGISTRADO_POR = ru.ID_USUARIO OR INVESTIGADO_POR = ru.ID_USUARIO OR ESCALADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN UPDATE DOMICILIOS SET REGISTRADO_POR = NULL, FINALIZADO_POR = NULL WHERE REGISTRADO_POR = ru.ID_USUARIO OR FINALIZADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN UPDATE PAQUETES SET RECIBIDO_POR_PORTERO = NULL, ENTREGADO_POR_PORTERO = NULL WHERE RECIBIDO_POR_PORTERO = ru.ID_USUARIO OR ENTREGADO_POR_PORTERO = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN UPDATE PAGOS SET APROBADO_POR = NULL, RECHAZADO_POR = NULL WHERE APROBADO_POR = ru.ID_USUARIO OR RECHAZADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN UPDATE SANCIONES SET CREADO_POR = NULL WHERE CREADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN UPDATE MANTENIMIENTOS SET SOLICITADO_POR = NULL WHERE SOLICITADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN UPDATE GASTOS SET REGISTRADO_POR = NULL WHERE REGISTRADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DELETE FROM HISTORIAL_REPORTES WHERE ID_USUARIO_EJECUTO = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
-
-                        BEGIN
-                            DELETE FROM USUARIOS WHERE ID_USUARIO = ru.ID_USUARIO;
-                        EXCEPTION WHEN OTHERS THEN
-                            UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = ru.ID_USUARIO;
-                        END;
-
-                        IF ru.ID_PERSONA IS NOT NULL AND ru.ID_PERSONA != 1 THEN
-                            BEGIN
-                                DELETE FROM PERSONAS WHERE ID_PERSONA = ru.ID_PERSONA;
-                            EXCEPTION WHEN OTHERS THEN NULL;
-                            END;
-                        END IF;
-                    END LOOP;
-
-                    -- 3. Eliminar personas demo restantes
-                    FOR rp IN c_demo_personas LOOP
-                        BEGIN
-                            DELETE FROM PERSONAS WHERE ID_PERSONA = rp.ID_PERSONA;
-                        EXCEPTION WHEN OTHERS THEN NULL;
-                        END;
-                    END LOOP;
-
-                    -- 4. Inactivar cualquier asignacion residual de usuarios en estado INACTIVO
-                    BEGIN
-                        UPDATE USUARIO_ASIGNACIONES ua
-                        SET ua.ESTADO = 'INACTIVA'
-                        WHERE ua.ID_USUARIO IN (
-                            SELECT u.ID_USUARIO FROM USUARIOS u
-                            WHERE u.ESTADO = 'INACTIVO'
-                        );
-                    EXCEPTION WHEN OTHERS THEN NULL;
-                    END;
-
-                    -- 5. Actualizar triggers inmutables para permitir bypass de BOOTSTRAP y SUPERADMIN en operaciones administrativas
-                    BEGIN
-                        EXECUTE IMMEDIATE '
-                            CREATE OR REPLACE TRIGGER TRG_AUDITORIA_INMUTABLE
-                            BEFORE UPDATE OR DELETE ON AUDITORIA_LOG
-                            FOR EACH ROW
-                            BEGIN
-                                IF SYS_CONTEXT(''SAED_CTX'', ''STATE'') = ''BOOTSTRAP''
-                                   OR SYS_CONTEXT(''SAED_CTX'', ''IS_BOOTSTRAP'') = ''1''
-                                   OR SYS_CONTEXT(''SAED_CTX'', ''ROL_CODIGO'') = ''SUPERADMIN'' THEN
-                                    RETURN;
-                                END IF;
-                                RAISE_APPLICATION_ERROR(-20099, ''Seguridad: No esta permitido modificar o eliminar registros de auditoria.'');
-                            END;
-                        ';
-                    EXCEPTION WHEN OTHERS THEN NULL; END;
-
-                    BEGIN
-                        EXECUTE IMMEDIATE '
-                            CREATE OR REPLACE TRIGGER TRG_MEMBHIST_INMUTABLE
-                            BEFORE UPDATE OR DELETE ON MEMBRESIAS_HISTORIAL
-                            FOR EACH ROW
-                            BEGIN
-                                IF SYS_CONTEXT(''SAED_CTX'', ''STATE'') = ''BOOTSTRAP''
-                                   OR SYS_CONTEXT(''SAED_CTX'', ''IS_BOOTSTRAP'') = ''1''
-                                   OR SYS_CONTEXT(''SAED_CTX'', ''ROL_CODIGO'') = ''SUPERADMIN'' THEN
-                                    RETURN;
-                                END IF;
-                                RAISE_APPLICATION_ERROR(-20030, ''MEMBRESIAS_HISTORIAL es append-only.'');
-                            END;
-                        ';
-                    EXCEPTION WHEN OTHERS THEN NULL; END;
-
-                    -- 6. Deshabilitar triggers restrictivos durante la purga en cascada
-                    BEGIN EXECUTE IMMEDIATE 'ALTER TRIGGER TRG_AUDITORIA_INMUTABLE DISABLE'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'ALTER TRIGGER TRG_MEMBHIST_INMUTABLE DISABLE'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'ALTER TRIGGER TRG_ASIGNACION_VALIDA_SCOPE DISABLE'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'ALTER TRIGGER TRG_AUDIT_PROPIEDADES DISABLE'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'ALTER TRIGGER TRG_AUDIT_ASIGNACIONES DISABLE'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'ALTER TRIGGER TRG_AUDIT_PAGOS DISABLE'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'ALTER TRIGGER TRG_AUDIT_MULTAS DISABLE'; EXCEPTION WHEN OTHERS THEN NULL; END;
-
-                    -- 6.1 Desvincular referencias en AUDITORIA_LOG a entidades no pertenecientes a Org 201
-                    BEGIN EXECUTE IMMEDIATE 'UPDATE AUDITORIA_LOG SET ID_ORGANIZACION = NULL WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'UPDATE AUDITORIA_LOG SET ID_PROPIEDAD = NULL WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-
-                    -- 6.2 Limpiar dependencias profundas de UNIDADES no pertenecientes a la Organización 201
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PAGO_DETALLE WHERE ID_PAGO IN (SELECT ID_PAGO FROM PAGOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM QR_ACCESOS WHERE ID_VISITA IN (SELECT ID_VISITA FROM VISITAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM VEHICULOS_VISITA WHERE ID_VISITA IN (SELECT ID_VISITA FROM VISITAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM VOTOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ASISTENCIAS_ASAMBLEA WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PODERES_REPRESENTACION WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM CONTRATO_RESIDENTE WHERE ID_CONTRATO IN (SELECT ID_CONTRATO FROM CONTRATOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM CONTRATOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM SANCION_DESCARGOS WHERE ID_SANCION IN (SELECT ID_SANCION FROM SANCIONES WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM MULTAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM SANCIONES WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM RESERVAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM OBRA_TRABAJADORES WHERE ID_OBRA IN (SELECT ID_OBRA FROM OBRAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM OBRAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM TRANSACCIONES_PAGO WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PAGOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM CUOTAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM CARTERA WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PAQUETES WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM DOMICILIOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM MASCOTAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM VEHICULOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM VISITAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM REGISTROS_ACCESO WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PQRS_TRAZABILIDAD WHERE ID_TICKET IN (SELECT ID_TICKET FROM PQRS_TICKETS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PQRS_TICKETS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM INCIDENTES WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ENCUESTA_RESPUESTAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM MEDICIONES_CONSUMO WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PROPIETARIOS_UNIDAD WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM TUTORES WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ASIGNACIONES_PARQUEADERO WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM USUARIO_ASIGNACIONES WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM BLOQUES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-
-                    -- 6.3 Limpiar dependencias de PROPIEDADES no pertenecientes a la Organización 201
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM BLOQUEOS_ZONA WHERE ID_ZONA IN (SELECT ID_ZONA FROM ZONAS_COMUNES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ZONAS_COMUNES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ASIGNACIONES_PARQUEADERO WHERE ID_PARQUEADERO IN (SELECT ID_PARQUEADERO FROM PARQUEADEROS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PARQUEADEROS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ACCESOS_CONFIGURADOS WHERE ID_PORTERIA IN (SELECT ID_PORTERIA FROM PORTERIAS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PORTERIA_TURNOS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PORTERIAS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM VOTACIONES WHERE ID_ASAMBLEA IN (SELECT ID_ASAMBLEA FROM ASAMBLEAS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ACTAS_ASAMBLEA WHERE ID_ASAMBLEA IN (SELECT ID_ASAMBLEA FROM ASAMBLEAS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ASAMBLEAS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM REGLAMENTOS_NORMATIVA WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM CONCILIACIONES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM GASTOS_SOPORTES_HISTORIAL WHERE ID_GASTO IN (SELECT ID_GASTO FROM GASTOS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM GASTOS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PRESUPUESTOS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ACTIVOS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ALERTAS_ADMIN WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM CONTACTOS_EMERGENCIA WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PLANES_EMERGENCIA WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM POLIZAS_SEGURO WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PQRS_SLA_CONFIGURACION WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PROPIEDAD_CONFIGURACION WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM USUARIO_PROPIEDADES_ASIGNADAS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ORGANIZACION_PROPIEDAD WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM DOMICILIOS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM REGISTROS_ACCESO WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM NOTIFICACIONES WHERE ID_COMUNICADO IN (SELECT ID_COMUNICADO FROM COMUNICADOS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM COMUNICADOS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM MANTENIMIENTOS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PAQUETES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PQRS_TICKETS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM VERSIONES_DOCUMENTO WHERE ID_DOCUMENTO IN (SELECT ID_DOCUMENTO FROM DOCUMENTOS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM DOCUMENTOS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ENCUESTA_OPCIONES WHERE ID_ENCUESTA IN (SELECT ID_ENCUESTA FROM ENCUESTAS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ENCUESTAS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM INCIDENTE_INVOLUCRADOS WHERE ID_INCIDENTE IN (SELECT ID_INCIDENTE FROM INCIDENTES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM INCIDENTES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PROPIEDADES WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-
-                    -- 6.4 Limpiar dependencias de ORGANIZACIONES no pertenecientes a la Organización 201
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ASAMBLEAS WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PLANTILLAS_CONTRATOS WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM REPORTES_CONFIGURADOS WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM HISTORIAL_REPORTES WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM CONTRATOS_PROVEEDOR WHERE ID_PROVEEDOR IN (SELECT ID_PROVEEDOR FROM PROVEEDORES WHERE ID_ORGANIZACION != 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM TRABAJADORES WHERE ID_PROVEEDOR IN (SELECT ID_PROVEEDOR FROM PROVEEDORES WHERE ID_ORGANIZACION != 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PROVEEDORES WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ONBOARDING_INTENCIONES WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ORGANIZACION_CONFIGURACION WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PLANTILLAS_NOTIFICACION WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM EJECUCIONES_AUTOMATIZACION WHERE ID_REGLA IN (SELECT ID_REGLA FROM REGLAS_AUTOMATIZACION WHERE ID_ORGANIZACION != 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ACCIONES_AUTOMATIZACION WHERE ID_REGLA IN (SELECT ID_REGLA FROM REGLAS_AUTOMATIZACION WHERE ID_ORGANIZACION != 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM REGLAS_AUTOMATIZACION WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM CONCEPTOS_COBRO WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM MEMBRESIAS_HISTORIAL WHERE ID_MEMBRESIA IN (SELECT ID_MEMBRESIA FROM MEMBRESIAS WHERE ID_ORGANIZACION != 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM MEMBRESIAS WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM TRANSACCIONES_PAGO WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ORGANIZACION != 201 AND ID_ROL != 1'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ORGANIZACION_PROPIEDAD WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM DOCUMENTOS WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ORGANIZACIONES WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
-
-                    -- 6.5 Reactivar triggers de seguridad
-                    BEGIN EXECUTE IMMEDIATE 'ALTER TRIGGER TRG_AUDITORIA_INMUTABLE ENABLE'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'ALTER TRIGGER TRG_MEMBHIST_INMUTABLE ENABLE'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'ALTER TRIGGER TRG_ASIGNACION_VALIDA_SCOPE ENABLE'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'ALTER TRIGGER TRG_AUDIT_PROPIEDADES ENABLE'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'ALTER TRIGGER TRG_AUDIT_ASIGNACIONES ENABLE'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'ALTER TRIGGER TRG_AUDIT_PAGOS ENABLE'; EXCEPTION WHEN OTHERS THEN NULL; END;
-                    BEGIN EXECUTE IMMEDIATE 'ALTER TRIGGER TRG_AUDIT_MULTAS ENABLE'; EXCEPTION WHEN OTHERS THEN NULL; END;
-
-                    -- 7. Preservar la membresía única de Org 201
-                    BEGIN
-                        EXECUTE IMMEDIATE '
-                            DELETE FROM MEMBRESIAS_HISTORIAL WHERE ID_MEMBRESIA IN (
-                                SELECT ID_MEMBRESIA FROM MEMBRESIAS WHERE ID_ORGANIZACION = 201 AND ID_MEMBRESIA NOT IN (
-                                    SELECT MIN(ID_MEMBRESIA) FROM MEMBRESIAS WHERE ID_ORGANIZACION = 201
-                                )
-                            )
-                        ';
-                        EXECUTE IMMEDIATE '
-                            DELETE FROM MEMBRESIAS WHERE ID_ORGANIZACION = 201 AND ID_MEMBRESIA NOT IN (
-                                SELECT MIN(ID_MEMBRESIA) FROM MEMBRESIAS WHERE ID_ORGANIZACION = 201
-                            )
-                        ';
-                    EXCEPTION WHEN OTHERS THEN NULL; END;
-
-                    -- 8. Preservar la intención única de onboarding de Org 201
-                    BEGIN
-                        EXECUTE IMMEDIATE '
-                            DELETE FROM ONBOARDING_INTENCIONES WHERE ID_ORGANIZACION = 201 AND REFERENCIA NOT IN (
-                                SELECT MIN(REFERENCIA) FROM ONBOARDING_INTENCIONES WHERE ID_ORGANIZACION = 201
-                            )
-                        ';
-                    EXCEPTION WHEN OTHERS THEN NULL; END;
-
-                    -- 10. Garantizar que la organización 201 canónica y sus 2 propiedades existan
-                    BEGIN
-                        EXECUTE IMMEDIATE '
-                            MERGE INTO ORGANIZACIONES o USING (
-                                SELECT 201 AS ID_ORGANIZACION, ''rincon farelo'' AS NOMBRE, ''1066872103'' AS IDENTIFICACION_FISCAL,
-                                       ''danielaaacunaa8@gmail.com'' AS EMAIL_CONTACTO, ''3146313413'' AS TELEFONO_CONTACTO,
-                                       ''Valledupar (Cesar)'' AS CIUDAD, ''Colombia'' AS PAIS, ''ACTIVA'' AS ESTADO
-                                FROM DUAL
-                            ) s ON (o.ID_ORGANIZACION = s.ID_ORGANIZACION)
-                            WHEN NOT MATCHED THEN
-                                INSERT (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, TELEFONO_CONTACTO, CIUDAD, PAIS, ESTADO)
-                                VALUES (s.ID_ORGANIZACION, s.NOMBRE, s.IDENTIFICACION_FISCAL, s.EMAIL_CONTACTO, s.TELEFONO_CONTACTO, s.CIUDAD, s.PAIS, s.ESTADO)
-                        ';
-
-                        EXECUTE IMMEDIATE '
-                            MERGE INTO PROPIEDADES p USING (
-                                SELECT 140 AS ID_PROPIEDAD, 201 AS ID_ORGANIZACION, 1 AS ID_TIPO_PROPIEDAD,
-                                       ''Algarrobillos'' AS NOMBRE, ''Carrera 19 # 12-45'' AS DIRECCION,
-                                       ''Valledupar'' AS CIUDAD, ''Colombia'' AS PAIS, ''PROPIETARIOS'' AS TIPO_OCUPACION_PREDOMINANTE, ''ACTIVA'' AS ESTADO
-                                FROM DUAL
-                            ) s ON (p.ID_PROPIEDAD = s.ID_PROPIEDAD)
-                            WHEN NOT MATCHED THEN
-                                INSERT (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, PAIS, TIPO_OCUPACION_PREDOMINANTE, ESTADO)
-                                VALUES (s.ID_PROPIEDAD, s.ID_ORGANIZACION, s.ID_TIPO_PROPIEDAD, s.NOMBRE, s.DIRECCION, s.CIUDAD, s.PAIS, s.TIPO_OCUPACION_PREDOMINANTE, s.ESTADO)
-                        ';
-
-                        EXECUTE IMMEDIATE '
-                            MERGE INTO PROPIEDADES p USING (
-                                SELECT 141 AS ID_PROPIEDAD, 201 AS ID_ORGANIZACION, 2 AS ID_TIPO_PROPIEDAD,
-                                       ''Amparo'' AS NOMBRE, ''Calle 16 # 9-30'' AS DIRECCION,
-                                       ''Valledupar'' AS CIUDAD, ''Colombia'' AS PAIS, ''PROPIETARIOS'' AS TIPO_OCUPACION_PREDOMINANTE, ''ACTIVA'' AS ESTADO
-                                FROM DUAL
-                            ) s ON (p.ID_PROPIEDAD = s.ID_PROPIEDAD)
-                            WHEN NOT MATCHED THEN
-                                INSERT (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, PAIS, TIPO_OCUPACION_PREDOMINANTE, ESTADO)
-                                VALUES (s.ID_PROPIEDAD, s.ID_ORGANIZACION, s.ID_TIPO_PROPIEDAD, s.NOMBRE, s.DIRECCION, s.CIUDAD, s.PAIS, s.TIPO_OCUPACION_PREDOMINANTE, s.ESTADO)
-                        ';
-
-                        EXECUTE IMMEDIATE '
-                            MERGE INTO MEMBRESIAS m USING (
-                                SELECT 201 AS ID_ORGANIZACION, 2 AS ID_PLAN, TRUNC(SYSDATE) AS FECHA_INICIO,
-                                       ADD_MONTHS(TRUNC(SYSDATE), 12) AS FECHA_FIN, ''ACTIVA'' AS ESTADO, ''N'' AS ES_PRUEBA
-                                FROM DUAL
-                            ) s ON (m.ID_ORGANIZACION = s.ID_ORGANIZACION)
-                            WHEN NOT MATCHED THEN
-                                INSERT (ID_ORGANIZACION, ID_PLAN, FECHA_INICIO, FECHA_FIN, ESTADO, ES_PRUEBA)
-                                VALUES (s.ID_ORGANIZACION, s.ID_PLAN, s.FECHA_INICIO, s.FECHA_FIN, s.ESTADO, s.ES_PRUEBA)
-                        ';
-                    EXCEPTION WHEN OTHERS THEN NULL; END;
-
-                    COMMIT;
-                END;
-            """);
-            log.info("[SchemaInit] Purga de cuentas y asignaciones demo completada exitosamente.");
-        } catch (Exception e) {
-            log.warn("[SchemaInit] Aviso durante la purga de cuentas demo: {}", e.getMessage());
         }
     }
 

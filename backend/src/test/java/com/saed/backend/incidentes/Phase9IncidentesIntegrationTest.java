@@ -249,7 +249,7 @@ public class Phase9IncidentesIntegrationTest {
     private void ensureOrganizacion(Long id, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     id, nombre, nit, email);
         }
     }
@@ -265,8 +265,8 @@ public class Phase9IncidentesIntegrationTest {
     private void ensureUnidad(Long idUnidad, Long idProp, String ident) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM UNIDADES WHERE ID_UNIDAD = ?", Integer.class, idUnidad);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, IDENTIFICADOR, TIPO_UNIDAD, COEFICIENTE_COPROPIEDAD, ESTADO) " +
-                    "VALUES (?, ?, ?, 'RESIDENCIAL', 0.05, 'DISPONIBLE')", idUnidad, idProp, ident);
+            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, COEFICIENTE_COPROPIEDAD, ESTADO) " +
+                    "VALUES (?, ?, 1, ?, 0.05, 'ACTIVA')", idUnidad, idProp, ident);
         }
     }
 
@@ -286,7 +286,7 @@ public class Phase9IncidentesIntegrationTest {
                         "VALUES (?, ?, ?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyz123456', 'ACTIVO')", idUsuario, idPersona, username, email);
             } catch (Exception e) {
                 try {
-                    jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, USERNAME, EMAIL, PASSWORD_HASH, ESTADO) " +
+                    jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) " +
                             "VALUES (?, ?, ?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyz123456', 'ACTIVO')", idUsuario, idPersona, username, email);
                 } catch (Exception ignored) {}
             }
@@ -327,7 +327,7 @@ public class Phase9IncidentesIntegrationTest {
                 .addValue("idUnidad", idUnidad, Types.NUMERIC);
 
         namedJdbc.update("""
-            DELETE FROM USUARIO_ASIGNACIONES 
+            DELETE FROM USUARIO_ASIGNACIONES
             WHERE (ID_USUARIO = :idUsuario AND ID_ROL = :idRol
                    AND NVL(ID_ORGANIZACION, -1) = NVL(:idOrg, -1)
                    AND NVL(ID_PROPIEDAD, -1) = NVL(:idProp, -1)
@@ -464,8 +464,8 @@ public class Phase9IncidentesIntegrationTest {
 
     @Test
     @Order(8)
-    @DisplayName("Test 08: Residente intenta ver detalle de incidente de otra unidad -> 403 Forbidden")
-    void test08_residente_verIncidenteDeOtraUnidad_retorna403() throws Exception {
+    @DisplayName("Test 08: Residente intenta ver detalle de incidente de otra unidad -> 404 (no-disclosure)")
+    void test08_residente_verIncidenteDeOtraUnidad_retorna404() throws Exception {
         String tokenAdmin = jwtProvider.generateIdentityToken(USER_ADMIN_PROP_1);
         Long idIncidenteUnidad2 = crearIncidenteHelper(tokenAdmin, ASSIGN_ADMIN_PROP_1, "TEST-F907-08 Privado U2", "DANO_BIEN_COMUN", "LEVE", UNIT_2_ID);
 
@@ -473,7 +473,8 @@ public class Phase9IncidentesIntegrationTest {
         mockMvc.perform(get("/api/v1/incidentes/" + idIncidenteUnidad2)
                         .header("Authorization", "Bearer " + tokenRes1)
                         .header("X-Assignment-Id", ASSIGN_RESIDENTE_1))
-                .andExpect(status().isForbidden());
+                // Non-disclosure: an incident of another unit is "not found" for the resident (IncidenteServiceImpl.obtener).
+                .andExpect(status().isNotFound());
     }
 
     // =========================================================================
@@ -600,7 +601,7 @@ public class Phase9IncidentesIntegrationTest {
 
     @Test
     @Order(14)
-    @DisplayName("Test 14: Reapertura de incidente CERRADO hacia EN_INVESTIGACION permitida exclusivamente")
+    @DisplayName("Test 14: Reapertura de incidente CERRADO solo por /reabrir con motivo persistido (F9-03)")
     void test14_transicion_cerradoHaciaEnInvestigacion_reaperturaValida() throws Exception {
         String token = jwtProvider.generateIdentityToken(USER_ADMIN_PROP_1);
         Long id = crearIncidenteHelper(token, ASSIGN_ADMIN_PROP_1, "TEST-F907-14 Reapertura", "SEGURIDAD_HURTO", "GRAVE", null);
@@ -613,7 +614,7 @@ public class Phase9IncidentesIntegrationTest {
                         .content(objectMapper.writeValueAsString(Map.of("conclusiones", "Cerrado inicialmente."))))
                 .andExpect(status().isOk());
 
-        // Reabrir hacia EN_INVESTIGACION
+        // The generic status endpoint cannot reopen without a reason
         IncidenteEstadoRequestDTO dto = new IncidenteEstadoRequestDTO();
         dto.setEstado("EN_INVESTIGACION");
 
@@ -622,10 +623,20 @@ public class Phase9IncidentesIntegrationTest {
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest());
+
+        // Reabrir hacia EN_INVESTIGACION con motivo
+        mockMvc.perform(post("/api/v1/incidentes/" + id + "/reabrir")
+                        .header("Authorization", "Bearer " + token)
+                        .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("motivo", "Nueva evidencia aportada por el vecino"))))
                 .andExpect(status().isOk());
 
         setElevatedContext();
         assertEquals("EN_INVESTIGACION", jdbcTemplate.queryForObject("SELECT ESTADO FROM INCIDENTES WHERE ID_INCIDENTE = ?", String.class, id));
+        assertEquals("Nueva evidencia aportada por el vecino",
+                jdbcTemplate.queryForObject("SELECT MOTIVO_REAPERTURA FROM INCIDENTES WHERE ID_INCIDENTE = ?", String.class, id));
     }
 
     @Test
@@ -1030,7 +1041,7 @@ public class Phase9IncidentesIntegrationTest {
 
     @Test
     @Order(32)
-    @DisplayName("Test 32: Residente consulta involucrados de su propio incidente -> 200 OK")
+    @DisplayName("Test 32: Residente no consulta involucrados ni de su propio incidente (datos de terceros, F9-08) -> 403")
     void test32_getInvolucrados_residenteDeSuIncidente_retornaLista() throws Exception {
         String tokenAdmin = jwtProvider.generateIdentityToken(USER_ADMIN_PROP_1);
         Long id = crearIncidenteHelper(tokenAdmin, ASSIGN_ADMIN_PROP_1, "TEST-F907-32 Residente Inv", "DANO_BIEN_COMUN", "LEVE", UNIT_1_ID);
@@ -1050,9 +1061,7 @@ public class Phase9IncidentesIntegrationTest {
         mockMvc.perform(get("/api/v1/incidentes/" + id + "/involucrados")
                         .header("Authorization", "Bearer " + tokenRes)
                         .header("X-Assignment-Id", ASSIGN_RESIDENTE_1))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", isA(List.class)))
-                .andExpect(jsonPath("$.length()", equalTo(1)));
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -1281,15 +1290,22 @@ public class Phase9IncidentesIntegrationTest {
         setElevatedContext();
         assertEquals("CERRADO", jdbcTemplate.queryForObject("SELECT ESTADO FROM INCIDENTES WHERE ID_INCIDENTE = ?", String.class, id));
 
-        // 2. Reabrir mediante transición a EN_INVESTIGACION
-        IncidenteEstadoRequestDTO reabrirDto = new IncidenteEstadoRequestDTO();
-        reabrirDto.setEstado("EN_INVESTIGACION");
-
+        // 2. Reabrir mediante la ruta auditada con motivo (V5.40 / 96ba362: CERRADO es terminal para las transiciones
+        // genericas; solo POST /{id}/reabrir con motivo lo devuelve a EN_INVESTIGACION).
+        IncidenteEstadoRequestDTO genericDto = new IncidenteEstadoRequestDTO();
+        genericDto.setEstado("EN_INVESTIGACION");
         mockMvc.perform(put("/api/v1/incidentes/" + id + "/estado")
                         .header("Authorization", "Bearer " + token)
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(reabrirDto)))
+                        .content(objectMapper.writeValueAsString(genericDto)))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/v1/incidentes/" + id + "/reabrir")
+                        .header("Authorization", "Bearer " + token)
+                        .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("motivo", "Nueva evidencia aportada por la administracion"))))
                 .andExpect(status().isOk());
 
         setElevatedContext();

@@ -25,7 +25,8 @@ import java.util.Map;
 @Tag(name = "Contratos", description = "API para la gestión y descarga documental de Contratos de Arrendamiento")
 @RestController
 @RequestMapping("/api/v1/contratos")
-@PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA')")
+// F5-H03: lease contracts carry rent, deposit and values; RESIDENTE_CONVIVENCIA has no access.
+@PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
 public class ContratosController {
 
     private final FinanzasService finanzasService;
@@ -67,7 +68,7 @@ public class ContratosController {
 
     @Operation(summary = "Crear un nuevo contrato de arrendamiento (Administración)")
     @PostMapping
-    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "CREATE", resource = "CONTRATO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<Map<String, Object>> createContrato(@Valid @RequestBody ContratoRequestDTO request) {
         Long id = finanzasService.createContrato(request);
@@ -76,7 +77,7 @@ public class ContratosController {
 
     @Operation(summary = "Activar formalmente un contrato de arrendamiento")
     @PostMapping("/{id}/activar")
-    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "ACTIVATE", resource = "CONTRATO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<Map<String, Object>> activarContrato(@PathVariable Long id) {
         finanzasService.actualizarEstadoContrato(id, "ACTIVO");
@@ -85,7 +86,7 @@ public class ContratosController {
 
     @Operation(summary = "Cancelar formalmente un contrato de arrendamiento")
     @PostMapping("/{id}/cancelar")
-    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "CANCEL", resource = "CONTRATO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<Map<String, Object>> cancelarContrato(@PathVariable Long id) {
         finanzasService.actualizarEstadoContrato(id, "CANCELADO");

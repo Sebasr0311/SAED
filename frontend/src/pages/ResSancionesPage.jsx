@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
+import { safeHttpUrls } from '../lib/safeUrl.js';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, formatDateTime, formatCurrency } from '../lib/utils.js';
@@ -920,15 +921,24 @@ export default function ResSancionesPage() {
             {selectedSancion.evidenciasUrls && (
               <div className="p-2.5 rounded-lg border border-border bg-card text-xs flex items-center justify-between">
                 <span className="text-muted-foreground">Anexos / Evidencias:</span>
-                <a
-                  href={selectedSancion.evidenciasUrls}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-medium text-primary hover:underline flex items-center gap-1"
-                >
-                  <span>Ver evidencia adjunta</span>
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+                {safeHttpUrls(selectedSancion.evidenciasUrls).length > 0 ? (
+                  <span className="flex flex-col items-end gap-1">
+                    {safeHttpUrls(selectedSancion.evidenciasUrls).map((href, i) => (
+                      <a
+                        key={href}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-primary hover:underline flex items-center gap-1"
+                      >
+                        <span>Ver evidencia adjunta {i + 1}</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ))}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Adjunto no enlazable</span>
+                )}
               </div>
             )}
 

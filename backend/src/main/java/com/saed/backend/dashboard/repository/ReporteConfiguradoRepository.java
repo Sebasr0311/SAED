@@ -20,4 +20,6 @@ public interface ReporteConfiguradoRepository {
     ReporteConfiguradoDTO update(Long id, ReporteConfiguradoUpdateRequest request, Long userId);
 
     boolean deactivate(Long id);
+
+    boolean propertyBelongsToOrganization(Long propertyId, Long organizationId);
 }

@@ -44,6 +44,7 @@ import {
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
+import { mensajeEnlaceEnviado, reenviarEnlaceActivacion } from '../lib/activation.js';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
@@ -75,8 +76,6 @@ const emptyForm = {
   contratoTipo: 'INICIAL',
   crearCuentaAcceso: true,
   usernameAcceso: '',
-  passwordAcceso: '',
-  generarPasswordAuto: true,
 };
 
 const emptyTutorForm = {
@@ -199,7 +198,6 @@ export default function ResidentesPage() {
     residente: null,
     username: '',
     password: '',
-    generarPasswordAuto: true,
     isEditing: false,
     saving: false,
   });
@@ -364,8 +362,6 @@ export default function ResidentesPage() {
       idTipoDoc: ccId,
       crearCuentaAcceso: true,
       usernameAcceso: '',
-      passwordAcceso: '',
-      generarPasswordAuto: true,
       usernameManual: false,
     });
     setTutorForm(emptyTutorForm);
@@ -395,8 +391,6 @@ export default function ResidentesPage() {
         contratoTipo: 'INICIAL',
         crearCuentaAcceso: false,
         usernameAcceso: row.nombreUsuario || '',
-        passwordAcceso: '',
-        generarPasswordAuto: true,
         idUsuario: row.idUsuario || null,
         estadoUsuario: row.estadoUsuario || null,
       });
@@ -524,6 +518,10 @@ export default function ResidentesPage() {
       e.idApartamento = `La unidad seleccionada ya alcanzó el cupo máximo de ${aptQuota.limiteConfigurado || 4} convivientes activos.`;
     }
 
+    if (!editing && form.idApartamento && form.tipoRelacion === 'ARRENDATARIO' && !form.crearContrato) {
+      e.crearContrato = 'Un arrendatario se registra con su contrato de arrendamiento';
+    }
+
     // Validación contractual cuando se activa formalización de contrato (Opcional para cualquier residente)
     if (form.crearContrato && form.idApartamento) {
       if (!form.contratoCanon || Number(form.contratoCanon) <= 0) {
@@ -566,6 +564,65 @@ export default function ResidentesPage() {
     };
 
     try {
+      if (!editing && form.idApartamento !== '') {
+        // F05-01: person, guardian, unit link, lease and account are registered in ONE backend transaction.
+        const nombresT = (tutorForm.nombres || '').trim().split(' ');
+        const apellidosT = (tutorForm.apellidos || '').trim().split(' ');
+        const guardianRequired = requiereTutor || Boolean(tutorForm.numeroDocumento?.trim());
+        const body = {
+          unitId: Number(form.idApartamento),
+          tipoRelacion: form.tipoRelacion,
+          person: payload,
+        };
+        if (guardianRequired) {
+          body.guardian = {
+            parentesco:
+              (tutorForm.parentesco === 'OTRO' ? tutorForm.otroParentesco : tutorForm.parentesco) || 'TUTOR LEGAL',
+            person: {
+              tipoDocumentoId: Number(tutorForm.idTipoDoc || 1),
+              numeroDocumento: tutorForm.numeroDocumento.trim(),
+              tipoPersona: 'NATURAL',
+              primerNombre: nombresT[0] || '',
+              segundoNombre: nombresT.slice(1).join(' ') || '',
+              primerApellido: apellidosT[0] || '',
+              segundoApellido: apellidosT.slice(1).join(' ') || '',
+              email: tutorForm.email || '',
+              telefono: tutorForm.telefono || '',
+            },
+          };
+        }
+        if (form.crearContrato && form.tipoRelacion === 'ARRENDATARIO') {
+          body.contract = {
+            canonMensual: Number(form.contratoCanon || 0),
+            fechaInicio: form.contratoFechaInicio || new Date().toISOString().split('T')[0],
+            fechaFin: form.contratoFechaFin || null,
+            tipoContrato: form.contratoTipo || 'INICIAL',
+            idPlantilla: form.idPlantilla ? Number(form.idPlantilla) : null,
+          };
+        }
+        if (form.crearCuentaAcceso && form.email) {
+          body.account = {
+            username: (form.usernameAcceso || form.email.split('@')[0])
+              .trim()
+              .toLowerCase()
+              .replace(/[^a-z0-9._]/g, ''),
+            enviarCorreoActivacion: true,
+          };
+        }
+        await tenantApi.post('/residentes/registro-integral', body);
+        if (body.account) {
+          toast.success(
+            `Residente registrado. ${mensajeEnlaceEnviado(form.email)}`,
+            { duration: 8000 }
+          );
+        } else {
+          toast.success('Residente registrado con éxito');
+        }
+        setModalOpen(false);
+        refetch();
+        return;
+      }
+
       let idResidente;
       if (editing) {
         await tenantApi.put(`/personas/${editing.id}`, payload);
@@ -607,18 +664,8 @@ export default function ResidentesPage() {
             }
           }
 
-          if (idPersonaTutor && idResidente) {
-            const rel = tutorForm.parentesco === 'OTRO' ? tutorForm.otroParentesco : tutorForm.parentesco;
-            await tenantApi.post('/tutores', {
-              personaMenorId: Number(idResidente),
-              personaTutorId: Number(idPersonaTutor),
-              parentesco: rel || 'TUTOR LEGAL',
-              estado: 'ACTIVO',
-            });
-            toast.success('Tutor legal vinculado con éxito');
-          }
         } catch (tutorErr) {
-          console.warn('Error guardando tutor legal:', tutorErr);
+          toast.warning(`No se pudo registrar la persona tutora: ${tutorErr.message}`);
         }
       }
 
@@ -677,12 +724,28 @@ export default function ResidentesPage() {
         }
       }
 
+      // F5-H08: guardian rights are scoped to a dependent of the unit, so the guardian is linked after the
+      // dependent has been assigned to the unit; a failure is reported, never hidden.
+      if (idPersonaTutor && idResidente) {
+        try {
+          const rel = tutorForm.parentesco === 'OTRO' ? tutorForm.otroParentesco : tutorForm.parentesco;
+          await tenantApi.post('/tutores', {
+            personaMenorId: Number(idResidente),
+            personaTutorId: Number(idPersonaTutor),
+            parentesco: rel || 'TUTOR LEGAL',
+            estado: 'ACTIVO',
+          });
+          toast.success('Tutor legal vinculado con éxito');
+        } catch (tutorErr) {
+          toast.warning(`Residente guardado, pero no se pudo vincular el tutor legal: ${tutorErr.message}`);
+        }
+      }
+
       // Si se solicitó crear cuenta de acceso y no estamos en edición
       if (!editing && form.crearCuentaAcceso && form.email) {
         try {
           const userPayload = {
             username: (form.usernameAcceso || form.email.split('@')[0]).trim().toLowerCase().replace(/[^a-z0-9._]/g, ''),
-            password: form.generarPasswordAuto ? undefined : (form.passwordAcceso ? form.passwordAcceso.trim() : undefined),
             enviarCorreoActivacion: true,
             rol: form.tipoRelacion === 'PROPIETARIO_NO_RESIDENTE' ? 'PROPIETARIO' : 'RESIDENTE',
             activo: true,
@@ -699,14 +762,10 @@ export default function ResidentesPage() {
           };
 
           const uRes = await tenantApi.post('/usuarios', userPayload);
-          const pGen = uRes?.data?.passwordGenerada || uRes?.passwordGenerada;
-          if (pGen) {
-            toast.success(
-              `Cuenta creada para ${userPayload.username}. Clave temporal: ${pGen}. Credenciales enviadas a ${form.email}.`,
-              { duration: 8000 }
-            );
+          if ((uRes?.data || uRes)?.accountCreated === false) {
+            toast.success("Cuenta existente vinculada sin modificar sus credenciales.");
           } else {
-            toast.success(`Cuenta de acceso creada. Se enviaron las credenciales de acceso a ${form.email}.`);
+            toast.success(`Cuenta de acceso creada. ${mensajeEnlaceEnviado(form.email)}`, { duration: 8000 });
           }
         } catch (uErr) {
           console.warn('Error creando cuenta de usuario para residente:', uErr);
@@ -722,7 +781,7 @@ export default function ResidentesPage() {
       savingRef.current = false;
       setSaving(false);
     }
-  }, [editing, form, refetch, tenantApi, validate]);
+  }, [editing, form, refetch, requiereTutor, tenantApi, tutorForm, validate]);
 
   // Vista Previa de Plantilla de Contrato con Variables (Requisito #10)
   const handlePreviewPlantilla = useCallback(async () => {
@@ -797,15 +856,23 @@ export default function ResidentesPage() {
       residente,
       username: defaultUsername,
       password: '',
-      generarPasswordAuto: !isEditing,
       isEditing,
       saving: false,
       activo: isEditing ? (residente.estadoUsuario || '').toUpperCase() === 'ACTIVO' : true,
     });
   }, []);
 
+  const handleResendActivation = useCallback(async (username) => {
+    try {
+      await reenviarEnlaceActivacion(username);
+      toast.success('Si la cuenta está pendiente de activación, se envió un nuevo enlace a su correo.');
+    } catch (err) {
+      toast.error(err.message || 'No se pudo reenviar el enlace de activación');
+    }
+  }, []);
+
   const handleSaveAccount = useCallback(async () => {
-    const { residente, username, password, generarPasswordAuto, isEditing, activo } = accountModal;
+    const { residente, username, password, isEditing, activo } = accountModal;
     if (!username.trim()) {
       toast.error('El nombre de usuario es obligatorio');
       return;
@@ -829,7 +896,6 @@ export default function ResidentesPage() {
         const _apellidos = (residente.apellidos || '').trim().split(' ');
         const payload = {
           username: username.trim().toLowerCase(),
-          password: generarPasswordAuto ? undefined : (password ? password.trim() : undefined),
           enviarCorreoActivacion: true,
           rol: residente.tipoRelacion === 'PROPIETARIO_NO_RESIDENTE' ? 'PROPIETARIO' : 'RESIDENTE',
           activo: true,
@@ -846,18 +912,14 @@ export default function ResidentesPage() {
         };
 
         const res = await tenantApi.post('/usuarios', payload);
-        const pGen = res?.data?.passwordGenerada || res?.passwordGenerada;
-        if (pGen) {
-          toast.success(
-            `Cuenta creada para ${payload.username}. Clave temporal: ${pGen}. Se enviaron las credenciales a ${residente.email}.`,
-            { duration: 8000 }
-          );
+        if ((res?.data || res)?.accountCreated === false) {
+          toast.success("Cuenta existente vinculada sin modificar sus credenciales.");
         } else {
-          toast.success(`Cuenta de acceso creada. Se enviaron las credenciales a ${residente.email}.`);
+          toast.success(`Cuenta de acceso creada. ${mensajeEnlaceEnviado(residente.email)}`, { duration: 8000 });
         }
       }
 
-      setAccountModal({ open: false, residente: null, username: '', password: '', generarPasswordAuto: true, isEditing: false, saving: false });
+      setAccountModal({ open: false, residente: null, username: '', password: '', isEditing: false, saving: false });
       refetch();
     } catch (err) {
       toast.error(err.message || 'Error al procesar la cuenta de acceso');
@@ -2182,7 +2244,7 @@ export default function ResidentesPage() {
                 />
                 <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                   <KeyRound className="h-3.5 w-3.5 text-primary" />
-                  Crear cuenta de acceso al portal y enviar credenciales
+                  Crear cuenta de acceso al portal y enviar enlace de activación
                 </span>
               </label>
 
@@ -2196,35 +2258,10 @@ export default function ResidentesPage() {
                       onChange={(e) => update('usernameAcceso', e.target.value.toLowerCase().replace(/[^a-z0-9._]/g, ''))}
                       placeholder="usuario.portal"
                     />
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-medium text-foreground block">
-                          Contraseña de Acceso
-                        </label>
-                        <label className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={form.generarPasswordAuto}
-                            onChange={(e) => update('generarPasswordAuto', e.target.checked)}
-                            className="rounded border-border text-primary h-3 w-3"
-                          />
-                          Auto-generar
-                        </label>
-                      </div>
-                      {!form.generarPasswordAuto && (
-                        <Input
-                          id="passwordAcceso"
-                          type="password"
-                          value={form.passwordAcceso}
-                          onChange={(e) => update('passwordAcceso', e.target.value)}
-                          placeholder="Mínimo 8 caracteres"
-                        />
-                      )}
-                    </div>
                   </div>
                   <p className="text-[11px] text-muted-foreground flex items-center gap-1">
                     <Mail className="h-3.5 w-3.5 text-primary shrink-0" />
-                    Las credenciales temporales e instrucciones de activación serán enviadas al correo {form.email || '(ingrese correo arriba)'}.
+                    Se enviará un enlace de activación de un solo uso (vigente 48 horas) para definir la contraseña al correo {form.email || '(ingrese correo arriba)'}.
                   </p>
                 </div>
               )}
@@ -2396,39 +2433,36 @@ export default function ResidentesPage() {
               placeholder="nombre.apellido"
             />
 
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-medium text-foreground block">
-                  {accountModal.isEditing ? 'Restablecer Contraseña (opcional)' : 'Contraseña de Acceso'}
+            {accountModal.isEditing ? (
+              <div>
+                <label className="text-xs font-medium text-foreground block mb-1">
+                  Restablecer Contraseña (opcional)
                 </label>
-                {!accountModal.isEditing && (
-                  <label className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={accountModal.generarPasswordAuto}
-                      onChange={(e) =>
-                        setAccountModal((m) => ({ ...m, generarPasswordAuto: e.target.checked }))
-                      }
-                      className="rounded border-border text-primary h-3 w-3"
-                    />
-                    Auto-generar clave segura
-                  </label>
-                )}
-              </div>
-              {(!accountModal.generarPasswordAuto || accountModal.isEditing) && (
                 <Input
                   id="acc-password"
                   type="password"
                   value={accountModal.password}
                   onChange={(e) => setAccountModal((m) => ({ ...m, password: e.target.value }))}
-                  placeholder={
-                    accountModal.isEditing
-                      ? 'Dejar en blanco para mantener la contraseña actual'
-                      : 'Mínimo 8 caracteres'
-                  }
+                  placeholder="Dejar en blanco para mantener la contraseña actual"
                 />
-              )}
-            </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 h-8 px-2 text-xs"
+                  disabled={accountModal.saving}
+                  onClick={() => handleResendActivation(accountModal.username)}
+                >
+                  <Mail className="h-3.5 w-3.5 mr-1.5" />
+                  Reenviar enlace de activación
+                </Button>
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                <Mail className="h-3.5 w-3.5 text-primary shrink-0" />
+                La persona recibirá un enlace de activación de un solo uso (vigente 48 horas) en {accountModal.residente?.email || 'su correo'}.
+              </p>
+            )}
 
             {accountModal.isEditing && (
               <div className="pt-2 border-t border-border/60">
@@ -2826,9 +2860,12 @@ export default function ResidentesPage() {
         }
       >
         <div className="max-h-[60vh] overflow-y-auto p-4 bg-muted/30 border border-border/60 rounded-xl">
-          <div
-            className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: previewHtml || '' }}
+          {/* F5-H06: contract HTML is rendered in a sandboxed frame (no scripts, no same-origin access). */}
+          <iframe
+            title="Vista previa del contrato"
+            sandbox=""
+            srcDoc={previewHtml || ''}
+            className="w-full min-h-[50vh] bg-white rounded border-0"
           />
         </div>
       </Modal>

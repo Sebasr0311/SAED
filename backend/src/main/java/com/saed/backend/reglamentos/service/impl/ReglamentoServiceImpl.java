@@ -1,5 +1,7 @@
 package com.saed.backend.reglamentos.service.impl;
 
+import com.saed.backend.common.util.ClientRequestInfo;
+
 import com.saed.backend.audit.AuditService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
@@ -162,7 +164,7 @@ public class ReglamentoServiceImpl implements ReglamentoService {
         auditService.recordSuccess(
             ctx.getUserId(), orgId, propId,
             "CREAR_BORRADOR_REGLAMENTO", "REGLAMENTOS_NORMATIVA", idReglamento,
-            "127.0.0.1", "SAED-Core", null, "BORRADOR"
+            ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), null, "BORRADOR"
         );
 
         return getById(idReglamento);
@@ -200,7 +202,7 @@ public class ReglamentoServiceImpl implements ReglamentoService {
         auditService.recordSuccess(
             ctx.getUserId(), existing.getIdOrganizacion(), existing.getIdPropiedad(),
             "ACTUALIZAR_BORRADOR_REGLAMENTO", "REGLAMENTOS_NORMATIVA", idReglamento,
-            "127.0.0.1", "SAED-Core", "BORRADOR", "BORRADOR"
+            ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), "BORRADOR", "BORRADOR"
         );
 
         return getById(idReglamento);
@@ -235,7 +237,7 @@ public class ReglamentoServiceImpl implements ReglamentoService {
             auditService.recordSuccess(
                 ctx.getUserId(), existing.getIdOrganizacion(), existing.getIdPropiedad(),
                 "REEMPLAZO_NORMATIVA", "REGLAMENTOS_NORMATIVA", oldId,
-                "127.0.0.1", "SAED-Core", "PUBLICADO", "REEMPLAZADO"
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), "PUBLICADO", "REEMPLAZADO"
             );
         }
 
@@ -251,7 +253,7 @@ public class ReglamentoServiceImpl implements ReglamentoService {
         auditService.recordSuccess(
             ctx.getUserId(), existing.getIdOrganizacion(), existing.getIdPropiedad(),
             "PUBLICACION_NORMATIVA", "REGLAMENTOS_NORMATIVA", idReglamento,
-            "127.0.0.1", "SAED-Core", "BORRADOR", "PUBLICADO"
+            ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), "BORRADOR", "PUBLICADO"
         );
 
         return getById(idReglamento);
@@ -276,7 +278,7 @@ public class ReglamentoServiceImpl implements ReglamentoService {
         auditService.recordSuccess(
             ctx.getUserId(), existing.getIdOrganizacion(), existing.getIdPropiedad(),
             "INACTIVACION_NORMATIVA", "REGLAMENTOS_NORMATIVA", idReglamento,
-            "127.0.0.1", "SAED-Core", oldEstado, "INACTIVO"
+            ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), oldEstado, "INACTIVO"
         );
 
         return getById(idReglamento);

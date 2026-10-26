@@ -860,9 +860,12 @@ export default function OrgPlantillasContratosPage() {
                       <span className="font-semibold text-foreground">Simulación con datos de prueba</span>
                       <span>Renderizado en tiempo real</span>
                     </div>
-                    <div
-                      className="prose prose-sm dark:prose-invert max-w-none font-serif leading-relaxed text-slate-800 dark:text-slate-200"
-                      dangerouslySetInnerHTML={{ __html: renderLiveHtml(form.contenidoHtml) }}
+                    {/* F5-H06: template HTML is rendered in a sandboxed frame (no scripts, no same-origin access). */}
+                    <iframe
+                      title="Vista previa de la plantilla"
+                      sandbox=""
+                      srcDoc={renderLiveHtml(form.contenidoHtml)}
+                      className="w-full min-h-[320px] bg-white rounded border-0"
                     />
                   </div>
                 )}
@@ -905,9 +908,11 @@ export default function OrgPlantillasContratosPage() {
                   <p className="text-xs text-muted-foreground">Sustituyendo variables y generando contrato...</p>
                 </div>
               ) : (
-                <div
-                  className="prose prose-sm dark:prose-invert max-w-none font-serif leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: previewHtml }}
+                <iframe
+                  title="Vista previa del contrato"
+                  sandbox=""
+                  srcDoc={previewHtml || ''}
+                  className="w-full min-h-[60vh] bg-white rounded border-0"
                 />
               )}
             </div>

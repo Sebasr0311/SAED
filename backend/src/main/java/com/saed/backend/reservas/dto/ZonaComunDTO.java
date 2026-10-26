@@ -10,6 +10,14 @@ public class ZonaComunDTO {
     private String requiereReserva;
     private BigDecimal costoReserva;
     private String estado;
+    // F08-01 booking policy (V5.61). Null means "use the default".
+    private String horaApertura;
+    private String horaCierre;
+    private Integer anticipacionMinHoras;
+    private Integer anticipacionMaxDias;
+    private Integer maxReservasActivasUnidad;
+    private BigDecimal valorDeposito;
+    private Integer horasLimiteCancelacion;
 
     // Getters and Setters
     public Long getIdZona() { return idZona; }
@@ -32,4 +40,25 @@ public class ZonaComunDTO {
 
     public String getEstado() { return estado; }
     public void setEstado(String estado) { this.estado = estado; }
+
+    public String getHoraApertura() { return horaApertura; }
+    public void setHoraApertura(String horaApertura) { this.horaApertura = horaApertura; }
+
+    public String getHoraCierre() { return horaCierre; }
+    public void setHoraCierre(String horaCierre) { this.horaCierre = horaCierre; }
+
+    public Integer getAnticipacionMinHoras() { return anticipacionMinHoras; }
+    public void setAnticipacionMinHoras(Integer anticipacionMinHoras) { this.anticipacionMinHoras = anticipacionMinHoras; }
+
+    public Integer getAnticipacionMaxDias() { return anticipacionMaxDias; }
+    public void setAnticipacionMaxDias(Integer anticipacionMaxDias) { this.anticipacionMaxDias = anticipacionMaxDias; }
+
+    public Integer getMaxReservasActivasUnidad() { return maxReservasActivasUnidad; }
+    public void setMaxReservasActivasUnidad(Integer maxReservasActivasUnidad) { this.maxReservasActivasUnidad = maxReservasActivasUnidad; }
+
+    public BigDecimal getValorDeposito() { return valorDeposito; }
+    public void setValorDeposito(BigDecimal valorDeposito) { this.valorDeposito = valorDeposito; }
+
+    public Integer getHorasLimiteCancelacion() { return horasLimiteCancelacion; }
+    public void setHorasLimiteCancelacion(Integer horasLimiteCancelacion) { this.horasLimiteCancelacion = horasLimiteCancelacion; }
 }

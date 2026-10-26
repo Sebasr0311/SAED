@@ -1,5 +1,7 @@
 package com.saed.backend.authorization.dto;
 
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -10,7 +12,10 @@ public class UnitRequestDTO {
     @NotNull private Long idTipoUnidad;
     @NotBlank @Size(max = 30) private String identificador;
     private Long idBloque;
-    private BigDecimal areaM2;
+    @Size(max = 10) private String piso;
+    @DecimalMin(value = "0", inclusive = false) private BigDecimal areaM2;
+    /** DEC-04: fraction, 0 &lt; c &le; 1. */
+    @DecimalMin(value = "0", inclusive = false) @DecimalMax(value = "1")
     private BigDecimal coeficienteCopropiedad;
 
     public Long getIdPropiedad() { return idPropiedad; }
@@ -21,6 +26,8 @@ public class UnitRequestDTO {
     public void setIdentificador(String v) { this.identificador = v; }
     public Long getIdBloque() { return idBloque; }
     public void setIdBloque(Long v) { this.idBloque = v; }
+    public String getPiso() { return piso; }
+    public void setPiso(String v) { this.piso = v; }
     public BigDecimal getAreaM2() { return areaM2; }
     public void setAreaM2(BigDecimal v) { this.areaM2 = v; }
     public BigDecimal getCoeficienteCopropiedad() { return coeficienteCopropiedad; }

@@ -16,6 +16,8 @@
 
 	<properties>
 		<java.version>17</java.version>
+		<!-- all | unit | database; CI runs unit and database tiers in separate jobs. -->
+		<saed.test.tier>all</saed.test.tier>
 	</properties>
 
 	<dependencies>
@@ -93,6 +95,12 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<!-- Compiles com.saed.backend.testsupport.TestTierFilter (PostDiscoveryFilter). -->
+			<groupId>org.junit.platform</groupId>
+			<artifactId>junit-platform-launcher</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
@@ -177,6 +185,10 @@
 				<version>3.1.2</version>
 				<configuration>
 					<argLine>-Dnet.bytebuddy.experimental=true -XX:+EnableDynamicAgentLoading -Xshare:off</argLine>
+					<!-- Test tier (all | unit | database), applied by com.saed.backend.testsupport.TestTierFilter. -->
+					<systemPropertyVariables>
+						<saed.test.tier>${saed.test.tier}</saed.test.tier>
+					</systemPropertyVariables>
 					<excludes>
 						<exclude>**/demo/DemoDatasetRunnerTest.java</exclude>
 						<exclude>**/ScriptRunnerTest.java</exclude>

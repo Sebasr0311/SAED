@@ -9,6 +9,7 @@ import com.saed.backend.finanzas.repository.FinanzasRepository;
 import com.saed.backend.reservas.dto.ReservaDTO;
 import com.saed.backend.reservas.repository.ReservasRepository;
 import com.saed.backend.security.jwt.JwtProvider;
+import com.saed.backend.testsupport.CohabitantFixture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -163,9 +164,11 @@ public class Phase8ReservasMultiTenantIntegrationTest {
                     DELETE FROM RESERVAS WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992);
                     DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992);
                     DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992));
+                    UPDATE MULTAS SET ID_CUOTA = NULL WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992) AND ID_CUOTA > 3;
                     DELETE FROM MULTAS WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992);
-                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992);
+                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992) AND ID_CARTERA > 4;
+                    UPDATE CUOTAS SET ESTADO = 'ANULADA' WHERE ID_CUOTA = 2 AND ESTADO <> 'ANULADA';
                 END;
             """);
 
@@ -202,6 +205,7 @@ public class Phase8ReservasMultiTenantIntegrationTest {
 
             ensurePersona(USER_CONVIVIENTE_1, "1000000006", "Pedro", "Perez", "pedroperez@saed.com");
             ensureUsuario(USER_CONVIVIENTE_1, USER_CONVIVIENTE_1, "pedro_p", "pedroperez@saed.com");
+            CohabitantFixture.ensure(jdbcTemplate, ASSIGN_CONVIVIENTE_1, USER_CONVIVIENTE_1, ORG_1_ID, PROP_1_ID, UNIT_1_ID);
 
             ensurePersona(USER_RESIDENTE_PROP_2, "1000000007", "Maria", "Lopez", "marialopez@saed.com");
             ensureUsuario(USER_RESIDENTE_PROP_2, USER_RESIDENTE_PROP_2, "maria_l", "marialopez@saed.com");
@@ -245,9 +249,11 @@ public class Phase8ReservasMultiTenantIntegrationTest {
                     DELETE FROM RESERVAS WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992);
                     DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992);
                     DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992));
+                    UPDATE CUOTAS SET ESTADO = 'PENDIENTE' WHERE ID_CUOTA = 2 AND ESTADO = 'ANULADA';
+                    UPDATE MULTAS SET ID_CUOTA = NULL WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992) AND ID_CUOTA > 3;
                     DELETE FROM MULTAS WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992);
-                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992);
+                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 3, 5, 9992) AND ID_CARTERA > 4;
                 END;
             """);
         } catch (Exception ignored) {}
@@ -696,8 +702,8 @@ public class Phase8ReservasMultiTenantIntegrationTest {
     }
 
     @Test
-    @DisplayName("17 — Rol Superadmin: Acceso global y lectura de reservas entre distintas copropiedades")
-    void test17_RolSuperadmin_AccesoGlobalAutorizado() throws Exception {
+    @DisplayName("17 — Rol Superadmin: sin acceso operacional a reservas de ninguna copropiedad (DEC-02)")
+    void test17_RolSuperadmin_SinAccesoOperacional() throws Exception {
         Long rProp1 = crearReservaDirecta(ZONA_1_ID, UNIT_1_ID, USER_RESIDENTE_1,
                 LocalDate.now().plusDays(11), "09:00", "10:00", "PENDIENTE");
         Long rProp2 = crearReservaDirecta(ZONA_3_ID, UNIT_3_ID, USER_RESIDENTE_PROP_2,
@@ -706,14 +712,13 @@ public class Phase8ReservasMultiTenantIntegrationTest {
         mockMvc.perform(get("/api/v1/reservas/" + rProp1)
                 .header("Authorization", "Bearer " + tokenSuperAdmin)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_SUPERADMIN)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.idReserva", is(rProp1.intValue())));
+                // DEC-02 / ReservasServiceImpl: SUPERADMIN never reads operational reservation data.
+                .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/v1/reservas/" + rProp2)
                 .header("Authorization", "Bearer " + tokenSuperAdmin)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_SUPERADMIN)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.idReserva", is(rProp2.intValue())));
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -982,7 +987,7 @@ public class Phase8ReservasMultiTenantIntegrationTest {
     private void ensureOrganizacion(Long id, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     id, nombre, nit, email);
         }
     }

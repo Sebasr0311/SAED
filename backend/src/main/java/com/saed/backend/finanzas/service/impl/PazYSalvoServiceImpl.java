@@ -4,6 +4,7 @@ import com.saed.backend.common.service.FileStorageService;
 import com.saed.backend.common.service.PdfService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
+import com.saed.backend.finanzas.domain.OutstandingFees;
 import com.saed.backend.finanzas.dto.PazYSalvoDetalleDTO;
 import com.saed.backend.finanzas.dto.PazYSalvoEstadoFinancieroDTO;
 import com.saed.backend.finanzas.service.PazYSalvoService;
@@ -63,7 +64,7 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
 
         Map<String, Object> unitInfo = getUnitInfo(idUnidad);
         if (unitInfo == null) {
-            throw new IllegalArgumentException("Unidad no encontrada: " + idUnidad);
+            throw new NoSuchElementException("Unidad no encontrada: " + idUnidad);
         }
 
         // Anti-IDOR enforcement on financial status inquiry
@@ -73,7 +74,7 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
 
         // 1. Cartera & Cuotas corrientes / vencidas
         String cuotasSql = "SELECT COALESCE(SUM(c.SALDO_PENDIENTE), 0) FROM CUOTAS c " +
-                "WHERE c.ID_UNIDAD = :unitId AND c.ESTADO IN ('PENDIENTE', 'VENCIDA', 'EN_MORA')";
+                "WHERE c.ID_UNIDAD = :unitId AND " + OutstandingFees.predicate("c");
         BigDecimal saldoCuotas = jdbcTemplate.queryForObject(
                 cuotasSql,
                 new MapSqlParameterSource("unitId", idUnidad),
@@ -144,7 +145,7 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
 
         Map<String, Object> unitInfo = getUnitInfo(idUnidad);
         if (unitInfo == null) {
-            throw new IllegalArgumentException("Unidad no encontrada: " + idUnidad);
+            throw new NoSuchElementException("Unidad no encontrada: " + idUnidad);
         }
 
         // Anti-IDOR check for admin
@@ -169,7 +170,7 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
         String solicitanteNombre = solicitanteInfo != null ? (String) solicitanteInfo.get("NOMBRE") : "PROPIETARIO / RESIDENTE";
         String solicitanteDoc = solicitanteInfo != null ? (String) solicitanteInfo.get("DOCUMENTO") : "NO REGISTRADO";
 
-        String codigoVerificacion = UUID.randomUUID().toString();
+        String codigoVerificacion = nuevoCodigoVerificacion();
         LocalDate fechaEmision = LocalDate.now();
         LocalDate fechaVencimiento = fechaEmision.plusDays(30);
 
@@ -341,6 +342,15 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
         return fileStorageService.loadAsResource(detalle.documentoPdfUrl());
     }
 
+    private static final java.security.SecureRandom CODE_RANDOM = new java.security.SecureRandom();
+
+    /** 192 random bits, URL-safe (32 characters): the public verification endpoint relies on it being unguessable. */
+    public static String nuevoCodigoVerificacion() {
+        byte[] bytes = new byte[24];
+        CODE_RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
     @Override
     public Map<String, Object> verificarPorCodigo(String codigo) {
         if (codigo == null || codigo.isBlank()) {
@@ -351,9 +361,10 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
         List<Map<String, Object>> rows;
         setElevatedContext();
         try {
-            String sql = "SELECT p.ID_PAZ_SALVO, p.ID_UNIDAD, u.IDENTIFICADOR AS NUMERO_UNIDAD, " +
+            // Minimal answer for an unauthenticated caller: authenticity only (no balance, reason or internal ids).
+            String sql = "SELECT u.IDENTIFICADOR AS NUMERO_UNIDAD, " +
                     "pr.NOMBRE AS NOMBRE_PROPIEDAD, p.CODIGO_VERIFICACION, p.FECHA_EMISION, " +
-                    "p.FECHA_VENCIMIENTO, p.SALDO_A_LA_FECHA, p.MOTIVO, p.DOCUMENTO_HASH, p.ESTADO " +
+                    "p.FECHA_VENCIMIENTO, p.DOCUMENTO_HASH, p.ESTADO " +
                     "FROM PAZ_Y_SALVOS p " +
                     "JOIN UNIDADES u ON p.ID_UNIDAD = u.ID_UNIDAD " +
                     "JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD " +
@@ -439,7 +450,9 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
     private void enforceUnitAccess(SaedContext ctx, Map<String, Object> unitInfo, String actionDescription) {
         if (ctx == null) return;
         String role = ctx.getRoleCode();
-        if ("SUPERADMIN".equalsIgnoreCase(role)) return;
+        if ("SUPERADMIN".equalsIgnoreCase(role)) {
+            throw new AccessDeniedException("La administracion de plataforma no accede a datos financieros operativos");
+        }
 
         Long unitPropId = ((Number) unitInfo.get("ID_PROPIEDAD")).longValue();
         Long unitOrgId = ((Number) unitInfo.get("ID_ORGANIZACION")).longValue();
@@ -463,7 +476,9 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
     private void enforceDetalleAccess(SaedContext ctx, PazYSalvoDetalleDTO detalle) {
         if (ctx == null) return;
         String role = ctx.getRoleCode();
-        if ("SUPERADMIN".equalsIgnoreCase(role)) return;
+        if ("SUPERADMIN".equalsIgnoreCase(role)) {
+            throw new AccessDeniedException("La administracion de plataforma no accede a datos financieros operativos");
+        }
 
         if ("ADMIN_ORGANIZACION".equalsIgnoreCase(role)) {
             if (ctx.getOrganizationId() != null && !ctx.getOrganizationId().equals(detalle.idOrganizacion())) {
@@ -640,7 +655,10 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
                 .userId(1L).organizationId(1L).propertyId(1L).roleCode("SUPERADMIN").roleScope("GLOBAL").build());
         try {
             jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
-        } catch (Exception ignored) {}
+        } catch (RuntimeException e) {
+            SaedContextHolder.clearContext();
+            throw new IllegalStateException("No fue posible establecer el contexto de verificación", e);
+        }
     }
 
     private void restoreSaedContext(SaedContext ctx) {
@@ -661,6 +679,8 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
                     String.format("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(%d); PKG_SAED_SESSION.SET_CONTEXT(%d, %s, %s, '%s'); END;", u, u, o, p, r)
                 );
             }
-        } catch (Exception ignored) {}
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("No fue posible restablecer el contexto de sesión", e);
+        }
     }
 }

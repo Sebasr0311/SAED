@@ -51,6 +51,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs.
 import { Modal } from '../components/ui/Modal.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import { LocalQRCode } from '../components/ui/LocalQRCode.jsx';
+import { KpiSummaryPanel } from '../components/KpiSummaryPanel.jsx';
 
 const MESES_W = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -457,6 +458,7 @@ export default function ResidenteDashboardPage() {
 
   return (
     <PageContainer>
+      <KpiSummaryPanel />
       {/* 1. HERO OPERATIVO DEL RESIDENTE (Sin ficha estática repetida) */}
       <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-slate-900 via-primary/95 to-slate-900 text-white shadow-xl animate-saed-slide">
         <div

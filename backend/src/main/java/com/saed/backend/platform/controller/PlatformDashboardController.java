@@ -7,10 +7,8 @@ import com.saed.backend.platform.dto.PlatformDashboardDTO;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import com.saed.backend.config.ProductionSchemaInitializer;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,14 +26,11 @@ public class PlatformDashboardController {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final AnalyticsService analyticsService;
-    private final ProductionSchemaInitializer schemaInitializer;
 
     public PlatformDashboardController(NamedParameterJdbcTemplate jdbcTemplate,
-                                       AnalyticsService analyticsService,
-                                       ProductionSchemaInitializer schemaInitializer) {
+                                       AnalyticsService analyticsService) {
         this.jdbcTemplate = jdbcTemplate;
         this.analyticsService = analyticsService;
-        this.schemaInitializer = schemaInitializer;
     }
 
     @GetMapping
@@ -49,7 +44,7 @@ public class PlatformDashboardController {
         long pendingOnboarding = 0;
         String dbStatus = "OPERATIVA";
 
-        try {
+        {
             String sqlConsolidado = """
                 SELECT
                     (SELECT COUNT(*) FROM ORGANIZACIONES) AS ORG_TOTAL,
@@ -64,7 +59,7 @@ public class PlatformDashboardController {
                     (SELECT COUNT(*) FROM MEMBRESIAS WHERE ESTADO = 'EXPIRADA' OR (ESTADO = 'ACTIVA' AND FECHA_FIN < SYSDATE)) AS MEMB_VENCIDAS,
                     (SELECT NVL(SUM(p.PRECIO_MENSUAL), 0) FROM MEMBRESIAS m JOIN PLANES p ON m.ID_PLAN = p.ID_PLAN WHERE m.ESTADO = 'ACTIVA') AS MRR,
                     (SELECT COUNT(*) FROM ONBOARDING_INTENCIONES WHERE ESTADO = 'PENDIENTE') AS PENDING_ONBOARDING,
-                    (SELECT COUNT(*) FROM AUDITORIA_LOG WHERE ACCION LIKE '%LOGIN%FAIL%' AND FECHA_HORA >= SYSTIMESTAMP - INTERVAL '1' DAY) AS FAILED_LOGINS
+                    (SELECT COUNT(*) FROM AUDITORIA_LOG WHERE ACCION LIKE '%LOGIN%FAIL%' AND FECHA_HORA >= SYSDATE - 1) AS FAILED_LOGINS
                 FROM DUAL
             """;
             Map<String, Object> row = jdbcTemplate.queryForMap(sqlConsolidado, new MapSqlParameterSource());
@@ -95,33 +90,23 @@ public class PlatformDashboardController {
 
             pendingOnboarding = ((Number) row.getOrDefault("PENDING_ONBOARDING", 0)).longValue();
             failedLogins = ((Number) row.getOrDefault("FAILED_LOGINS", 0)).longValue();
-        } catch (Exception e) {
-            dbStatus = "DEGRADADA";
-            orgStats.put("total", 0L); orgStats.put("activas", 0L); orgStats.put("inactivas", 0L);
-            propStats.put("total", 0L); propStats.put("activas", 0L); propStats.put("inactivas", 0L);
-            userStats.put("total", 0L); userStats.put("activos", 0L); userStats.put("inactivos", 0L);
-            planesMembresias.put("planesDisponibles", 0L); planesMembresias.put("membresiasActivas", 0L);
-            planesMembresias.put("porVencer", 0L); planesMembresias.put("vencidas", 0L);
-            planesMembresias.put("ingresosMensualesEstimados", 0.0);
         }
 
-        // 2. Desglose de Roles (1 query ligera)
-        try {
-            List<Map<String, Object>> rolesCount = jdbcTemplate.queryForList(
-                "SELECT r.CODIGO AS ROL, COUNT(DISTINCT u.ID_USUARIO) AS CANTIDAD " +
-                "FROM ROLES r " +
-                "LEFT JOIN USUARIO_ASIGNACIONES ua ON r.ID_ROL = ua.ID_ROL AND ua.ESTADO = 'ACTIVA' " +
-                "LEFT JOIN USUARIOS u ON ua.ID_USUARIO = u.ID_USUARIO AND u.ESTADO = 'ACTIVO' " +
-                "GROUP BY r.CODIGO", new MapSqlParameterSource()
-            );
-            userStats.put("desgloseRoles", rolesCount);
-        } catch (Exception e) {
-            userStats.put("desgloseRoles", List.of());
-        }
+        // 2. Desglose de roles administrados por la plataforma (DEC-02: sin roles operativos de residentes)
+        List<Map<String, Object>> rolesCount = jdbcTemplate.queryForList(
+            "SELECT r.CODIGO AS ROL, COUNT(DISTINCT u.ID_USUARIO) AS CANTIDAD " +
+            "FROM ROLES r " +
+            "LEFT JOIN USUARIO_ASIGNACIONES ua ON r.ID_ROL = ua.ID_ROL AND ua.ESTADO = 'ACTIVA' " +
+            "LEFT JOIN USUARIOS u ON ua.ID_USUARIO = u.ID_USUARIO AND u.ESTADO = 'ACTIVO' " +
+            "WHERE r.CODIGO IN ('SUPERADMIN', 'ADMIN_ORGANIZACION') " +
+            "GROUP BY r.CODIGO", new MapSqlParameterSource()
+        );
+        userStats.put("desgloseRoles", rolesCount);
 
         // 3. Actividad Reciente (Auditoría Real, fetch first 10)
-        List<Map<String, Object>> actividadReciente = new ArrayList<>();
-        try {
+        List<Map<String, Object>> actividadReciente;
+        {
+            // DEC-02: only platform-level audit entries (no tenant operational activity).
             String sqlAudit = """
                 SELECT l.ID_LOG AS "idLog",
                        TO_CHAR(l.FECHA_HORA, 'YYYY-MM-DD"T"HH24:MI:SS') AS "fechaHora",
@@ -132,15 +117,16 @@ public class PlatformDashboardController {
                        NVL(l.IP_ORIGEN, '127.0.0.1') AS "ip"
                 FROM AUDITORIA_LOG l
                 LEFT JOIN USUARIOS u ON l.ID_USUARIO = u.ID_USUARIO
+                WHERE l.ID_ORGANIZACION IS NULL AND l.ID_PROPIEDAD IS NULL
                 ORDER BY l.FECHA_HORA DESC
                 FETCH FIRST 10 ROWS ONLY
             """;
             actividadReciente = jdbcTemplate.queryForList(sqlAudit, new MapSqlParameterSource());
-        } catch (Exception ignored) {}
+        }
 
         // 4. Alertas Reales que Requieren Atención
         List<Map<String, Object>> alertas = new ArrayList<>();
-        try {
+        {
             // A. Membresías por vencer en <= 30 días
             List<Map<String, Object>> expiring = jdbcTemplate.queryForList("""
                 SELECT m.ID_MEMBRESIA AS "idMembresia", o.NOMBRE AS "orgNombre",
@@ -200,25 +186,14 @@ public class PlatformDashboardController {
                     "ruta", "/superadmin/onboarding"
                 ));
             }
-        } catch (Exception ignored) {}
-
-        // 7. Salud Técnica
-        Map<String, Object> saludTecnica = new HashMap<>();
-        try {
-            jdbcTemplate.queryForObject("SELECT 1 FROM DUAL", new MapSqlParameterSource(), Integer.class);
-        } catch (Exception e) {
-            dbStatus = "DEGRADADA";
         }
-        saludTecnica.put("api", Map.of("estado", "OPERATIVA", "version", "SAED 2.0.0-PROD", "latenciaMs", 14));
-        saludTecnica.put("database", Map.of("estado", dbStatus, "motor", "Oracle Cloud ATP 23ai", "vpdRls", "ACTIVO"));
-        saludTecnica.put("schedulers", Map.of("estado", "OPERATIVO", "tareasActivas", 4));
 
-        // 8. Plataforma metadata
+        // 7. Salud técnica: only measured values (no fabricated latency, engine or scheduler figures)
+        Map<String, Object> saludTecnica = new HashMap<>();
+        saludTecnica.put("database", Map.of("estado", dbStatus));
+
         Map<String, Object> plataforma = new HashMap<>();
-        plataforma.put("estado", "OPTIMO");
-        plataforma.put("version", "SAED 2.0.0-PROD");
-        plataforma.put("motorBD", "Oracle Cloud ATP 23ai");
-        plataforma.put("seguridad", "Oracle VPD / RLS Activo");
+        plataforma.put("estado", dbStatus);
 
         return ApiResponse.success(new PlatformDashboardDTO(
             orgStats,
@@ -240,11 +215,5 @@ public class PlatformDashboardController {
         String effPeriodo = periodo != null ? periodo : (meses != null ? meses + "m" : "30d");
         PlatformAnalyticsDTO dto = analyticsService.getPlatformAnalytics(effPeriodo, idOrganizacion);
         return ApiResponse.success(dto);
-    }
-
-    @PostMapping("/purge-demo-seed")
-    public ApiResponse<Map<String, Object>> purgeDemoSeed() {
-        Map<String, Object> result = schemaInitializer.executeFullCascadePurge();
-        return ApiResponse.success(result);
     }
 }

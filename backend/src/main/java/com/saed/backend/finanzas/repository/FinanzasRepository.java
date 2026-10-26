@@ -13,7 +13,6 @@ public interface FinanzasRepository {
     List<CuotaDTO> getCuotasByResidente(Long idResidente);
     Long registrarPago(PagoRequestDTO req, Long idUnidad);
     Long registrarPago(PagoRequestDTO req, Long idUnidad, String estadoInicial, String hash, Long tamanoBytes);
-    void actualizarSaldoCuota(Long idCuota, BigDecimal montoAplicado);
     ContratoDetalleDTO getContratoDetalle(Long idContrato);
     void actualizarDocumentoContrato(Long idContrato, String documentoUrl, String documentoHash, long tamanoBytes, String htmlCongelado);
     void generarCuotasIniciales(Long idContrato);

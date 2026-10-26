@@ -18,4 +18,7 @@ public interface PaquetesService {
     Resource getImagenPaquete(Long id);
     String getImagenMimeType(Long id);
     void marcarEntregadoDirecto(Long id);
+
+    /** Re-sends the pickup notification of an undelivered package to the unit residents; returns recipients. */
+    int reenviarNotificacion(Long id);
 }

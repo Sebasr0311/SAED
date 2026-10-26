@@ -193,6 +193,10 @@ public class ModuleEntitlementsSecurityTest {
     }
 
     private void seedOrganizacion(Long orgId, String nombre, String nit, String email) {
+        // Tax id and contact e-mail are unique in ORGANIZACIONES: scope them to this suite's own org ids so other
+        // suites' organizations (which reuse the same literals) can never collide with them.
+        nit = "ME-" + orgId + "-" + nit;
+        email = "me" + orgId + "." + email;
         jdbcTemplate.execute(String.format("""
             MERGE INTO ORGANIZACIONES o
             USING (SELECT %d AS id, '%s' AS nom, '%s' AS nit, '%s' AS em FROM DUAL) s

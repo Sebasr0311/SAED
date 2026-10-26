@@ -96,6 +96,7 @@ export default function SancionesAdminPage() {
     decision: 'APLICADA',
     resolucionFinal: '',
     montoMulta: '',
+    restriccionHasta: '',
   });
 
   // Al abrir el modal, resetear formulario y live validations
@@ -381,6 +382,13 @@ export default function SancionesAdminPage() {
       }
     }
 
+    const aplicaSuspension =
+      resolucionForm.decision === 'APLICADA' && detalle?.tipoSancionPropuesta === 'SUSPENSION_ZONAS_COMUNES';
+    if (aplicaSuspension && !resolucionForm.restriccionHasta) {
+      toast.error('Indique la fecha final de la suspensión de zonas comunes.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const payload = {
@@ -390,11 +398,12 @@ export default function SancionesAdminPage() {
           resolucionForm.decision === 'APLICADA' && detalle?.tipoSancionPropuesta === 'MULTA_ECONOMICA'
             ? Number(resolucionForm.montoMulta)
             : null,
+        restriccionHasta: aplicaSuspension ? resolucionForm.restriccionHasta : null,
       };
       await tenantApi.post(`/sanciones/${detalle.idSancion}/resolucion`, payload);
       toast.success('Resolución firmada y emitida exitosamente');
       setDetalle(null);
-      setResolucionForm({ decision: 'APLICADA', resolucionFinal: '', montoMulta: '' });
+      setResolucionForm({ decision: 'APLICADA', resolucionFinal: '', montoMulta: '', restriccionHasta: '' });
       refetch();
     } catch (err) {
       toast.error(err.message || 'Error al emitir resolución');
@@ -851,6 +860,17 @@ export default function SancionesAdminPage() {
                       <p className="text-xs text-destructive">El monto debe ser un valor positivo mayor a 0.</p>
                     )}
                   </div>
+                )}
+
+                {resolucionForm.decision === 'APLICADA' && detalle.tipoSancionPropuesta === 'SUSPENSION_ZONAS_COMUNES' && (
+                  <Input
+                    label="Suspensión de zonas comunes hasta (inclusive) *"
+                    type="date"
+                    min={new Date().toISOString().slice(0, 10)}
+                    value={resolucionForm.restriccionHasta}
+                    onChange={(e) => setResolucionForm({ ...resolucionForm, restriccionHasta: e.target.value })}
+                    required
+                  />
                 )}
 
                 <Textarea

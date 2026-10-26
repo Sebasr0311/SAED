@@ -246,7 +246,7 @@ The following destructive operations were audited across the codebase:
 - **Location:** `OnboardingServiceImpl.java:618-720`
 - **Trigger A:** Endpoint `POST /api/v1/auth/onboarding/purgar-falsos` (Public).
 - **Trigger B:** Background thread executed on application `@PostConstruct` startup.
-- **Deletes:** Records matching `'sebasrusso95@gmail.com'`, `'sebasthompson95@gmail.com'`, `'SEBAS THOMPSON'`, `'SAED-ONB-%'`, or NIT `'901999888%'` from `MEMBRESIAS`, `USUARIO_ASIGNACIONES`, `USUARIOS`, and `ORGANIZACIONES`.
+- **Deletes:** Records matching `'<redacted-email>'`, `'<redacted-email>'`, `'<redacted-name>'`, `'SAED-ONB-%'`, or NIT `'901999888%'` from `MEMBRESIAS`, `USUARIO_ASIGNACIONES`, `USUARIOS`, and `ORGANIZACIONES`.
 - **Database Context:** Manually forces `SET_BOOTSTRAP_CONTEXT(1)` and `SET_CONTEXT(1, 1, 1, 'SUPERADMIN')`.
 
 ### 2. Property Deletion (`PropertyDeletionService`)
@@ -467,15 +467,15 @@ A comprehensive scan detected **61 secret patterns** across the repository:
 
 ### Findings by Category:
 1. **JWT Secret:** `backend/src/main/resources/application.yml:42`
-   - Value: `c2VjcmV0LWtleS1kZWJlLXNlci1sYXJnYS1wYXJhLWhtYWMtc2hhMjU2` (Default dev secret).
+   - Value: `<redacted>` (Default dev secret).
    - Classification: `DEFAULT/DEV`.
 2. **Database Credentials:** `backend/src/main/resources/application.yml:32-33`
    - User: `SAED_BASELINE_TEST_01`, Password: `[REDACTED_DEV_PASSWORD]`.
    - Classification: `DEFAULT/DEV`.
 3. **Wompi Payment Gateway Keys:** `WompiServiceImpl.java:51-57`
-   - Public Key: `pub_test_IZg6dmwtip4WYXjPP8G7zYvWzCU5wRaH`
-   - Integrity Secret: `test_integrity_CT3taBwOqVtSQITYMGUTcrJftHdoLoPQ`
-   - Events Secret: `test_events_VgrGtdTPd9q6XKtBz3iRTgTHJSUuwBBy`
+   - Public Key: `<redacted>`
+   - Integrity Secret: `<redacted>`
+   - Events Secret: `<redacted>`
    - Classification: `DEFAULT/SANDBOX TEST KEYS`.
 4. **Seeder Admin Password:** `DatabaseSeeder.java:56`
    - Password: `admin_global123` (Protected by `@Profile("!prod")`).
@@ -493,7 +493,7 @@ SEVERITY: CRITICAL
 CATEGORY: Access Control & Data Deletion
 LOCATION: backend/src/main/java/com/saed/backend/platform/controller/PublicOnboardingController.java:57
 EVIDENCE: @PostMapping("/purgar-falsos") exposed without @PreAuthorize, inside /api/v1/auth/** (SecurityConfig.java:44 permitAll). Also triggered on @PostConstruct in OnboardingServiceImpl.java:61.
-CURRENT BEHAVIOR: Any anonymous HTTP client can trigger a bulk deletion of organizations, memberships, users, and assignments matching hardcoded patterns ('sebasrusso95@gmail.com', 'SEBAS THOMPSON', etc.) with elevated SUPERADMIN context.
+CURRENT BEHAVIOR: Any anonymous HTTP client can trigger a bulk deletion of organizations, memberships, users, and assignments matching hardcoded patterns ('<redacted-email>', '<redacted-name>', etc.) with elevated SUPERADMIN context.
 EXPECTED BEHAVIOR: Destructive purge endpoints must not exist in production or must require authenticated SUPERADMIN credentials with explicit MFA. Startup purge must be removed.
 IMPACT: Complete denial of service and data loss for matched entities; unauthenticated privilege elevation in database.
 REPRODUCTION: Invoke POST http://localhost:8080/api/v1/auth/onboarding/purgar-falsos with no headers or credentials.

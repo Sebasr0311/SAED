@@ -23,27 +23,36 @@ import java.util.Map;
  * que es el flujo que ya funcionaba en produccion en SAED 1.0 y que Gmail no
  * bloquea desde hosts cloud (Render). Requiere BREVO_API_KEY en el entorno.
  *
- * Sender: gestion.residencias.upc@gmail.com (verificado en Brevo).
+ * Sender: configurable via BREVO_SENDER_EMAIL / BREVO_SENDER_NAME; debe estar verificado en Brevo.
  */
 @Service
 public class EmailService {
 
     private static final String BREVO_URL = "https://api.brevo.com/v3/smtp/email";
-    private static final String BREVO_SENDER = "gestion.residencias.upc@gmail.com";
-    private static final String BREVO_SENDER_NAME = "SAED";
 
     private final TemplateRenderService templateService;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
     private final org.thymeleaf.TemplateEngine templateEngine;
+    /** Spring's task executor: its threads carry the application class loader, unlike the JDK common pool. */
+    private final java.util.concurrent.Executor mailExecutor;
 
     @org.springframework.beans.factory.annotation.Value("${brevo.api-key:${BREVO_API_KEY:}}")
     private String brevoApiKey;
 
-    public EmailService(TemplateRenderService templateService, ObjectMapper objectMapper, org.thymeleaf.TemplateEngine templateEngine) {
+    /** Verified Brevo sender; the neutral default keeps no real mailbox in the repository. */
+    @org.springframework.beans.factory.annotation.Value("${brevo.sender-email:${BREVO_SENDER_EMAIL:no-reply@example.invalid}}")
+    private String brevoSenderEmail;
+
+    @org.springframework.beans.factory.annotation.Value("${brevo.sender-name:${BREVO_SENDER_NAME:SAED}}")
+    private String brevoSenderName;
+
+    public EmailService(TemplateRenderService templateService, ObjectMapper objectMapper, org.thymeleaf.TemplateEngine templateEngine,
+                        @org.springframework.beans.factory.annotation.Qualifier("applicationTaskExecutor") java.util.concurrent.Executor mailExecutor) {
         this.templateService = templateService;
         this.objectMapper = objectMapper;
         this.templateEngine = templateEngine;
+        this.mailExecutor = mailExecutor;
         this.httpClient = HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(15)).build();
     }
 
@@ -70,7 +79,7 @@ public class EmailService {
         }
 
         Map<String, Object> payload = new HashMap<>();
-        payload.put("sender", Map.of("name", BREVO_SENDER_NAME, "email", BREVO_SENDER));
+        payload.put("sender", Map.of("name", brevoSenderName, "email", brevoSenderEmail));
         payload.put("to", List.of(Map.of("email", destinatario)));
         payload.put("subject", asunto);
         payload.put("htmlContent", html);
@@ -143,7 +152,7 @@ public class EmailService {
                 org.slf4j.LoggerFactory.getLogger(EmailService.class)
                     .warn("Fallo en envío asíncrono de correo QR a {}: {}", destinatario, e.getMessage());
             }
-        });
+        }, mailExecutor);
     }
 
     public void enviarNotificacionPQRS(String destinatario, String radicado, String estado, String respuesta) throws Exception {
@@ -229,141 +238,10 @@ public class EmailService {
         enviarHtml(destinatario, "CÓDIGO DE SEGURIDAD: Eliminación de " + nombrePropiedad, html, null, null);
     }
 
-    public void enviarBienvenidaCredenciales(
-            String destinatario,
-            String nombreCompleto,
-            String organizacion,
-            String planNombre,
-            String rol,
-            String nombreUsuario,
-            String passwordGenerada,
-            String urlLogin
-    ) throws Exception {
-        org.thymeleaf.context.Context context = new org.thymeleaf.context.Context();
-        context.setVariable("nombreCompleto", nombreCompleto != null ? nombreCompleto : "Usuario");
-        context.setVariable("organizacion", organizacion != null ? organizacion : "SAED");
-        context.setVariable("planNombre", planNombre != null ? planNombre : "Plan SAED");
-        context.setVariable("rol", rol != null ? rol : "ADMIN_ORGANIZACION");
-        context.setVariable("rolNombre", rol != null ? rol : "Administrador");
-        context.setVariable("rolDescripcion", "Acceso a la plataforma SAED.");
-        context.setVariable("nombreUsuario", nombreUsuario);
-        context.setVariable("passwordGenerada", passwordGenerada);
-        context.setVariable("urlLogin", urlLogin != null && !urlLogin.isBlank() ? urlLogin : "https://saedfront.vercel.app/login");
-
-        String html = templateEngine.process("correos/correo_bienvenida_credenciales", context);
-        String asunto = "¡Bienvenido a SAED! — Tus credenciales de acceso";
-        enviarHtml(destinatario, asunto, html, null, null);
-    }
-
     public record EmailDispatchResult(String estado, String detalle, boolean real) {}
 
     public boolean isRealDispatchConfigured() {
         String apiKey = getEffectiveApiKey();
         return apiKey != null && !apiKey.isBlank();
-    }
-
-    public EmailDispatchResult enviarBienvenidaCredencialesConResultado(
-            String destinatario,
-            String nombreCompleto,
-            String organizacion,
-            String planNombre,
-            String rol,
-            String nombreUsuario,
-            String passwordGenerada,
-            String urlLogin
-    ) {
-        if (destinatario == null || destinatario.isBlank()) {
-            return new EmailDispatchResult("FALLIDO", "Destinatario no especificado", false);
-        }
-        String apiKey = getEffectiveApiKey();
-        if (apiKey == null || apiKey.isBlank()) {
-            org.slf4j.LoggerFactory.getLogger(EmailService.class)
-                    .info("[EMAIL-SIMULATION] Envío simulado a {}: Asunto='¡Bienvenido a SAED! — Tus credenciales de acceso'", destinatario);
-            return new EmailDispatchResult("SIMULADO", "Envío simulado localmente (BREVO_API_KEY no configurada en entorno)", false);
-        }
-        try {
-            enviarBienvenidaCredenciales(destinatario, nombreCompleto, organizacion, planNombre, rol, nombreUsuario, passwordGenerada, urlLogin);
-            return new EmailDispatchResult("ENVIADO", "Correo entregado exitosamente vía Brevo API", true);
-        } catch (Exception e) {
-            org.slf4j.LoggerFactory.getLogger(EmailService.class)
-                    .error("Error despachando correo a {}: {}", destinatario, e.getMessage());
-            return new EmailDispatchResult("FALLIDO", "Error en proveedor de correo: " + e.getMessage(), false);
-        }
-    }
-
-    public void enviarBienvenidaCredencialesAsync(
-            String destinatario,
-            String nombreCompleto,
-            String organizacion,
-            String planNombre,
-            String rol,
-            String nombreUsuario,
-            String passwordGenerada,
-            String urlLogin
-    ) {
-        java.util.concurrent.CompletableFuture.runAsync(() -> {
-            try {
-                enviarBienvenidaCredenciales(destinatario, nombreCompleto, organizacion, planNombre, rol, nombreUsuario, passwordGenerada, urlLogin);
-            } catch (Exception e) {
-                org.slf4j.LoggerFactory.getLogger(EmailService.class)
-                        .warn("Fallo en envío asíncrono de bienvenida credenciales a {}: {}", destinatario, e.getMessage());
-            }
-        });
-    }
-
-    public void enviarCredencialesCreadoPorUsuario(
-            String destinatario,
-            String nombreCompleto,
-            String creadoPorNombre,
-            String creadoPorRol,
-            String organizacion,
-            String propiedad,
-            String unidad,
-            String rol,
-            String nombreUsuario,
-            String passwordGenerada,
-            String urlLogin
-    ) throws Exception {
-        org.thymeleaf.context.Context context = new org.thymeleaf.context.Context();
-        context.setVariable("nombreCompleto", nombreCompleto != null ? nombreCompleto : "Usuario");
-        context.setVariable("creadoPorNombre", creadoPorNombre != null ? creadoPorNombre : "Un administrador");
-        context.setVariable("creadoPorRol", creadoPorRol != null ? creadoPorRol : "ADMIN_ORGANIZACION");
-        context.setVariable("creadoPorRolNombre", creadoPorRol != null ? creadoPorRol : "Administrador");
-        context.setVariable("organizacion", organizacion);
-        context.setVariable("propiedad", propiedad);
-        context.setVariable("unidad", unidad);
-        context.setVariable("rol", rol != null ? rol : "RESIDENTE");
-        context.setVariable("rolNombre", rol != null ? rol : "Usuario");
-        context.setVariable("rolDescripcion", "Acceso al portal de SAED.");
-        context.setVariable("nombreUsuario", nombreUsuario);
-        context.setVariable("passwordGenerada", passwordGenerada);
-        context.setVariable("urlLogin", urlLogin != null && !urlLogin.isBlank() ? urlLogin : "https://saedfront.vercel.app/login");
-
-        String html = templateEngine.process("correos/correo_credenciales_creado_por_usuario", context);
-        String asunto = "Acceso a SAED — Tus credenciales de inicio de sesión";
-        enviarHtml(destinatario, asunto, html, null, null);
-    }
-
-    public void enviarCredencialesCreadoPorUsuarioAsync(
-            String destinatario,
-            String nombreCompleto,
-            String creadoPorNombre,
-            String creadoPorRol,
-            String organizacion,
-            String propiedad,
-            String unidad,
-            String rol,
-            String nombreUsuario,
-            String passwordGenerada,
-            String urlLogin
-    ) {
-        java.util.concurrent.CompletableFuture.runAsync(() -> {
-            try {
-                enviarCredencialesCreadoPorUsuario(destinatario, nombreCompleto, creadoPorNombre, creadoPorRol, organizacion, propiedad, unidad, rol, nombreUsuario, passwordGenerada, urlLogin);
-            } catch (Exception e) {
-                org.slf4j.LoggerFactory.getLogger(EmailService.class)
-                        .warn("Fallo en envío asíncrono de credenciales creadas por usuario a {}: {}", destinatario, e.getMessage());
-            }
-        });
     }
 }

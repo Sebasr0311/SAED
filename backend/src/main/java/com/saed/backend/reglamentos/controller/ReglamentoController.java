@@ -32,7 +32,7 @@ public class ReglamentoController {
     }
 
     @GetMapping("/admin")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getReglamentosAdmin(
             @RequestParam(required = false) String tipoNormativa,
             @RequestParam(required = false) String estado,
@@ -50,7 +50,7 @@ public class ReglamentoController {
     }
 
     @GetMapping("/vigente")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO', 'SCOPE_PROPIETARIO_UNIDAD', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO', 'SCOPE_PROPIETARIO_UNIDAD', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<ApiResponse<ReglamentoDTO>> getVigente(
             @RequestParam String tipoNormativa,
             @RequestParam(required = false) Long idPropiedad) {
@@ -59,14 +59,14 @@ public class ReglamentoController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO', 'SCOPE_PROPIETARIO_UNIDAD', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO', 'SCOPE_PROPIETARIO_UNIDAD', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<ApiResponse<ReglamentoDTO>> getById(@PathVariable Long id) {
         ReglamentoDTO dto = reglamentoService.getById(id);
         return ResponseEntity.ok(ApiResponse.success(dto));
     }
 
     @GetMapping("/{id}/descargar")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO', 'SCOPE_PROPIETARIO_UNIDAD', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO', 'SCOPE_PROPIETARIO_UNIDAD', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<Resource> descargar(@PathVariable Long id) {
         DocumentoService.DocumentoDescarga descarga = reglamentoService.downloadDocumento(id);
 
@@ -97,7 +97,7 @@ public class ReglamentoController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<ReglamentoDTO>> createDraft(
             @Valid @RequestBody ReglamentoCreateRequestDTO request,
             @RequestParam(required = false) Long idPropiedad) {
@@ -106,7 +106,7 @@ public class ReglamentoController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<ReglamentoDTO>> updateDraft(
             @PathVariable Long id,
             @Valid @RequestBody ReglamentoUpdateRequestDTO request) {
@@ -115,7 +115,7 @@ public class ReglamentoController {
     }
 
     @PostMapping("/{id}/publicar")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<ReglamentoDTO>> publicar(
             @PathVariable Long id,
             @RequestBody(required = false) ReglamentoPublicarRequestDTO request) {
@@ -124,7 +124,7 @@ public class ReglamentoController {
     }
 
     @PostMapping("/{id}/inactivar")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<ReglamentoDTO>> inactivar(@PathVariable Long id) {
         ReglamentoDTO inactivated = reglamentoService.inactivar(id);
         return ResponseEntity.ok(ApiResponse.success(inactivated));

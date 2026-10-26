@@ -1,5 +1,7 @@
 package com.saed.backend.consumos.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -25,10 +27,22 @@ public class MedicionConsumoRequestDTO {
     private String periodo;
 
     @NotNull(message = "La lectura anterior es obligatoria")
+    @DecimalMin(value = "0", message = "La lectura anterior no puede ser negativa")
     private BigDecimal lecturaAnterior;
 
     @NotNull(message = "La lectura actual es obligatoria")
+    @DecimalMin(value = "0", message = "La lectura actual no puede ser negativa")
     private BigDecimal lecturaActual;
+
+    /**
+     * Declares that the meter was reset or replaced between readings (F11-03). Only then may the current
+     * reading be lower than the previous one; the stored baseline becomes 0.
+     */
+    private Boolean reinicioMedidor;
+
+    /** Previous reading preserved when a meter reset is recorded. Set by the server, never by the client. */
+    @JsonIgnore
+    private BigDecimal lecturaPreviaReinicio;
 
     @Size(max = 10, message = "La unidad de medida no puede exceder 10 caracteres")
     private String unidadMedida;
@@ -80,6 +94,14 @@ public class MedicionConsumoRequestDTO {
 
     public String getObservacionAnomalia() { return observacionAnomalia; }
     public void setObservacionAnomalia(String observacionAnomalia) { this.observacionAnomalia = observacionAnomalia; }
+
+    public Boolean getReinicioMedidor() { return reinicioMedidor; }
+    public void setReinicioMedidor(Boolean reinicioMedidor) { this.reinicioMedidor = reinicioMedidor; }
+
+    @JsonIgnore
+    public BigDecimal getLecturaPreviaReinicio() { return lecturaPreviaReinicio; }
+    @JsonIgnore
+    public void setLecturaPreviaReinicio(BigDecimal lecturaPreviaReinicio) { this.lecturaPreviaReinicio = lecturaPreviaReinicio; }
 
     public LocalDate getFechaTomaLectura() { return fechaTomaLectura; }
     public void setFechaTomaLectura(LocalDate fechaTomaLectura) { this.fechaTomaLectura = fechaTomaLectura; }

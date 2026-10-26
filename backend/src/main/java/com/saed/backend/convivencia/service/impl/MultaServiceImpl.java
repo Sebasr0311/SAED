@@ -1,5 +1,7 @@
 package com.saed.backend.convivencia.service.impl;
 
+import com.saed.backend.common.util.ClientRequestInfo;
+
 import com.saed.backend.audit.AuditService;
 import com.saed.backend.common.service.EmailService;
 import com.saed.backend.context.SaedContext;
@@ -44,7 +46,7 @@ public class MultaServiceImpl implements MultaService {
     public MultaDTO findById(Long id) {
         MultaDTO multa = repo.findById(id);
         if (multa == null) {
-            throw new IllegalArgumentException("Multa no encontrada con ID: " + id);
+            throw new NoSuchElementException("Multa no encontrada con ID: " + id);
         }
         return multa;
     }
@@ -83,7 +85,7 @@ public class MultaServiceImpl implements MultaService {
     public void pagar(Long id, String metodo) {
         MultaDTO multa = repo.findById(id);
         if (multa == null) {
-            throw new IllegalArgumentException("Multa no encontrada con ID: " + id);
+            throw new NoSuchElementException("Multa no encontrada con ID: " + id);
         }
 
         String estadoActual = multa.getEstado();
@@ -97,6 +99,13 @@ public class MultaServiceImpl implements MultaService {
             throw new IllegalStateException("La multa no se encuentra en un estado válido para recibir pago: " + estadoActual);
         }
 
+        // A fine posted to the receivables (F10-06) is collected only through its fee, never twice.
+        List<Map<String, Object>> posted = jdbcTemplate.queryForList(
+            "SELECT ID_CUOTA FROM MULTAS WHERE ID_MULTA = :id", new MapSqlParameterSource("id", id));
+        if (!posted.isEmpty() && posted.get(0).get("ID_CUOTA") != null) {
+            throw new IllegalStateException("La multa ya esta incluida en la cartera de la unidad; registre el pago de su cuota");
+        }
+
         repo.updateEstado(id, "PAGADA");
 
         SaedContext ctx = SaedContextHolder.getContext();
@@ -107,7 +116,7 @@ public class MultaServiceImpl implements MultaService {
         auditService.recordSuccess(
                 userId, orgId, propId,
                 "PAGAR_MULTA", "MULTAS", id,
-                "127.0.0.1", "SAED-Core", estadoActual, "PAGADA"
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), estadoActual, "PAGADA"
         );
 
         // Enviar notificación por email (non-blocking)
@@ -138,7 +147,7 @@ public class MultaServiceImpl implements MultaService {
     public void anular(Long id) {
         MultaDTO multa = repo.findById(id);
         if (multa == null) {
-            throw new IllegalArgumentException("Multa no encontrada con ID: " + id);
+            throw new NoSuchElementException("Multa no encontrada con ID: " + id);
         }
 
         String estadoActual = multa.getEstado();
@@ -159,7 +168,7 @@ public class MultaServiceImpl implements MultaService {
         auditService.recordSuccess(
                 userId, orgId, propId,
                 "ANULAR_MULTA", "MULTAS", id,
-                "127.0.0.1", "SAED-Core", estadoActual, "ANULADA"
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), estadoActual, "ANULADA"
         );
     }
 }

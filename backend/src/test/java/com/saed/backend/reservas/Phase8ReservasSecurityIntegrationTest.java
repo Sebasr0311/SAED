@@ -10,6 +10,7 @@ import com.saed.backend.finanzas.repository.FinanzasRepository;
 import com.saed.backend.finanzas.service.PazYSalvoService;
 import com.saed.backend.reservas.dto.ReservaDTO;
 import com.saed.backend.security.jwt.JwtProvider;
+import com.saed.backend.testsupport.CohabitantFixture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -126,9 +127,11 @@ public class Phase8ReservasSecurityIntegrationTest {
                     DELETE FROM RESERVAS WHERE ID_UNIDAD IN (1, 2, 9992);
                     DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (1, 2, 9992);
                     DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992));
+                    UPDATE MULTAS SET ID_CUOTA = NULL WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3;
                     DELETE FROM MULTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CARTERA > 4;
+                    UPDATE CUOTAS SET ESTADO = 'ANULADA' WHERE ID_CUOTA = 2 AND ESTADO <> 'ANULADA';
                 END;
             """);
 
@@ -156,6 +159,7 @@ public class Phase8ReservasSecurityIntegrationTest {
 
             ensurePersona(6L, "1000000006", "Pedro", "Perez", "pperez@saed.com");
             ensureUsuario(6L, 6L, "pedro_p", "pperez@saed.com");
+            CohabitantFixture.ensure(jdbcTemplate, ASSIGN_CONVIVIENTE_1, USER_CONVIVIENTE_1, 1L, 1L, 1L);
 
             ensurePersona(99L, "1000000099", "AdminProp2", "SAED", "admin_prop2@saed.com");
             ensureUsuario(99L, 99L, "admin_prop2", "admin_prop2@saed.com");
@@ -183,9 +187,11 @@ public class Phase8ReservasSecurityIntegrationTest {
                     DELETE FROM RESERVAS WHERE ID_UNIDAD IN (1, 2, 9992);
                     DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (1, 2, 9992);
                     DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992));
+                    UPDATE CUOTAS SET ESTADO = 'PENDIENTE' WHERE ID_CUOTA = 2 AND ESTADO = 'ANULADA';
+                    UPDATE MULTAS SET ID_CUOTA = NULL WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3;
                     DELETE FROM MULTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CARTERA > 4;
                 END;
             """);
         } catch (Exception ignored) {}
@@ -359,7 +365,7 @@ public class Phase8ReservasSecurityIntegrationTest {
         setElevatedContext();
         try {
             jdbcTemplate.update("UPDATE CUOTAS SET SALDO_PENDIENTE = 0, ESTADO = 'PAGADA' WHERE ID_UNIDAD = 1");
-            jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 1");
+            jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 1 AND ID_CARTERA > 4");
             finanzasRepository.recalcularCarteraUnidad(UNIT_1_ID);
         } finally {
             clearContext();
@@ -496,7 +502,7 @@ public class Phase8ReservasSecurityIntegrationTest {
         setElevatedContext();
         try {
             jdbcTemplate.update("UPDATE CUOTAS SET SALDO_PENDIENTE = 0, ESTADO = 'PAGADA' WHERE ID_UNIDAD = 1");
-            jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 1");
+            jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 1 AND ID_CARTERA > 4");
             finanzasRepository.recalcularCarteraUnidad(UNIT_1_ID);
         } finally {
             clearContext();
@@ -532,7 +538,7 @@ public class Phase8ReservasSecurityIntegrationTest {
     private void ensureOrganizacion(Long id, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     id, nombre, nit, email);
         }
     }
@@ -540,31 +546,31 @@ public class Phase8ReservasSecurityIntegrationTest {
     private void ensurePropiedad(Long id, Long idOrg, String nombre) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM PROPIEDADES WHERE ID_PROPIEDAD = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, NOMBRE, DIRECCION, CIUDAD, TIPO_OCUPACION_PREDOMINANTE, ESTADO) " +
-                    "VALUES (?, ?, ?, 'Calle 123', 'Bogotá', 'RESIDENCIAL', 'ACTIVA')", id, idOrg, nombre);
+            jdbcTemplate.update("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, TIPO_OCUPACION_PREDOMINANTE, ESTADO) " +
+                    "VALUES (?, ?, 1, ?, 'Calle 123', 'Bogotá', 'MIXTA', 'ACTIVA')", id, idOrg, nombre);
         }
     }
 
     private void ensureUnidad(Long id, Long idProp, String identificador) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM UNIDADES WHERE ID_UNIDAD = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, IDENTIFICADOR, TIPO_UNIDAD, COEFICIENTE_COPROPIEDAD, ESTADO) " +
-                    "VALUES (?, ?, ?, 'RESIDENCIAL', 0.05, 'DISPONIBLE')", id, idProp, identificador);
+            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, COEFICIENTE_COPROPIEDAD, ESTADO) " +
+                    "VALUES (?, ?, 1, ?, 0.05, 'ACTIVA')", id, idProp, identificador);
         }
     }
 
     private void ensurePersona(Long id, String doc, String nombre, String apellido, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM PERSONAS WHERE ID_PERSONA = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, NUMERO_DOCUMENTO, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) " +
-                    "VALUES (?, ?, ?, ?, ?)", id, doc, nombre, apellido, email);
+            jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) " +
+                    "VALUES (?, 1, ?, ?, ?, ?)", id, doc, nombre, apellido, email);
         }
     }
 
     private void ensureUsuario(Long id, Long idPersona, String username, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM USUARIOS WHERE ID_USUARIO = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, USERNAME, EMAIL, PASSWORD_HASH, ESTADO) " +
+            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) " +
                     "VALUES (?, ?, ?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyz123456', 'ACTIVO')", id, idPersona, username, email);
         }
     }

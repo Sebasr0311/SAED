@@ -43,7 +43,7 @@ public class ParqueaderosServiceImpl implements ParqueaderosService {
     @Transactional(readOnly = true)
     public ParqueaderoDTO getParqueaderoById(Long id) {
         return parqueaderosRepository.getParqueaderoById(id)
-                .orElseThrow(() -> new RuntimeException("Parqueadero no encontrado"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Parqueadero no encontrado"));
     }
 
     @Override
@@ -82,20 +82,27 @@ public class ParqueaderosServiceImpl implements ParqueaderosService {
     @Transactional(readOnly = true)
     public AsignacionParqueaderoDTO getAsignacionById(Long id) {
         return parqueaderosRepository.getAsignacionById(id)
-                .orElseThrow(() -> new RuntimeException("Asignacion no encontrada"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Asignacion no encontrada"));
     }
 
     @Override
     @Transactional
     @Auditable(action = "CREATE", resource = "ASIGNACION_PARQUEADERO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public AsignacionParqueaderoDTO crearAsignacion(AsignacionParqueaderoRequestDTO request) {
-        ParqueaderoDTO pq = getParqueaderoById(request.idParqueadero());
-        if (!"DISPONIBLE".equals(pq.estado())) {
-            throw new RuntimeException("El parqueadero no se encuentra disponible");
+        SaedContext ctx = SaedContextHolder.getContext();
+        if (ctx == null || ctx.getPropertyId() == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Missing property context");
         }
-        AsignacionParqueaderoDTO asignacion = parqueaderosRepository.crearAsignacion(request);
-        parqueaderosRepository.actualizarEstadoParqueadero(request.idParqueadero(), "ASIGNADO");
-        return asignacion;
+        ParqueaderoDTO pq = getParqueaderoById(request.idParqueadero());
+        if (!ctx.getPropertyId().equals(pq.idPropiedad())) {
+            throw new org.springframework.security.access.AccessDeniedException("El parqueadero no pertenece a la propiedad");
+        }
+        // F07-03: conditional claim (DISPONIBLE -> ASIGNADO); a concurrent assignment of the same spot loses.
+        if (!parqueaderosRepository.reservarParqueadero(request.idParqueadero(), ctx.getPropertyId())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT, "El parqueadero no se encuentra disponible");
+        }
+        return parqueaderosRepository.crearAsignacion(request);
     }
 
     @Override

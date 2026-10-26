@@ -6,18 +6,16 @@ public class EmailDispatchResponseDTO {
     private boolean real;
     private String emailDestino;
     private String username;
-    private String passwordGenerada;
     private String fecha;
 
     public EmailDispatchResponseDTO() {}
 
-    public EmailDispatchResponseDTO(String estado, String detalle, boolean real, String emailDestino, String username, String passwordGenerada, String fecha) {
+    public EmailDispatchResponseDTO(String estado, String detalle, boolean real, String emailDestino, String username, String fecha) {
         this.estado = estado;
         this.detalle = detalle;
         this.real = real;
         this.emailDestino = emailDestino;
         this.username = username;
-        this.passwordGenerada = passwordGenerada;
         this.fecha = fecha;
     }
 
@@ -35,9 +33,6 @@ public class EmailDispatchResponseDTO {
 
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
-
-    public String getPasswordGenerada() { return passwordGenerada; }
-    public void setPasswordGenerada(String passwordGenerada) { this.passwordGenerada = passwordGenerada; }
 
     public String getFecha() { return fecha; }
     public void setFecha(String fecha) { this.fecha = fecha; }

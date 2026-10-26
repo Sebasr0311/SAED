@@ -155,6 +155,7 @@ export const ACCESS_BY_ROLE = {
     '/pagos',
     '/cartera',
     '/presupuestos',
+    '/facturacion',
     '/gastos',
     '/flujo-caja',
     '/conciliaciones',

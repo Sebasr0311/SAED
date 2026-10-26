@@ -3989,7 +3989,7 @@ Secuencia operativa para realizar una demostracion en vivo exitosa y controlada:
    - Paso 1: Acceso como Administrador de Organizacion (admin_org@saed.com).
      * Accion: Demostrar Tenant Switcher en la cabecera cambiando de copropiedad.
      * Resultado esperado: Los datos de unidades y residentes se adaptan instantaneamente.
-   - Paso 2: Acceso como Residente (juanrinconfarelo705@gmail.com).
+   - Paso 2: Acceso como Residente (residente.demo@example.invalid).
      * Accion: Generar invitacion para "Evaluador Docente" y desplegar QR en pantalla.
      * Resultado esperado: Codigo QR generado con token UUID en estado PENDIENTE.
    - Paso 3: Acceso como Portero (portero@saed.com).

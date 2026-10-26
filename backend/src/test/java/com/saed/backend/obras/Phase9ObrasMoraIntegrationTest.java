@@ -5,6 +5,7 @@ import com.saed.backend.authorization.dto.*;
 import com.saed.backend.authorization.service.AssignmentService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
+import com.saed.backend.finanzas.domain.CarteraRecalculation;
 import com.saed.backend.finanzas.dto.PazYSalvoEstadoFinancieroDTO;
 import com.saed.backend.finanzas.service.PazYSalvoService;
 import com.saed.backend.security.jwt.JwtProvider;
@@ -16,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -40,7 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * - Test 02: Unidad con cuota en mora bloquea radicación de obra (422 UNIDAD_EN_MORA).
  * - Test 03: Tras regularización de cartera / pago de cuota, radicación exitosa (201 Created).
  * - Test 04: Anti-IDOR: Residente de Unidad A no puede radicar obra en Unidad B (403 Forbidden).
- * - Test 05: Aislamiento Cross-Property: Admin de Propiedad 1 no puede operar obra de Propiedad 2 (403/400).
+ * - Test 05: Aislamiento Cross-Property: Admin de Propiedad 1 no puede operar obra de Propiedad 2 (404 no-disclosure).
  * - Test 06: Manipulación de payload: Intento de forzar unidad foránea en cuerpo de petición (403 Forbidden).
  * - Test 07: Prevención de bypass de estados (SOLICITADA -> EN_EJECUCION -> 400 Bad Request) y control de mora al iniciar (422).
  * - Test 08: Validación de unidad obligatoria en solicitud administrativa (400 Bad Request).
@@ -111,16 +113,27 @@ public class Phase9ObrasMoraIntegrationTest {
 
         try {
             // Limpieza de datos de prueba en obras y finanzas
+            jdbcTemplate.update("UPDATE CUOTAS SET ESTADO = 'PENDIENTE' WHERE ID_CUOTA = 2 AND ESTADO = 'ANULADA'");
             jdbcTemplate.execute("""
                 BEGIN
                     DELETE FROM OBRAS WHERE ID_UNIDAD IN (1, 2, 9992);
                     DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992));
+                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3);
                     DELETE FROM MULTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3;
                 END;
             """);
+
+            // The demo dataset keeps one outstanding fee (cuota 2, Apto 101). The gate under test reads CUOTAS in real
+            // time (1ca286d), so that single seeded fee is voided for the duration of each test and restored afterwards;
+            // the other seeded fees (1 and 3) are paid and the tests only create and remove fees above id 3.
+            jdbcTemplate.update("UPDATE CUOTAS SET ESTADO = 'ANULADA' WHERE ID_CUOTA = 2 AND ESTADO <> 'ANULADA'");
+            // CARTERA is a snapshot derived from CUOTAS. The cleanup above voids the seeded fee 2 (overdue since the seed's
+            // due date), so the snapshot must be recomputed too; otherwise a stale mora written by an earlier class
+            // (Mvp04 recalculates the property) is read back by the service as the unit's arrears.
+            for (long unit : new long[] {1L, 2L, 9992L}) {
+                CarteraRecalculation.recalcularUnidad(new NamedParameterJdbcTemplate(jdbcTemplate), unit);
+            }
 
             ensureOrganizacion(1L, "Organización Central", "900000001-1", "org1@saed.com");
             ensureOrganizacion(9992L, "Org 9992 Foranea", "900009992-9", "org9992@test.com");
@@ -128,22 +141,11 @@ public class Phase9ObrasMoraIntegrationTest {
             ensurePropiedad(1L, 1L, "Torre Central SAED");
             ensurePropiedad(9992L, 9992L, "Torre Foránea 9992");
 
-            ensureUnidad(1L, 1L, "Apto 101");
-            ensureUnidad(2L, 1L, "Apto 102");
+            ensureUnidad(UNIT_1_ID, 1L, "Apto 101");
+            ensureUnidad(UNIT_2_ID, 1L, "Apto 102");
             ensureUnidad(9992L, 9992L, "Apto 9992");
 
-            ensurePersona(1L, "1000000001", "Super", "Admin", "superadmin@saed.com");
-            ensureUsuario(1L, 1L, "superadmin", "superadmin@saed.com");
-
-            ensurePersona(2L, "1000000002", "Admin", "Propiedad", "admin@saed.com");
-            ensureUsuario(2L, 2L, "admin", "admin@saed.com");
-
-            ensurePersona(4L, "1000000004", "Carlos", "Martinez", "camartinez@saed.com");
-            ensureUsuario(4L, 4L, "carlos_m", "camartinez@saed.com");
-
-            ensurePersona(5L, "1000000005", "Ana", "Gomez", "anagomez@saed.com");
-            ensureUsuario(5L, 5L, "ana_g", "anagomez@saed.com");
-
+            // Users 1, 2, 4 and 5 (and their personas) come from the demo seed and are not rewritten here.
             ensurePersona(8L, "1000000008", "AdminOrg1", "SAED", "admin_org1@saed.com");
             ensureUsuario(8L, 8L, "admin_org1", "admin_org1@saed.com");
 
@@ -167,14 +169,14 @@ public class Phase9ObrasMoraIntegrationTest {
     public void tearDown() {
         try {
             setElevatedContext();
+            jdbcTemplate.update("UPDATE CUOTAS SET ESTADO = 'PENDIENTE' WHERE ID_CUOTA = 2 AND ESTADO = 'ANULADA'");
             jdbcTemplate.execute("""
                 BEGIN
                     DELETE FROM OBRAS WHERE ID_UNIDAD IN (1, 2, 9992);
                     DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992));
+                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3);
                     DELETE FROM MULTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3;
                 END;
             """);
         } catch (Exception ignored) {}
@@ -240,6 +242,11 @@ public class Phase9ObrasMoraIntegrationTest {
         try {
             jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
         } catch (Exception ignored) {}
+    }
+
+    private void setAdminPropiedadContext() {
+        SaedContextHolder.setContext(SaedContext.builder()
+                .userId(USER_ADMIN_PROP_1).organizationId(1L).propertyId(1L).roleCode("ADMIN_PROPIEDAD").roleScope("PROPIEDAD").build());
     }
 
     private void clearContext() {
@@ -323,7 +330,7 @@ public class Phase9ObrasMoraIntegrationTest {
     void test03_solicitarObra_trasPagoRegularizacion_exitoso201() throws Exception {
         setElevatedContext();
         // Regularizar deuda eliminando la cuota pendiente
-        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 1");
+        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 1 AND ID_CUOTA > 3");
         clearContext();
 
         String tokenResidente = jwtProvider.generateIdentityToken(USER_RESIDENTE_1);
@@ -374,7 +381,7 @@ public class Phase9ObrasMoraIntegrationTest {
 
     @Test
     @Order(5)
-    @DisplayName("Test 05: Aislamiento Cross-Property: Admin de Propiedad 1 no puede operar obra de Propiedad 2 (403/400)")
+    @DisplayName("Test 05: Aislamiento Cross-Property: Admin de Propiedad 1 no puede operar obra de Propiedad 2 (404 no-disclosure)")
     void test05_crossProperty_adminProp1_intentaOperarObraProp2_403o400() throws Exception {
         setElevatedContext();
         // Insertar una obra perteneciente a Propiedad 2 (Unidad 9992)
@@ -394,13 +401,13 @@ public class Phase9ObrasMoraIntegrationTest {
         mockMvc.perform(get("/api/v1/obras/" + idObraForanea)
                 .header("Authorization", "Bearer " + tokenAdminProp1)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_1)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound()); // non-disclosure: a foreign property resource answers 404 (DEC-01)
 
         // Admin de Propiedad 1 intenta aprobar la obra de Propiedad 2
         mockMvc.perform(post("/api/v1/obras/" + idObraForanea + "/aprobar")
                 .header("Authorization", "Bearer " + tokenAdminProp1)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_1)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound()); // non-disclosure: a foreign property resource answers 404 (DEC-01)
     }
 
     @Test
@@ -515,8 +522,7 @@ public class Phase9ObrasMoraIntegrationTest {
     void test09_solicitarObra_unidadConMultasPendientesSinCartera_rechazado422() throws Exception {
         setElevatedContext();
         // Cartera en 0 pero multa exigible impuesta en Unidad 2
-        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 2");
-        jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 2");
+        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 2 AND ID_CUOTA > 3");
         jdbcTemplate.update("""
             INSERT INTO MULTAS (ID_UNIDAD, ID_CONCEPTO, MONTO, MOTIVO, ESTADO, ID_CUOTA)
             VALUES (2, 1, 180000, 'Ruidos molestos y afectación a convivencia', 'IMPUESTA', NULL)
@@ -549,10 +555,11 @@ public class Phase9ObrasMoraIntegrationTest {
     @DisplayName("Test 10: Unidad con saldo total exigible en CARTERA > 0 bloquea radicación (422 UNIDAD_EN_MORA)")
     void test10_solicitarObra_unidadConSaldoTotalExigibleMayorACero_rechazado422() throws Exception {
         setElevatedContext();
-        // Insertar saldo en CARTERA para Unidad 2 (SALDO_TOTAL es columna virtual computada)
+        // 1ca286d: the paz y salvo gate computes the exigible balance in real time from CUOTAS (not from the CARTERA
+        // snapshot), so the outstanding balance is created as an open fee of Unidad 2.
         jdbcTemplate.update("""
-            INSERT INTO CARTERA (ID_UNIDAD, SALDO_CORRIENTE, SALDO_MORA_30, SALDO_MORA_60, SALDO_MORA_90_MAS, FECHA_CORTE, ESTADO_CARTERA)
-            VALUES (2, 250000, 0, 0, 0, TRUNC(SYSDATE), 'AL_DIA')
+            INSERT INTO CUOTAS (ID_UNIDAD, ID_CONCEPTO, PERIODO, VALOR_BASE, SALDO_PENDIENTE, FECHA_VENCIMIENTO, ESTADO)
+            VALUES (2, 1, '2026-03', 250000, 250000, TRUNC(SYSDATE) - 20, 'VENCIDA')
         """);
         clearContext();
 
@@ -584,8 +591,7 @@ public class Phase9ObrasMoraIntegrationTest {
         setElevatedContext();
         // Asegurar unidad 2 limpia de deudas
         jdbcTemplate.update("DELETE FROM MULTAS WHERE ID_UNIDAD = 2");
-        jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 2");
-        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 2");
+        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 2 AND ID_CUOTA > 3");
         clearContext();
 
         String tokenAdmin = jwtProvider.generateIdentityToken(USER_ADMIN_PROP_1);
@@ -631,7 +637,7 @@ public class Phase9ObrasMoraIntegrationTest {
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_1))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound()); // non-disclosure: a foreign property resource answers 404 (DEC-01)
     }
 
     @Test
@@ -703,9 +709,11 @@ public class Phase9ObrasMoraIntegrationTest {
         setElevatedContext();
         // Limpiar unidad 1
         jdbcTemplate.update("DELETE FROM OBRAS WHERE ID_UNIDAD = 1");
-        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 1");
+        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 1 AND ID_CUOTA > 3");
         jdbcTemplate.update("DELETE FROM MULTAS WHERE ID_UNIDAD = 1");
-        jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 1");
+
+        // DEC-02: SUPERADMIN cannot read operational finance data; the service is queried as the property administrator.
+        setAdminPropiedadContext();
 
         // 1. Verificar directamente con PazYSalvoService que la unidad está a paz y salvo
         PazYSalvoEstadoFinancieroDTO estadoLimpio = pazYSalvoService.verificarEstadoFinanciero(UNIT_1_ID);
@@ -713,12 +721,14 @@ public class Phase9ObrasMoraIntegrationTest {
         assertFalse(estadoLimpio.enMora(), "La unidad no debe estar en mora");
 
         // 2. Insertar deuda en mora con estado canónico VENCIDA
+        setElevatedContext();
         jdbcTemplate.update("""
             INSERT INTO CUOTAS (ID_UNIDAD, ID_CONCEPTO, PERIODO, VALOR_BASE, SALDO_PENDIENTE, FECHA_VENCIMIENTO, ESTADO)
             VALUES (1, 1, '2026-04', 500000, 500000, TRUNC(SYSDATE) - 30, 'VENCIDA')
         """);
 
         // 3. Verificar directamente con PazYSalvoService que ahora reporta enMora == true
+        setAdminPropiedadContext();
         PazYSalvoEstadoFinancieroDTO estadoMora = pazYSalvoService.verificarEstadoFinanciero(UNIT_1_ID);
         assertFalse(estadoMora.pazYSalvo(), "La unidad debe reportar pazYSalvo = false");
         assertTrue(estadoMora.enMora(), "La unidad debe reportar enMora = true");
@@ -757,7 +767,7 @@ public class Phase9ObrasMoraIntegrationTest {
     private void ensureOrganizacion(Long id, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     id, nombre, nit, email);
         }
     }
@@ -765,31 +775,31 @@ public class Phase9ObrasMoraIntegrationTest {
     private void ensurePropiedad(Long id, Long idOrg, String nombre) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM PROPIEDADES WHERE ID_PROPIEDAD = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, NOMBRE, DIRECCION, CIUDAD, TIPO_OCUPACION_PREDOMINANTE, ESTADO) " +
-                    "VALUES (?, ?, ?, 'Calle 123', 'Bogotá', 'RESIDENCIAL', 'ACTIVA')", id, idOrg, nombre);
+            jdbcTemplate.update("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, TIPO_OCUPACION_PREDOMINANTE, ESTADO) " +
+                    "VALUES (?, ?, 1, ?, 'Calle 123', 'Bogotá', 'MIXTA', 'ACTIVA')", id, idOrg, nombre);
         }
     }
 
     private void ensureUnidad(Long id, Long idProp, String identificador) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM UNIDADES WHERE ID_UNIDAD = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, IDENTIFICADOR, TIPO_UNIDAD, COEFICIENTE_COPROPIEDAD, ESTADO) " +
-                    "VALUES (?, ?, ?, 'RESIDENCIAL', 0.05, 'DISPONIBLE')", id, idProp, identificador);
+            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, COEFICIENTE_COPROPIEDAD, ESTADO) " +
+                    "VALUES (?, ?, 1, ?, 0.001, 'ACTIVA')", id, idProp, identificador);
         }
     }
 
     private void ensurePersona(Long id, String doc, String nombre, String apellido, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM PERSONAS WHERE ID_PERSONA = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, NUMERO_DOCUMENTO, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) " +
-                    "VALUES (?, ?, ?, ?, ?)", id, doc, nombre, apellido, email);
+            jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) " +
+                    "VALUES (?, 1, ?, ?, ?, ?)", id, doc, nombre, apellido, email);
         }
     }
 
     private void ensureUsuario(Long id, Long idPersona, String username, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM USUARIOS WHERE ID_USUARIO = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, USERNAME, EMAIL, PASSWORD_HASH, ESTADO) " +
+            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) " +
                     "VALUES (?, ?, ?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyz123456', 'ACTIVO')", id, idPersona, username, email);
         }
     }

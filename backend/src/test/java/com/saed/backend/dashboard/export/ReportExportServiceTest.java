@@ -58,7 +58,7 @@ public class ReportExportServiceTest {
     // =========================================================================
 
     @Test
-    @DisplayName("ExportFormat.fromString parses formats case-insensitively and defaults to JSON")
+    @DisplayName("ExportFormat.fromString parses formats case-insensitively, defaults blank to JSON and rejects unknown values")
     void testExportFormatParsing() {
         assertEquals(ExportFormat.JSON, ExportFormat.fromString("json"));
         assertEquals(ExportFormat.JSON, ExportFormat.fromString("JSON"));
@@ -66,13 +66,15 @@ public class ReportExportServiceTest {
         assertEquals(ExportFormat.PDF, ExportFormat.fromString("PDF"));
         assertEquals(ExportFormat.CSV, ExportFormat.fromString("csv"));
         assertEquals(ExportFormat.CSV, ExportFormat.fromString("CSV"));
+        assertEquals(ExportFormat.XLSX, ExportFormat.fromString("xlsx"));
 
-        // Defaults to JSON
+        // Absent format defaults to JSON
         assertEquals(ExportFormat.JSON, ExportFormat.fromString(null));
         assertEquals(ExportFormat.JSON, ExportFormat.fromString(""));
         assertEquals(ExportFormat.JSON, ExportFormat.fromString("   "));
-        assertEquals(ExportFormat.JSON, ExportFormat.fromString("unknown"));
-        assertEquals(ExportFormat.JSON, ExportFormat.fromString("xml"));
+        // Unknown formats are rejected (F11-01)
+        assertThrows(IllegalArgumentException.class, () -> ExportFormat.fromString("unknown"));
+        assertThrows(IllegalArgumentException.class, () -> ExportFormat.fromString("xml"));
     }
 
     // =========================================================================

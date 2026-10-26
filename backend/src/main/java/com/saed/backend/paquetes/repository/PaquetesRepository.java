@@ -16,4 +16,9 @@ public interface PaquetesRepository {
     boolean registrarEntrega(Long idPaquete, PaqueteEntregaDTO entregaDTO, Long idPorteroEntrega);
     void marcarEntregadoDirecto(Long idPaquete, Long idPortero);
     void incrementarIntentosFallidos(Long idPaquete);
+    /**
+     * Atomically counts one PIN attempt in its own transaction, only while fewer than {@code maxIntentos}
+     * attempts were made; returns false when the package is locked.
+     */
+    boolean reservarIntentoPin(Long idPaquete, int maxIntentos);
 }

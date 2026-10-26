@@ -6,6 +6,7 @@ import com.saed.backend.porteria.service.PorteriaService;
 import com.saed.backend.common.service.EmailService;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.context.SaedContext;
+import com.saed.backend.person.service.VisitorIdentityRegistry;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -108,7 +109,7 @@ public class PorteriaController {
     @GetMapping("/porteros-disponibles")
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> listarPorterosDisponibles() {
-        Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : 1L;
+        Long propId = requireCallerPropertyId();
         String sql = """
             SELECT u.ID_USUARIO, u.NOMBRE_USUARIO, u.EMAIL,
                    p.PRIMER_NOMBRE, p.SEGUNDO_NOMBRE, p.PRIMER_APELLIDO, p.SEGUNDO_APELLIDO, p.NUMERO_DOCUMENTO
@@ -150,7 +151,7 @@ public class PorteriaController {
     @GetMapping("/{id}/turnos")
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public ResponseEntity<ApiResponse<List<PorteroTurnoDTO>>> listarTurnos(@PathVariable Long id) {
-        Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : 1L;
+        Long propId = requireCallerPropertyId();
         String sql = """
             SELECT pt.ID_ASIGNACION_TURNO, pt.ID_PORTERIA, pt.ID_USUARIO,
                    u.NOMBRE_USUARIO,
@@ -201,43 +202,58 @@ public class PorteriaController {
     public ResponseEntity<ApiResponse<Void>> asignarTurno(
             @PathVariable Long id,
             @RequestBody @Valid PorteroTurnoRequestDTO req) {
-        Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : 1L;
+        Long propId = requireCallerPropertyId();
 
         Map<String, String> infoTurno = CATALOGO_TURNOS.get(req.codigoTurno());
         if (infoTurno == null) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Código de turno inválido según la Ley 1920 de 2018"));
         }
 
-        String mergeSql = """
-            MERGE INTO PORTERIA_TURNOS tgt
-            USING (SELECT :propId AS ID_PROPIEDAD, :idPorteria AS ID_PORTERIA, :idUsuario AS ID_USUARIO,
-                          :codigoTurno AS CODIGO_TURNO, :nombreTurno AS NOMBRE_TURNO,
-                          :horaInicio AS HORA_INICIO, :horaFin AS HORA_FIN,
-                          :diasSemana AS DIAS_SEMANA, 'ACTIVO' AS ESTADO FROM DUAL) src
-            ON (tgt.ID_PORTERIA = src.ID_PORTERIA AND tgt.ID_USUARIO = src.ID_USUARIO)
-            WHEN MATCHED THEN
-                UPDATE SET tgt.CODIGO_TURNO = src.CODIGO_TURNO,
-                           tgt.NOMBRE_TURNO = src.NOMBRE_TURNO,
-                           tgt.HORA_INICIO = src.HORA_INICIO,
-                           tgt.HORA_FIN = src.HORA_FIN,
-                           tgt.DIAS_SEMANA = src.DIAS_SEMANA,
-                           tgt.ESTADO = src.ESTADO,
-                           tgt.FECHA_ASIGNACION = CURRENT_TIMESTAMP
-            WHEN NOT MATCHED THEN
-                INSERT (ID_PROPIEDAD, ID_PORTERIA, ID_USUARIO, CODIGO_TURNO, NOMBRE_TURNO, HORA_INICIO, HORA_FIN, DIAS_SEMANA, ESTADO)
-                VALUES (src.ID_PROPIEDAD, src.ID_PORTERIA, src.ID_USUARIO, src.CODIGO_TURNO, src.NOMBRE_TURNO, src.HORA_INICIO, src.HORA_FIN, src.DIAS_SEMANA, src.ESTADO)
-            """;
+        // The porteria and the assigned user must both belong to the caller's property.
+        List<Long> porteria = jdbcTemplate.query(
+            "SELECT ID_PORTERIA FROM PORTERIAS WHERE ID_PORTERIA = :idPorteria AND ID_PROPIEDAD = :propId",
+            Map.of("idPorteria", id, "propId", propId), (rs, r) -> rs.getLong("ID_PORTERIA")
+        );
+        if (porteria.isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("La portería no pertenece a la propiedad asignada");
+        }
+        List<Long> portero = jdbcTemplate.query(
+            "SELECT ua.ID_USUARIO FROM USUARIO_ASIGNACIONES ua JOIN ROLES r ON r.ID_ROL = ua.ID_ROL "
+                + "JOIN USUARIOS u ON u.ID_USUARIO = ua.ID_USUARIO "
+                + "WHERE ua.ID_USUARIO = :idUsuario AND ua.ID_PROPIEDAD = :propId AND r.CODIGO = 'PORTERO' "
+                + "AND ua.ESTADO IN ('ACTIVA', 'ACTIVO') AND u.ACTIVO = 1",
+            Map.of("idUsuario", req.idUsuario(), "propId", propId), (rs, r) -> rs.getLong("ID_USUARIO")
+        );
+        if (portero.isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("El usuario no es un portero activo de la propiedad");
+        }
 
-        jdbcTemplate.update(mergeSql, Map.of(
-            "propId", propId,
-            "idPorteria", id,
-            "idUsuario", req.idUsuario(),
-            "codigoTurno", req.codigoTurno(),
-            "nombreTurno", infoTurno.get("nombre"),
-            "horaInicio", infoTurno.get("inicio"),
-            "horaFin", infoTurno.get("fin"),
-            "diasSemana", req.diasSemana() != null && !req.diasSemana().isBlank() ? req.diasSemana().trim() : "L-D"
-        ));
+        // PORTERIA_TURNOS is VPD-protected (V5.32): MERGE raises ORA-28132, so update first, then insert.
+        Map<String, Object> params = new HashMap<>();
+        params.put("propId", propId);
+        params.put("idPorteria", id);
+        params.put("idUsuario", req.idUsuario());
+        params.put("codigoTurno", req.codigoTurno());
+        params.put("nombreTurno", infoTurno.get("nombre"));
+        params.put("horaInicio", infoTurno.get("inicio"));
+        params.put("horaFin", infoTurno.get("fin"));
+        params.put("diasSemana", req.diasSemana() != null && !req.diasSemana().isBlank() ? req.diasSemana().trim() : "L-D");
+
+        int updated = jdbcTemplate.update(
+            "UPDATE PORTERIA_TURNOS SET CODIGO_TURNO = :codigoTurno, NOMBRE_TURNO = :nombreTurno, "
+                + "HORA_INICIO = :horaInicio, HORA_FIN = :horaFin, DIAS_SEMANA = :diasSemana, ESTADO = 'ACTIVO', "
+                + "FECHA_ASIGNACION = CURRENT_TIMESTAMP "
+                + "WHERE ID_PROPIEDAD = :propId AND ID_PORTERIA = :idPorteria AND ID_USUARIO = :idUsuario",
+            params
+        );
+        if (updated == 0) {
+            jdbcTemplate.update(
+                "INSERT INTO PORTERIA_TURNOS (ID_PROPIEDAD, ID_PORTERIA, ID_USUARIO, CODIGO_TURNO, NOMBRE_TURNO, "
+                    + "HORA_INICIO, HORA_FIN, DIAS_SEMANA, ESTADO) VALUES (:propId, :idPorteria, :idUsuario, "
+                    + ":codigoTurno, :nombreTurno, :horaInicio, :horaFin, :diasSemana, 'ACTIVO')",
+                params
+            );
+        }
 
         return ResponseEntity.ok(ApiResponse.success(null));
     }
@@ -246,7 +262,7 @@ public class PorteriaController {
     @DeleteMapping("/{id}/turnos/{idAsignacion}")
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<Void>> desasignarTurno(@PathVariable Long id, @PathVariable Long idAsignacion) {
-        Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : 1L;
+        Long propId = requireCallerPropertyId();
         jdbcTemplate.update(
             "DELETE FROM PORTERIA_TURNOS WHERE ID_ASIGNACION_TURNO = :idAsignacion AND ID_PORTERIA = :idPorteria AND ID_PROPIEDAD = :propId",
             Map.of("idAsignacion", idAsignacion, "idPorteria", id, "propId", propId)
@@ -270,6 +286,8 @@ public class PorteriaController {
         Long unidadId = null;
         if (body.get("unidadId") != null && !body.get("unidadId").toString().isBlank()) {
             unidadId = Long.valueOf(body.get("unidadId").toString());
+        } else if (body.get("idUnidad") != null && !body.get("idUnidad").toString().isBlank()) {
+            unidadId = Long.valueOf(body.get("idUnidad").toString());
         }
 
         Long visitanteId = null;
@@ -282,21 +300,32 @@ public class PorteriaController {
         }
 
         if (visitanteId != null) {
+            // F7-02: a client-supplied visitor id is only honored when it is visible under the
+            // caller's own context (RLS); otherwise it is discarded and never reaches the insert.
+            Long visibleVisitanteId = null;
             try {
                 List<Long> vCheck = jdbcTemplate.query(
                     "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_VISITANTE = :v",
                     Map.of("v", visitanteId), (rs, r) -> rs.getLong("ID_VISITANTE")
                 );
-                if (vCheck.isEmpty()) {
+                if (!vCheck.isEmpty()) {
+                    visibleVisitanteId = vCheck.get(0);
+                } else {
                     List<Long> vByPersona = jdbcTemplate.query(
                         "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
                         Map.of("p", visitanteId), (rs, r) -> rs.getLong("ID_VISITANTE")
                     );
                     if (!vByPersona.isEmpty()) {
-                        visitanteId = vByPersona.get(0);
+                        visibleVisitanteId = vByPersona.get(0);
                     }
                 }
             } catch (Exception ignored) {}
+            if (visibleVisitanteId == null) {
+                // A legacy visitor nobody has claimed is hidden by the row-level policy: the resolver adopts it for
+                // this property; a visitor of any property (or of another resident) is never returned.
+                visibleVisitanteId = new VisitorIdentityRegistry(jdbcTemplate).claimUnclaimed(visitanteId);
+            }
+            visitanteId = visibleVisitanteId;
         }
 
         String rawMetodo = body.get("metodoIngreso") != null ? body.get("metodoIngreso").toString().trim().toUpperCase() : "CODIGO_QR";
@@ -329,11 +358,29 @@ public class PorteriaController {
         }
 
         SaedContext ctx = SaedContextHolder.getContext();
-        String roleCode = ctx != null ? ctx.getRoleCode() : null;
-        String roleScope = ctx != null ? ctx.getRoleScope() : null;
+        if (ctx == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Missing tenant context");
+        }
+        String roleCode = ctx.getRoleCode();
+        String roleScope = ctx.getRoleScope();
+        boolean residentCaller = "RESIDENTE".equals(roleCode) || "RESIDENTE_CONVIVENCIA".equals(roleCode) || "UNIDAD".equals(roleScope);
+
+        // F7-02: a client-supplied property id must match the authenticated property scope.
+        Object rawPropId = body.get("idPropiedad") != null ? body.get("idPropiedad") : body.get("propiedadId");
+        if (rawPropId != null && !rawPropId.toString().isBlank()) {
+            Long requestedPropId;
+            try {
+                requestedPropId = Long.valueOf(rawPropId.toString());
+            } catch (NumberFormatException e) {
+                throw new org.springframework.security.access.AccessDeniedException("Invalid property scope");
+            }
+            if (!requestedPropId.equals(ctx.getPropertyId())) {
+                throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para programar visitas en otra propiedad");
+            }
+        }
 
         // Validar autorizacion de ambito residencial para RESIDENTE y RESIDENTE_CONVIVENCIA
-        if (ctx != null && ("RESIDENTE".equals(roleCode) || "RESIDENTE_CONVIVENCIA".equals(roleCode) || "UNIDAD".equals(roleScope))) {
+        if (residentCaller) {
             Long userUnitId = ctx.getUnitId();
             if (userUnitId == null && currentUserId != null) {
                 try {
@@ -353,16 +400,13 @@ public class PorteriaController {
                 throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para programar visitas en otra unidad");
             }
             unidadId = userUnitId;
-        } else if (ctx != null && "ADMIN_PROPIEDAD".equals(roleCode)) {
-            Long userPropId = ctx.getPropertyId();
-            if (userPropId != null && unidadId != null) {
-                List<Long> match = jdbcTemplate.query(
-                    "SELECT ID_UNIDAD FROM UNIDADES WHERE ID_UNIDAD = :u AND ID_PROPIEDAD = :p",
-                    Map.of("u", unidadId, "p", userPropId), (rs, r) -> rs.getLong("ID_UNIDAD")
-                );
-                if (match.isEmpty()) {
-                    throw new org.springframework.security.access.AccessDeniedException("La unidad no pertenece a la propiedad asignada");
-                }
+        } else {
+            // F7-02: admin and portero callers are restricted to their own property.
+            if (ctx.getPropertyId() == null) {
+                throw new org.springframework.security.access.AccessDeniedException("El usuario no tiene una propiedad asignada");
+            }
+            if (unidadId != null) {
+                requireUnitInCallerProperty(unidadId, ctx.getPropertyId());
             }
         }
 
@@ -415,20 +459,13 @@ public class PorteriaController {
             }
         }
 
+        // F7-02: never attribute a visit to an arbitrary unit of the property; the destination must be explicit or resolvable.
         if (unidadId == null) {
-            Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : null;
-            if (propId != null) {
-                List<Long> firstUnit = jdbcTemplate.query(
-                    "SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :p AND ROWNUM = 1",
-                    Map.of("p", propId), (rs, r) -> rs.getLong("ID_UNIDAD")
-                );
-                if (!firstUnit.isEmpty()) {
-                    unidadId = firstUnit.get(0);
-                }
-            }
+            throw new IllegalArgumentException("No fue posible determinar la unidad de la visita");
         }
-        if (unidadId == null) {
-            unidadId = 1L;
+        if (!residentCaller) {
+            // Units resolved from idResidente or assignments must still belong to the caller's property.
+            requireUnitInCallerProperty(unidadId, ctx.getPropertyId());
         }
 
         // Resolver autorizadoPor garantizando que sea un ID_USUARIO valido en USUARIOS (FK_VISITAS_AUTORIZADOR)
@@ -483,13 +520,13 @@ public class PorteriaController {
             if (visMap.get("idTipoDoc") != null) {
                 try { idTipoDoc = Long.valueOf(visMap.get("idTipoDoc").toString()); } catch (Exception ignored) {}
             }
-            if (visMap.get("idVisitante") != null) {
-                try { visitanteId = Long.valueOf(visMap.get("idVisitante").toString()); } catch (Exception ignored) {}
-            }
+            // F7-02: client-supplied idPersona / idVisitante are ignored; the visitor identity is
+            // resolved only from the document below. The elevated block that follows is limited to the
+            // global visitor-identity upsert (PERSONAS is globally unique by document and VISITANTES
+            // INSERT is RLS-checked against existing visits) and runs only after all scope checks passed.
             Long personaId = null;
-            if (visMap.get("idPersona") != null) {
-                try { personaId = Long.valueOf(visMap.get("idPersona").toString()); } catch (Exception ignored) {}
-            }
+            // DEC-01: the visitor person belongs to the organization of the caller context, resolved before any elevation.
+            Long personaOrgId = com.saed.backend.person.service.PersonaOrganizationBinding.contextOrganization(jdbcTemplate);
 
             SaedContext prevCtx = SaedContextHolder.getContext();
             try {
@@ -524,19 +561,10 @@ public class PorteriaController {
 
                 if (personaId == null) {
                     try {
-                        KeyHolder kh = new GeneratedKeyHolder();
-                        MapSqlParameterSource pParams = new MapSqlParameterSource()
-                            .addValue("idTipo", idTipoDoc)
-                            .addValue("doc", !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis())
-                            .addValue("nom", nom)
-                            .addValue("ape", ape.isBlank() ? "N/A" : ape)
-                            .addValue("tel", tel.isBlank() ? null : tel)
-                            .addValue("email", email.isBlank() ? null : email);
-                        jdbcTemplate.update(
-                            "INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, TELEFONO, EMAIL, ESTADO) " +
-                            "VALUES (:idTipo, :doc, 'NATURAL', :nom, :ape, :tel, :email, 'ACTIVO')",
-                            pParams, kh, new String[]{"ID_PERSONA"}
-                        );
+                        KeyHolder kh = com.saed.backend.person.service.PersonaOrganizationBinding.insertNaturalPerson(
+                            jdbcTemplate, personaOrgId, idTipoDoc,
+                            !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis(), nom, ape.isBlank() ? "N/A" : ape,
+                            email.isBlank() ? null : email, tel.isBlank() ? null : tel);
                         personaId = extractGeneratedKey(kh, "ID_PERSONA");
                     } catch (Exception e) {
                         log.warning("Error creando persona para visitante: " + e.getMessage());
@@ -554,45 +582,20 @@ public class PorteriaController {
                     }
                 }
 
-                if (personaId != null && visitanteId == null) {
-                    try {
-                        List<Long> visList = jdbcTemplate.query(
-                            "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
-                            Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
-                        );
-                        if (!visList.isEmpty()) {
-                            visitanteId = visList.get(0);
-                            if (esFrecuente) {
-                                jdbcTemplate.update("UPDATE VISITANTES SET ES_FRECUENTE = 'S' WHERE ID_VISITANTE = :v", Map.of("v", visitanteId));
-                            }
-                        } else {
-                            KeyHolder khVis = new GeneratedKeyHolder();
-                            jdbcTemplate.update(
-                                "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, ESTADO) VALUES (:p, :frec, 'ACTIVO')",
-                                new MapSqlParameterSource()
-                                    .addValue("p", personaId)
-                                    .addValue("frec", esFrecuente ? "S" : "N"),
-                                khVis, new String[]{"ID_VISITANTE"}
-                            );
-                            visitanteId = extractGeneratedKey(khVis, "ID_VISITANTE");
-                        }
-                    } catch (Exception e) {
-                        log.warning("Error resolviendo ID_VISITANTE: " + e.getMessage());
-                    }
-                    if (visitanteId == null) {
-                        try {
-                            List<Long> visList = jdbcTemplate.query(
-                                "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
-                                Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
-                            );
-                            if (!visList.isEmpty()) {
-                                visitanteId = visList.get(0);
-                            }
-                        } catch (Exception ignored) {}
-                    }
-                }
             } finally {
                 restoreSaedContext(prevCtx);
+            }
+
+            // The visitor row is resolved under the caller's own context by the security-schema resolver (V5.67):
+            // the person may already be a visitor the caller cannot see, and the unique key is global.
+            if (personaId != null) {
+                try {
+                    visitanteId = new VisitorIdentityRegistry(jdbcTemplate).resolveByPerson(personaId, esFrecuente, null);
+                } catch (org.springframework.security.access.AccessDeniedException denied) {
+                    throw denied;
+                } catch (RuntimeException e) {
+                    log.warning("Error resolviendo ID_VISITANTE (" + e.getClass().getSimpleName() + ")");
+                }
             }
         }
 
@@ -622,14 +625,17 @@ public class PorteriaController {
         // Duración QR
         int validezMin = 1440;
         if (body.get("tiempoValidezMin") != null) {
-            try { validezMin = Integer.parseInt(body.get("tiempoValidezMin").toString()); } catch (Exception ignored) {}
+            try { validezMin = Integer.parseInt(body.get("tiempoValidezMin").toString()); } catch (NumberFormatException ignored) {
+                validezMin = 1440;
+            }
         }
+        // F07-01: bounded validity; the service also clamps the expiry and issues the token itself.
+        validezMin = Math.max(5, Math.min(7 * 24 * 60, validezMin));
 
-        // Generar QR automatico y notificar al VISITANTE
-        String token = UUID.randomUUID().toString();
+        // Generar QR automatico y notificar al VISITANTE (token emitido por el servicio)
         QrAccesoRequestDTO qrReq = new QrAccesoRequestDTO(
             visita.idVisita(),
-            token,
+            UUID.randomUUID().toString(),
             ZonedDateTime.now(ZoneId.of("America/Bogota")).plusMinutes(validezMin),
             1,
             "ACTIVO",
@@ -637,6 +643,7 @@ public class PorteriaController {
         );
 
         QrAccesoDTO qr = porteriaService.generarQrAcceso(qrReq);
+        String token = qr.tokenQr();
 
         // Vehiculo si vino en payload con placa (objeto vehiculo o campos planos en raíz)
         String placa = null;
@@ -698,35 +705,25 @@ public class PorteriaController {
     }
 
     @GetMapping("/visitas/buscar")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public ResponseEntity<Map<String, Object>> buscarVisitantePorDocumento(@RequestParam(required = false) String documento) {
-        if (documento == null || documento.trim().isEmpty()) {
+        // C-06: gate-only lookup. Runs under the caller's own context (no SUPERADMIN/bootstrap elevation)
+        // and is explicitly scoped to visitors with a visit to a unit in the caller's property.
+        // Out-of-scope and nonexistent documents return the same empty response (no existence oracle).
+        SaedContext ctx = SaedContextHolder.getContext();
+        Long propId = ctx != null ? ctx.getPropertyId() : null;
+        if (documento == null || documento.trim().isEmpty() || propId == null) {
             return ResponseEntity.ok(Map.of());
         }
-        SaedContext prevCtx = SaedContextHolder.getContext();
         try {
-            Long orgId = prevCtx != null && prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 1L;
-            Long propId = prevCtx != null && prevCtx.getPropertyId() != null ? prevCtx.getPropertyId() : 1L;
-            SaedContext systemCtx = SaedContext.builder()
-                .userId(1L)
-                .organizationId(orgId)
-                .propertyId(propId)
-                .roleCode("SUPERADMIN")
-                .roleScope("GLOBAL")
-                .build();
-            SaedContextHolder.setContext(systemCtx);
-            try {
-                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
-                jdbcTemplate.getJdbcOperations().execute(
-                    String.format("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, 'SUPERADMIN'); END;", orgId, propId)
-                );
-            } catch (Exception ignored) {}
-
             List<Map<String, Object>> list = jdbcTemplate.queryForList(
-                "SELECT p.ID_PERSONA, p.ID_TIPO_DOCUMENTO, p.NUMERO_DOCUMENTO, p.PRIMER_NOMBRE, p.PRIMER_APELLIDO, p.TELEFONO, p.EMAIL, v.ID_VISITANTE " +
-                "FROM PERSONAS p LEFT JOIN VISITANTES v ON p.ID_PERSONA = v.ID_PERSONA " +
-                "WHERE p.NUMERO_DOCUMENTO = :doc AND ROWNUM = 1",
-                Map.of("doc", documento.trim())
+                "SELECT p.ID_PERSONA, p.ID_TIPO_DOCUMENTO, p.NUMERO_DOCUMENTO, p.PRIMER_NOMBRE, p.PRIMER_APELLIDO, p.TELEFONO, v.ID_VISITANTE "
+                    + "FROM PERSONAS p JOIN VISITANTES v ON p.ID_PERSONA = v.ID_PERSONA "
+                    + "WHERE p.NUMERO_DOCUMENTO = :doc "
+                    + "AND EXISTS (SELECT 1 FROM VISITAS vi JOIN UNIDADES un ON un.ID_UNIDAD = vi.ID_UNIDAD "
+                    + "WHERE vi.ID_VISITANTE = v.ID_VISITANTE AND un.ID_PROPIEDAD = :propId) "
+                    + "AND ROWNUM = 1",
+                Map.of("doc", documento.trim(), "propId", propId)
             );
             if (!list.isEmpty()) {
                 Map<String, Object> row = list.get(0);
@@ -737,16 +734,24 @@ public class PorteriaController {
                 res.put("numeroDocumento", row.get("NUMERO_DOCUMENTO"));
                 res.put("nombres", row.get("PRIMER_NOMBRE"));
                 res.put("apellidos", row.get("PRIMER_APELLIDO"));
-                res.put("telefono", row.get("TELEFONO"));
-                res.put("email", row.get("EMAIL"));
+                res.put("telefono", maskPhone(row.get("TELEFONO")));
                 return ResponseEntity.ok(res);
             }
         } catch (Exception e) {
             log.warning("Error buscando visitante por documento: " + e.getMessage());
-        } finally {
-            restoreSaedContext(prevCtx);
         }
         return ResponseEntity.ok(Map.of());
+    }
+
+    private static String maskPhone(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        String phone = raw.toString().trim();
+        if (phone.length() <= 4) {
+            return "****";
+        }
+        return "*".repeat(phone.length() - 4) + phone.substring(phone.length() - 4);
     }
 
     @GetMapping("/visitas/{id}")
@@ -765,6 +770,13 @@ public class PorteriaController {
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public VisitaDTO actualizarVisita(@PathVariable Long id, @RequestBody @Valid VisitaRequestDTO request) {
         return porteriaService.actualizarVisita(id, request);
+    }
+
+    @PutMapping("/visitas/{id}/cancelar")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    public void cancelarVisita(@PathVariable Long id) {
+        porteriaService.cancelarVisita(id);
     }
 
     @PutMapping("/visitas/{id}/salida")
@@ -823,6 +835,13 @@ public class PorteriaController {
         return porteriaService.generarQrAcceso(request);
     }
 
+    @PostMapping("/qr/{id}/revocar")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    public void revocarQr(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
+        porteriaService.revocarQr(id, body != null ? body.get("motivo") : null);
+    }
+
     @GetMapping("/qr/{id}")
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_PORTERO')")
     public QrAccesoDTO getQrAccesoById(@PathVariable Long id) {
@@ -840,17 +859,6 @@ public class PorteriaController {
             return Map.of("valido", false, "mensaje", "Token o código QR no proporcionado");
         }
         return porteriaService.validarQrDetalle(token);
-    }
-
-    @PostMapping("/qr/notificar")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
-    public Map<String, Object> notificarVisita(@RequestBody Map<String, String> body) {
-        String token = body.get("codigoQr");
-        if (token == null || token.isBlank()) {
-            token = body.get("token");
-        }
-        String fotoCaptura = body.get("fotoCaptura");
-        return porteriaService.notificarVisitaQr(token, fotoCaptura);
     }
 
     @PostMapping("/qr/entrada")
@@ -877,8 +885,10 @@ public class PorteriaController {
     @PostMapping("/vehiculos/{id}/salida")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO')")
-    public void registrarSalidaVehiculo(@PathVariable Long id, @RequestBody Map<String, BigDecimal> body) {
-        porteriaService.registrarSalidaVehiculo(id, body.getOrDefault("costoTotal", BigDecimal.ZERO));
+    public void registrarSalidaVehiculo(@PathVariable Long id,
+                                        @RequestBody(required = false) Map<String, BigDecimal> body) {
+        // F07-03: the parking fee is computed server side; a client-supplied costoTotal is ignored.
+        porteriaService.registrarSalidaVehiculo(id);
     }
 
     private Long extractGeneratedKey(KeyHolder kh, String columnName) {
@@ -915,6 +925,25 @@ public class PorteriaController {
             }
         }
         return null;
+    }
+
+    /** Tenant scope for property-level endpoints; never falls back to a default property. */
+    private static Long requireCallerPropertyId() {
+        SaedContext ctx = SaedContextHolder.getContext();
+        if (ctx == null || ctx.getPropertyId() == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Missing property context");
+        }
+        return ctx.getPropertyId();
+    }
+
+    private void requireUnitInCallerProperty(Long unitId, Long propId) {
+        List<Long> match = jdbcTemplate.query(
+            "SELECT ID_UNIDAD FROM UNIDADES WHERE ID_UNIDAD = :u AND ID_PROPIEDAD = :p",
+            Map.of("u", unitId, "p", propId), (rs, r) -> rs.getLong("ID_UNIDAD")
+        );
+        if (match.isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("La unidad no pertenece a la propiedad asignada");
+        }
     }
 
     private void restoreSaedContext(SaedContext prevCtx) {

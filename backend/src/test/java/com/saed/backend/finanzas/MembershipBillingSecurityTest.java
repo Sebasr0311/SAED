@@ -328,9 +328,11 @@ public class MembershipBillingSecurityTest {
     }
 
     @Test
-    @DisplayName("GAP-ENT-04: Upgrade hacia plan de menor valor (downgrade) es rechazado (400 Bad Request)")
-    public void upgrade_haciaPlanInferior_esRechazado() throws Exception {
-        // Org Enterprise (Plan 3) intenta "upgradear" a Plan 2 (PRO)
+    @DisplayName("GAP-ENT-04: Cambio hacia un plan de menor valor (downgrade) se acepta cuando el uso cabe en los limites del plan destino")
+    public void upgrade_haciaPlanInferior_conUsoDentroDeLimites_esAceptado() throws Exception {
+        // Org Enterprise (Plan 3) cambia a Plan 2 (PRO). 88f23a8 replaced the blanket downgrade rejection with a
+        // resource-limit check (422 only when the organization's usage exceeds the target plan), and this organization
+        // is well within the PRO limits.
         MembresiaUpgradeRequestDTO request = new MembresiaUpgradeRequestDTO(2L, "MENSUAL");
 
         mockMvc.perform(post("/api/v1/membresias/upgrade")
@@ -338,7 +340,7 @@ public class MembershipBillingSecurityTest {
                         .header("X-Assignment-Id", ASSIGN_ADMIN_ENT)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk());
     }
 
     @Test

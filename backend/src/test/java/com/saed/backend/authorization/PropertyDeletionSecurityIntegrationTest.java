@@ -251,12 +251,14 @@ public class PropertyDeletionSecurityIntegrationTest {
                 .andExpect(jsonPath("$.verified").value(false));
 
         // 3. TEST 10: Obtener desafío y verificar con código correcto -> VERIFIED
-        var challengeOpt = challengeService.getChallenge(challengeId);
+        java.util.concurrent.atomic.AtomicReference<java.util.Optional<?>> found = new java.util.concurrent.atomic.AtomicReference<>();
+        asOrgAdmin(() -> found.set(challengeService.getChallenge(challengeId)));
+        var challengeOpt = found.get();
         assertTrue(challengeOpt.isPresent());
 
         // Simulamos la verificación exitosa directamente o creando el challenge con código conocido
         // Para probar el endpoint con el código exacto:
-        var gen = challengeService.createChallenge(testPropId, testOrgId, 999981L, "adminA@test.com", "Propiedad A");
+        var gen = createChallengeAsOrgAdmin(testPropId, testOrgId, 999981L, "adminA@test.com", "Propiedad A");
         PropertyDeletionDTOs.VerifyRequest correctReq = new PropertyDeletionDTOs.VerifyRequest(gen.challengeId(), gen.rawOtp());
 
         mockMvc.perform(post("/api/v1/properties/" + testPropId + "/deletion/verify")
@@ -268,7 +270,9 @@ public class PropertyDeletionSecurityIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.verified").value(true));
 
-        assertEquals(PropertyDeletionChallengeService.ChallengeState.VERIFIED, gen.challenge().getState());
+        // The challenge is persisted (PropertyDeletionChallengeDurabilityTest): the object returned at creation is a
+        // snapshot, so the current state is read back from the store.
+        assertEquals(PropertyDeletionChallengeService.ChallengeState.VERIFIED, currentChallengeState(gen.challengeId()));
     }
 
     @Test
@@ -276,7 +280,7 @@ public class PropertyDeletionSecurityIntegrationTest {
     public void test13_bruteForce_blocksChallenge() throws Exception {
         String token = jwtProvider.generateIdentityToken(999981L);
 
-        var gen = challengeService.createChallenge(testPropId, testOrgId, 999981L, "adminA@test.com", "Propiedad A");
+        var gen = createChallengeAsOrgAdmin(testPropId, testOrgId, 999981L, "adminA@test.com", "Propiedad A");
 
         // Realizar 5 intentos fallidos
         for (int i = 0; i < 5; i++) {
@@ -299,7 +303,9 @@ public class PropertyDeletionSecurityIntegrationTest {
                 .content(objectMapper.writeValueAsString(sixthReq)))
                 .andExpect(status().isConflict());
 
-        assertEquals(PropertyDeletionChallengeService.ChallengeState.BLOCKED, gen.challenge().getState());
+        // The challenge is persisted (PropertyDeletionChallengeDurabilityTest): the object returned at creation is a
+        // snapshot, so the current state is read back from the store.
+        assertEquals(PropertyDeletionChallengeService.ChallengeState.BLOCKED, currentChallengeState(gen.challengeId()));
     }
 
     @Test
@@ -315,7 +321,7 @@ public class PropertyDeletionSecurityIntegrationTest {
         jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT; END;");
         SaedContextHolder.clearContext();
 
-        var gen = challengeService.createChallenge(propToDeleteId, testOrgId, 999981L, "adminA@test.com", "Prop Temp Delete");
+        var gen = createChallengeAsOrgAdmin(propToDeleteId, testOrgId, 999981L, "adminA@test.com", "Prop Temp Delete");
 
         // TEST 14: Intentar confirmar SIN verificar OTP -> Falla con Conflict (409)
         PropertyDeletionDTOs.ConfirmRequest unverifiedConfirm = new PropertyDeletionDTOs.ConfirmRequest(gen.challengeId(), true);
@@ -327,7 +333,7 @@ public class PropertyDeletionSecurityIntegrationTest {
                 .andExpect(status().isConflict());
 
         // Verificar OTP legítimo
-        challengeService.verifyOtp(gen.challengeId(), propToDeleteId, testOrgId, 999981L, gen.rawOtp());
+        asOrgAdmin(() -> challengeService.verifyOtp(gen.challengeId(), propToDeleteId, testOrgId, 999981L, gen.rawOtp()));
 
         // TEST 15: Con OTP verificado + Confirmación = true -> Eliminación exitosa
         PropertyDeletionDTOs.ConfirmRequest validConfirm = new PropertyDeletionDTOs.ConfirmRequest(gen.challengeId(), true);
@@ -374,5 +380,29 @@ public class PropertyDeletionSecurityIntegrationTest {
                     int status = result.getResponse().getStatus();
                     assertTrue(status == 404 || status == 409, "Debe retornar 404 (no existe) o 409 (conflicto), pero fue: " + status);
                 });
+    }
+
+    /** DESAFIOS_ELIM_PROPIEDAD is under RLS (WITH CHECK): the challenge is created and verified in the organization administrator's own context. */
+    private void asOrgAdmin(Runnable action) {
+        SaedContextHolder.setContext(SaedContext.builder().userId(999981L).organizationId(testOrgId)
+                .roleCode("ADMIN_ORGANIZACION").roleScope("ORGANIZACION").build());
+        try {
+            action.run();
+        } finally {
+            SaedContextHolder.clearContext();
+        }
+    }
+
+    private PropertyDeletionChallengeService.GeneratedChallenge createChallengeAsOrgAdmin(
+            Long propertyId, Long organizationId, Long userId, String email, String propertyName) {
+        PropertyDeletionChallengeService.GeneratedChallenge[] holder = new PropertyDeletionChallengeService.GeneratedChallenge[1];
+        asOrgAdmin(() -> holder[0] = challengeService.createChallenge(propertyId, organizationId, userId, email, propertyName));
+        return holder[0];
+    }
+
+    private PropertyDeletionChallengeService.ChallengeState currentChallengeState(String challengeId) {
+        java.util.concurrent.atomic.AtomicReference<PropertyDeletionChallengeService.ChallengeState> state = new java.util.concurrent.atomic.AtomicReference<>();
+        asOrgAdmin(() -> state.set(challengeService.getChallenge(challengeId).orElseThrow().getState()));
+        return state.get();
     }
 }

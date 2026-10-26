@@ -16,7 +16,7 @@ public class DatabaseAuditCheckTest {
     @Test
     public void testAuditTableExists() {
         Integer count = jdbcTemplate.queryForObject(
-            "SELECT count(*) FROM user_tables WHERE table_name = 'AUDITORIA_LOG'", Integer.class);
+            "SELECT count(*) FROM all_tables WHERE owner = SYS_CONTEXT('USERENV','CURRENT_SCHEMA') AND table_name = 'AUDITORIA_LOG'", Integer.class);
         System.out.println("===========================================");
         System.out.println("AUDITORIA_LOG table count: " + count);
         System.out.println("===========================================");

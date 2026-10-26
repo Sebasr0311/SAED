@@ -30,7 +30,21 @@ import java.util.Map;
 @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
 public class AuditoriaController {
 
+    private static final int MAX_LIMITE = 500;
+
     private final NamedParameterJdbcTemplate jdbcTemplate;
+
+    /**
+     * DEC-02: SUPERADMIN sees who did what, but not the content of a tenant's records, so the state payloads of
+     * rows that belong to an organization are masked for it.
+     */
+    private static String statePayloadColumns(String roleCode) {
+        if ("SUPERADMIN".equals(roleCode)) {
+            return "CASE WHEN ID_ORGANIZACION IS NULL THEN ESTADO_ANTERIOR END AS ESTADO_ANTERIOR, "
+                    + "CASE WHEN ID_ORGANIZACION IS NULL THEN ESTADO_NUEVO END AS ESTADO_NUEVO";
+        }
+        return "ESTADO_ANTERIOR, ESTADO_NUEVO";
+    }
 
     public AuditoriaController(NamedParameterJdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -50,7 +64,7 @@ public class AuditoriaController {
         String roleScope = ctx.getRoleScope();
 
         StringBuilder sb = new StringBuilder("SELECT ID_LOG, ENTIDAD, ACCION, ID_ENTIDAD_AFECTADA, " +
-                "ID_USUARIO, FECHA_HORA, ESTADO_ANTERIOR, ESTADO_NUEVO, " +
+                "ID_USUARIO, FECHA_HORA, " + statePayloadColumns(roleCode) + ", " +
                 "ID_ORGANIZACION, ID_PROPIEDAD " +
                 "FROM AUDITORIA_LOG WHERE 1=1");
         MapSqlParameterSource params = new MapSqlParameterSource();
@@ -88,7 +102,7 @@ public class AuditoriaController {
         }
 
         sb.append(" ORDER BY FECHA_HORA DESC FETCH FIRST :limite ROWS ONLY");
-        params.addValue("limite", limite);
+        params.addValue("limite", Math.max(1, Math.min(limite, MAX_LIMITE)));
 
         List<Map<String, Object>> items = jdbcTemplate.queryForList(sb.toString(), params);
         return ApiResponse.success(items);
@@ -125,7 +139,9 @@ public class AuditoriaController {
         String roleCode = ctx.getRoleCode();
         String roleScope = ctx.getRoleScope();
 
-        StringBuilder sb = new StringBuilder("SELECT * FROM AUDITORIA_LOG WHERE ID_LOG = :id");
+        StringBuilder sb = new StringBuilder("SELECT ID_LOG, ENTIDAD, ACCION, ID_ENTIDAD_AFECTADA, ID_USUARIO, "
+                + "FECHA_HORA, " + statePayloadColumns(roleCode) + ", ID_ORGANIZACION, ID_PROPIEDAD, IP_ORIGEN, "
+                + "USER_AGENT, RESULTADO FROM AUDITORIA_LOG WHERE ID_LOG = :id");
         MapSqlParameterSource params = new MapSqlParameterSource("id", id);
 
         if (!"SUPERADMIN".equals(roleCode)) {
@@ -139,7 +155,9 @@ public class AuditoriaController {
         }
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sb.toString(), params);
-        if (rows.isEmpty()) return ApiResponse.error("Registro no encontrado");
+        if (rows.isEmpty()) {
+            throw new java.util.NoSuchElementException("Registro no encontrado");
+        }
         return ApiResponse.success(rows.get(0));
     }
 }

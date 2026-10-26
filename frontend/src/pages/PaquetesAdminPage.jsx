@@ -472,15 +472,6 @@ export default function PaquetesAdminPage() {
                   </span>
                 </div>
 
-                {detalle.codigoRetiroPin && (
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30 font-mono">
-                    <span className="text-muted-foreground font-sans">PIN de Seguridad:</span>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                      {detalle.codigoRetiroPin}
-                    </span>
-                  </div>
-                )}
-
                 <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
                   <span className="text-muted-foreground">Estado Actual:</span>
                   <span

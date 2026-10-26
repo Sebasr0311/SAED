@@ -143,6 +143,13 @@ public class QrAtomicConsumptionIntegrationTest {
         // 3. Mock para portero asignado a OTRA propiedad (Property 999994) para Test 5 (Multi-tenant)
         testOtraPropiedadId = 999994L;
         try {
+            // The other-property scenario needs a real ACTIVA property: InactivePropertyFilter answers PROPERTY_INACTIVE
+            // for a property id that does not exist, before the QR property check can run.
+            Integer otraProp = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM PROPIEDADES WHERE ID_PROPIEDAD = ?", Integer.class, testOtraPropiedadId);
+            if (otraProp == null || otraProp == 0) {
+                jdbcTemplate.update("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, ESTADO) "
+                        + "VALUES (?, 1, 1, 'Prop Test 999994', 'Calle Test 999', 'Bogota', 'ACTIVA')", testOtraPropiedadId);
+            }
             List<Map<String, Object>> portsOtra = jdbcTemplate.queryForList("SELECT ID_PORTERIA FROM PORTERIAS WHERE ID_PROPIEDAD = ? AND ROWNUM = 1", testOtraPropiedadId);
             if (portsOtra.isEmpty()) {
                 jdbcTemplate.update(
@@ -151,6 +158,11 @@ public class QrAtomicConsumptionIntegrationTest {
                     testOtraPropiedadId
                 );
             }
+            // V5.58: a porter only sees the properties of its own active assignments, so the porter of the other
+            // property needs a real (test-owned) assignment there, or the property reads as inactive.
+            jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = ? AND ID_PROPIEDAD = ?", testPorteroUserId, testOtraPropiedadId);
+            jdbcTemplate.update("INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO) "
+                    + "VALUES (?, (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'PORTERO'), 1, ?, 'ACTIVA', TRUNC(SYSDATE))", testPorteroUserId, testOtraPropiedadId);
         } catch (Exception ignored) {}
 
         AssignmentResponseDTO porteroOtraProp = new AssignmentResponseDTO();
@@ -183,6 +195,7 @@ public class QrAtomicConsumptionIntegrationTest {
     void tearDown() {
         setElevatedContext();
         try {
+            jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = ? AND ID_PROPIEDAD = ?", testPorteroUserId, testOtraPropiedadId);
             for (String token : generatedTokens) {
                 jdbcTemplate.update("DELETE FROM REGISTROS_ACCESO WHERE ID_QR IN (SELECT ID_QR FROM QR_ACCESOS WHERE TOKEN_QR = ?)", token);
                 jdbcTemplate.update("DELETE FROM QR_ACCESOS WHERE TOKEN_QR = ?", token);
@@ -216,7 +229,7 @@ public class QrAtomicConsumptionIntegrationTest {
     void test0_verificarObjetoOracleValid() {
         setElevatedContext();
         String status = jdbcTemplate.queryForObject(
-                "SELECT STATUS FROM USER_OBJECTS WHERE OBJECT_NAME = 'SP_VALIDAR_CONSUMIR_QR' AND OBJECT_TYPE = 'PROCEDURE'",
+                "SELECT STATUS FROM ALL_OBJECTS WHERE OWNER = SYS_CONTEXT('USERENV','CURRENT_SCHEMA') AND OBJECT_NAME = 'SP_VALIDAR_CONSUMIR_QR' AND OBJECT_TYPE = 'PROCEDURE'",
                 String.class
         );
         assertNotNull(status, "El objeto SP_VALIDAR_CONSUMIR_QR debe existir en Oracle");

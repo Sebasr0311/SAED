@@ -28,8 +28,6 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -94,50 +92,40 @@ public class VisitaEntradaManualIntegrationTest {
         Mockito.when(assignmentService.validateAssignment(testAssignmentId, testPorteroUserId))
                 .thenReturn(Optional.of(porteroAssignment));
 
-        // Localizar o preparar datos mínimos para FKs
-        try {
-            List<Map<String, Object>> props = jdbcTemplate.queryForList("SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ROWNUM = 1");
-            if (!props.isEmpty()) {
-                testPropiedadId = ((Number) props.get(0).get("ID_PROPIEDAD")).longValue();
-            }
-            List<Map<String, Object>> ports = jdbcTemplate.queryForList("SELECT ID_PORTERIA FROM PORTERIAS WHERE ROWNUM = 1");
-            if (!ports.isEmpty()) {
-                testPorteriaId = ((Number) ports.get(0).get("ID_PORTERIA")).longValue();
-            }
-            List<Map<String, Object>> pers = jdbcTemplate.queryForList("SELECT ID_PERSONA FROM PERSONAS WHERE ROWNUM = 1");
-            if (!pers.isEmpty()) {
-                testPersonaId = ((Number) pers.get(0).get("ID_PERSONA")).longValue();
-            }
-            List<Map<String, Object>> units = jdbcTemplate.queryForList("SELECT ID_UNIDAD FROM UNIDADES WHERE ROWNUM = 1");
-            if (!units.isEmpty()) {
-                testUnidadId = ((Number) units.get(0).get("ID_UNIDAD")).longValue();
-            }
-        } catch (Exception ignored) {}
+        // Deterministic fixture owned by this class. The porter acts on property 1 (mocked assignment 103), and the
+        // VISITAS update runs under RLS, so the visit must belong to a unit of property 1; picking "any row"
+        // (ROWNUM = 1) selected another tenant's property/unit on a fresh database and the check-in then
+        // updated 0 rows.
+        testPropiedadId = 1L;
+        testPorteriaId = jdbcTemplate.queryForObject(
+                "SELECT MIN(ID_PORTERIA) FROM PORTERIAS WHERE ID_PROPIEDAD = ?", Long.class, testPropiedadId);
+        if (testPorteriaId == null) {
+            jdbcTemplate.update("INSERT INTO PORTERIAS (ID_PROPIEDAD, NOMBRE, UBICACION, ESTADO) "
+                    + "VALUES (?, 'Porteria Entrada Manual', 'Acceso principal', 'ACTIVO')", testPropiedadId);
+            testPorteriaId = jdbcTemplate.queryForObject(
+                    "SELECT MIN(ID_PORTERIA) FROM PORTERIAS WHERE ID_PROPIEDAD = ?", Long.class, testPropiedadId);
+        }
+        testUnidadId = jdbcTemplate.queryForObject(
+                "SELECT MIN(ID_UNIDAD) FROM UNIDADES WHERE ID_PROPIEDAD = ?", Long.class, testPropiedadId);
+        assertNotNull(testUnidadId, "Property 1 must have at least one unit");
 
-        // Asegurar existencia de visitante
-        Long testVisitanteId = 1L;
-        try {
-            List<Map<String, Object>> vis = jdbcTemplate.queryForList("SELECT ID_VISITANTE FROM VISITANTES WHERE ROWNUM = 1");
-            if (!vis.isEmpty()) {
-                testVisitanteId = ((Number) vis.get(0).get("ID_VISITANTE")).longValue();
-            }
-        } catch (Exception ignored) {}
+        testPersonaId = 20102L;
+        jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO) "
+                + "SELECT 20102, 1, 'DOC-ENTRADA-MANUAL', 'NATURAL', 'Visitante', 'EntradaManual' FROM DUAL "
+                + "WHERE NOT EXISTS (SELECT 1 FROM PERSONAS WHERE ID_PERSONA = 20102)");
+        jdbcTemplate.update("INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, ESTADO, ID_PROPIEDAD) "
+                + "SELECT 20102, 'N', 'ACTIVO', ? FROM DUAL "
+                + "WHERE NOT EXISTS (SELECT 1 FROM VISITANTES WHERE ID_PERSONA = 20102)", testPropiedadId);
+        Long testVisitanteId = jdbcTemplate.queryForObject(
+                "SELECT MIN(ID_VISITANTE) FROM VISITANTES WHERE ID_PERSONA = 20102", Long.class);
 
         // Insertar visita de prueba con estado PROGRAMADA
-        try {
-            jdbcTemplate.update(
-                    "INSERT INTO VISITAS (ID_UNIDAD, ID_VISITANTE, METODO_INGRESO, MOTIVO, AUTORIZADO_POR, ESTADO) " +
-                    "VALUES (?, ?, 'PEATONAL', 'Prueba entrada manual GAP-F7-01', 1, 'PROGRAMADA')",
-                    testUnidadId, testVisitanteId
-            );
-            testVisitaId = jdbcTemplate.queryForObject("SELECT MAX(ID_VISITA) FROM VISITAS WHERE MOTIVO = 'Prueba entrada manual GAP-F7-01'", Long.class);
-        } catch (Exception e) {
-            List<Map<String, Object>> existingVis = jdbcTemplate.queryForList("SELECT ID_VISITA FROM VISITAS WHERE ROWNUM = 1");
-            if (!existingVis.isEmpty()) {
-                testVisitaId = ((Number) existingVis.get(0).get("ID_VISITA")).longValue();
-                jdbcTemplate.update("UPDATE VISITAS SET ESTADO = 'PROGRAMADA' WHERE ID_VISITA = ?", testVisitaId);
-            }
-        }
+        jdbcTemplate.update(
+                "INSERT INTO VISITAS (ID_UNIDAD, ID_VISITANTE, METODO_INGRESO, MOTIVO, AUTORIZADO_POR, ESTADO) " +
+                "VALUES (?, ?, 'PREAUTORIZADA', 'Prueba entrada manual GAP-F7-01', 1, 'PROGRAMADA')",
+                testUnidadId, testVisitanteId
+        );
+        testVisitaId = jdbcTemplate.queryForObject("SELECT MAX(ID_VISITA) FROM VISITAS WHERE MOTIVO = 'Prueba entrada manual GAP-F7-01'", Long.class);
     }
 
     @AfterEach
@@ -254,5 +242,54 @@ public class VisitaEntradaManualIntegrationTest {
 
         String estado = jdbcTemplate.queryForObject("SELECT ESTADO FROM VISITAS WHERE ID_VISITA = ?", String.class, testVisitaId);
         assertEquals("EN_CURSO", estado);
+    }
+
+    @Test
+    @WithMockUser(username = "3", authorities = {"SCOPE_PORTERO"})
+    @DisplayName("GAP-F7-01: entrada manual sobre una visita de otra propiedad -> 404, la visita no cambia y no se registra acceso")
+    void registrarEntradaManual_VisitaDeOtraPropiedad_Rechazada() throws Exception {
+        // A visit of property 20110 is invisible to the porter of property 1 (RLS), so the state UPDATE affects 0 rows.
+        // Before the fix the access record was still created (201) and the visit silently stayed PROGRAMADA.
+        jdbcTemplate.update("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, PAIS, TIPO_OCUPACION_PREDOMINANTE, ESTADO) "
+                + "SELECT 20110, 1, 1, 'Propiedad entrada manual ajena', 'Calle 1', 'Bogota', 'Colombia', 'MIXTA', 'ACTIVA' FROM DUAL "
+                + "WHERE NOT EXISTS (SELECT 1 FROM PROPIEDADES WHERE ID_PROPIEDAD = 20110)");
+        jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, ESTADO) "
+                + "SELECT 20110, 20110, 1, 'Ajena-20110', 'ACTIVA' FROM DUAL "
+                + "WHERE NOT EXISTS (SELECT 1 FROM UNIDADES WHERE ID_UNIDAD = 20110)");
+        Long visitanteId = jdbcTemplate.queryForObject(
+                "SELECT MIN(ID_VISITANTE) FROM VISITANTES WHERE ID_PERSONA = 20102", Long.class);
+        jdbcTemplate.update("INSERT INTO VISITAS (ID_UNIDAD, ID_VISITANTE, METODO_INGRESO, MOTIVO, AUTORIZADO_POR, ESTADO) "
+                + "VALUES (20110, ?, 'PREAUTORIZADA', 'Entrada manual propiedad ajena GAP-F7-01', 1, 'PROGRAMADA')", visitanteId);
+        Long foreignVisit = jdbcTemplate.queryForObject(
+                "SELECT MAX(ID_VISITA) FROM VISITAS WHERE MOTIVO = 'Entrada manual propiedad ajena GAP-F7-01'", Long.class);
+
+        try {
+            RegistroAccesoRequestDTO request = new RegistroAccesoRequestDTO(
+                    testPropiedadId, testPorteriaId, null, foreignVisit, testPersonaId, 20110L, null,
+                    "ENTRADA", "MANUAL_PORTERO", testPorteroUserId, null, "Entrada sobre visita ajena");
+
+            mockMvc.perform(post("/api/v1/porteria/registros/entrada")
+                            .header("X-Assignment-Id", String.valueOf(testAssignmentId))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isNotFound());
+
+            SaedContextHolder.setContext(SaedContext.builder()
+                    .userId(1L).organizationId(1L).propertyId(testPropiedadId)
+                    .roleCode("SUPERADMIN").roleScope("GLOBAL").build());
+            assertEquals("PROGRAMADA", jdbcTemplate.queryForObject(
+                    "SELECT ESTADO FROM VISITAS WHERE ID_VISITA = ?", String.class, foreignVisit));
+            assertEquals(0, jdbcTemplate.queryForObject(
+                    "SELECT COUNT(1) FROM REGISTROS_ACCESO WHERE ID_VISITA = ?", Integer.class, foreignVisit),
+                    "A rejected movement must not leave an access record behind");
+        } finally {
+            SaedContextHolder.setContext(SaedContext.builder()
+                    .userId(1L).organizationId(1L).propertyId(testPropiedadId)
+                    .roleCode("SUPERADMIN").roleScope("GLOBAL").build());
+            jdbcTemplate.update("DELETE FROM REGISTROS_ACCESO WHERE ID_VISITA = ?", foreignVisit);
+            jdbcTemplate.update("DELETE FROM VISITAS WHERE ID_VISITA = ?", foreignVisit);
+            jdbcTemplate.update("DELETE FROM UNIDADES WHERE ID_UNIDAD = 20110");
+            jdbcTemplate.update("DELETE FROM PROPIEDADES WHERE ID_PROPIEDAD = 20110");
+        }
     }
 }

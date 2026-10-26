@@ -118,7 +118,7 @@ public class PublicOnboardingControllerTest {
     void testStartupNormalNoEjecutaPurgaDestructiva() {
         // La tabla ONBOARDING_INTENCIONES y el esquema de staging deben permanecer intactos
         Integer stagingCount = jdbcTemplate.getJdbcOperations().queryForObject(
-                "SELECT COUNT(1) FROM USER_TABLES WHERE TABLE_NAME = 'ONBOARDING_INTENCIONES'",
+                "SELECT COUNT(1) FROM ALL_TABLES WHERE OWNER = SYS_CONTEXT('USERENV','CURRENT_SCHEMA') AND TABLE_NAME = 'ONBOARDING_INTENCIONES'",
                 Integer.class
         );
         assertNotNull(stagingCount, "La tabla ONBOARDING_INTENCIONES debe existir");

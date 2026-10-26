@@ -3,6 +3,7 @@ package com.saed.backend.authorization.service;
 import com.saed.backend.audit.AuditService;
 import com.saed.backend.authorization.dto.PropertyDTO;
 import com.saed.backend.authorization.dto.PropertyDeletionDTOs;
+import com.saed.backend.authorization.exception.PropertyHasHistoryException;
 import com.saed.backend.authorization.repository.PropertyRepository;
 import com.saed.backend.common.service.EmailService;
 import com.saed.backend.context.SaedContext;
@@ -14,6 +15,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.NoSuchElementException;
 
 @Service
@@ -63,6 +65,9 @@ public class PropertyDeletionService {
             throw new AccessDeniedException("No tiene permisos para eliminar una propiedad perteneciente a otra organización.");
         }
 
+        // Fail fast: never issue an OTP for a property whose history forbids hard deletion (D07)
+        assertNoProtectedHistory(propertyId);
+
         // Obtener correo verificado del administrador
         TokenActivacionRepository.UsuarioInfo userInfo = tokenActivacionRepository.obtenerUsuarioInfo(ctx.getUserId())
                 .orElseThrow(() -> new IllegalStateException("No se encontró la información del usuario administrador."));
@@ -80,8 +85,16 @@ public class PropertyDeletionService {
         try {
             emailService.enviarCodigoOtpEliminacion(email, property.getNombre(), genChallenge.rawOtp(), 5);
         } catch (Exception e) {
-            log.warn("Fallo al enviar correo de eliminación vía Brevo a {}: {}. [OTP para entorno local: {}]",
-                    email, e.getMessage(), genChallenge.rawOtp());
+            // F04-02: an OTP that was not delivered is revoked; the request fails visibly. Neither the OTP nor the
+            // provider error text is logged (audit F4-H02).
+            challengeService.revokeChallenge(genChallenge.challengeId());
+            log.warn("Fallo al enviar correo de eliminación a {} ({}); desafío revocado",
+                    maskEmail(email), e.getClass().getSimpleName());
+            auditService.recordFailure(ctx.getUserId(), orgId, propertyId,
+                    "REQUEST_PROPERTY_DELETION", "PROPIEDAD", propertyId,
+                    ipAddress, userAgent, property.getEstado(), "OTP_DELIVERY_FAILED");
+            throw new IllegalStateException(
+                    "No fue posible enviar el código de seguridad. Intente nuevamente más tarde.");
         }
 
         auditService.recordSuccess(ctx.getUserId(), orgId, propertyId,
@@ -142,6 +155,7 @@ public class PropertyDeletionService {
     /**
      * Paso 9: Tras la segunda confirmación, ejecuta la eliminación transaccional física/lógica en Oracle ATP.
      */
+    @Transactional(rollbackFor = Exception.class)
     public PropertyDeletionDTOs.ConfirmResponse confirmAndExecuteDeletion(Long propertyId, PropertyDeletionDTOs.ConfirmRequest request, String ipAddress, String userAgent) {
         SaedContext ctx = SaedContextHolder.getContext();
         validateAdminOrganizacion(ctx);
@@ -157,6 +171,10 @@ public class PropertyDeletionService {
         if (!property.getIdOrganizacion().equals(orgId)) {
             throw new AccessDeniedException("No tiene permisos para eliminar una propiedad de otra organización.");
         }
+
+        // Re-checked inside the deletion transaction: OTP verification never authorizes
+        // the loss of financial, legal or audit history (D07).
+        assertNoProtectedHistory(propertyId);
 
         // Consume el challenge de forma atómica y valida que esté en estado VERIFIED
         PropertyDeletionChallengeService.DeletionChallenge challenge =
@@ -185,6 +203,13 @@ public class PropertyDeletionService {
                 "La propiedad '" + property.getNombre() + "' ha sido eliminada definitivamente del sistema.",
                 propertyId
         );
+    }
+
+    private void assertNoProtectedHistory(Long propertyId) {
+        List<String> history = propertyRepository.findProtectedHistory(propertyId);
+        if (!history.isEmpty()) {
+            throw new PropertyHasHistoryException(history);
+        }
     }
 
     private void validateAdminOrganizacion(SaedContext ctx) {

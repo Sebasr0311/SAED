@@ -36,8 +36,11 @@ import java.util.List;
 @Tag(name = "Reportes", description = "Reportes operativos y financieros del sistema")
 @RestController
 @RequestMapping("/api/v1/reportes")
-@PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
 public class ReportesController {
+
+    /** One row above the export limit so that an oversized export is detected and rejected (422). */
+    private static final int EXPORT_FETCH_LIMIT = 10001;
 
     private final ReportesService reportesService;
     private final ReportExportService reportExportService;
@@ -60,9 +63,9 @@ public class ReportesController {
             @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Tamaño de página (máximo 200, por defecto 50)")
             @RequestParam(defaultValue = "50") int size,
-            @Parameter(description = "Formato de exportación (JSON, PDF, CSV)")
+            @Parameter(description = "Formato de exportación (JSON, PDF, CSV, XLSX)")
             @RequestParam(required = false) String formato,
-            @Parameter(description = "Formato de exportación alternativo (JSON, PDF, CSV)")
+            @Parameter(description = "Formato de exportación alternativo (JSON, PDF, CSV, XLSX)")
             @RequestParam(required = false) String format
     ) {
         String effFormat = (formato != null && !formato.isBlank()) ? formato : format;
@@ -73,8 +76,9 @@ public class ReportesController {
             return ResponseEntity.ok(ApiResponse.success(items));
         }
 
-        List<CarteraMorosaDTO> items = reportesService.getCarteraMorosa(propertyId, fechaInicio, fechaFin, 0, 10001);
-        ExportResult result = reportExportService.exportCarteraMorosa(items, exportFormat, propertyId, fechaInicio, fechaFin);
+        List<CarteraMorosaDTO> items = reportesService.getCarteraMorosa(propertyId, fechaInicio, fechaFin, 0, EXPORT_FETCH_LIMIT);
+        ExportResult result = reportExportService.exportCarteraMorosa(items, exportFormat,
+                reportesService.resolveScopePropertyId(propertyId), fechaInicio, fechaFin);
         return result.toResponseEntity();
     }
 
@@ -91,9 +95,9 @@ public class ReportesController {
             @RequestParam(required = false) String periodoInicio,
             @Parameter(description = "Periodo final de consulta (YYYY-MM)")
             @RequestParam(required = false) String periodoFin,
-            @Parameter(description = "Formato de exportación (JSON, PDF, CSV)")
+            @Parameter(description = "Formato de exportación (JSON, PDF, CSV, XLSX)")
             @RequestParam(required = false) String formato,
-            @Parameter(description = "Formato de exportación alternativo (JSON, PDF, CSV)")
+            @Parameter(description = "Formato de exportación alternativo (JSON, PDF, CSV, XLSX)")
             @RequestParam(required = false) String format
     ) {
         String effFormat = (formato != null && !formato.isBlank()) ? formato : format;
@@ -105,7 +109,8 @@ public class ReportesController {
             return ResponseEntity.ok(ApiResponse.success(items));
         }
 
-        ExportResult result = reportExportService.exportEjecucionCuotas(items, exportFormat, propertyId, periodoInicio, periodoFin);
+        ExportResult result = reportExportService.exportEjecucionCuotas(items, exportFormat,
+                reportesService.resolveScopePropertyId(propertyId), periodoInicio, periodoFin);
         return result.toResponseEntity();
     }
 
@@ -122,9 +127,9 @@ public class ReportesController {
             @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Tamaño de página (máximo 200, por defecto 50)")
             @RequestParam(defaultValue = "50") int size,
-            @Parameter(description = "Formato de exportación (JSON, PDF, CSV)")
+            @Parameter(description = "Formato de exportación (JSON, PDF, CSV, XLSX)")
             @RequestParam(required = false) String formato,
-            @Parameter(description = "Formato de exportación alternativo (JSON, PDF, CSV)")
+            @Parameter(description = "Formato de exportación alternativo (JSON, PDF, CSV, XLSX)")
             @RequestParam(required = false) String format
     ) {
         String effFormat = (formato != null && !formato.isBlank()) ? formato : format;
@@ -135,8 +140,9 @@ public class ReportesController {
             return ResponseEntity.ok(ApiResponse.success(items));
         }
 
-        List<PagoRecienteDTO> items = reportesService.getPagosRecientes(propertyId, fechaInicio, fechaFin, 0, 10001);
-        ExportResult result = reportExportService.exportPagosRecientes(items, exportFormat, propertyId, fechaInicio, fechaFin);
+        List<PagoRecienteDTO> items = reportesService.getPagosRecientes(propertyId, fechaInicio, fechaFin, 0, EXPORT_FETCH_LIMIT);
+        ExportResult result = reportExportService.exportPagosRecientes(items, exportFormat,
+                reportesService.resolveScopePropertyId(propertyId), fechaInicio, fechaFin);
         return result.toResponseEntity();
     }
 
@@ -149,9 +155,9 @@ public class ReportesController {
             @RequestParam(required = false) Integer vigencia,
             @Parameter(description = "Alias para vigencia")
             @RequestParam(required = false) Integer vigenciaAnio,
-            @Parameter(description = "Formato de exportación (JSON, PDF, CSV)")
+            @Parameter(description = "Formato de exportación (JSON, PDF, CSV, XLSX)")
             @RequestParam(required = false) String formato,
-            @Parameter(description = "Formato de exportación alternativo (JSON, PDF, CSV)")
+            @Parameter(description = "Formato de exportación alternativo (JSON, PDF, CSV, XLSX)")
             @RequestParam(required = false) String format
     ) {
         String effFormat = (formato != null && !formato.isBlank()) ? formato : format;
@@ -164,7 +170,8 @@ public class ReportesController {
             return ResponseEntity.ok(ApiResponse.success(resumen));
         }
 
-        ExportResult result = reportExportService.exportEjecucionPresupuestal(resumen, exportFormat, propertyId, effVigencia);
+        ExportResult result = reportExportService.exportEjecucionPresupuestal(resumen, exportFormat,
+                reportesService.resolveScopePropertyId(propertyId), effVigencia);
         return result.toResponseEntity();
     }
 }

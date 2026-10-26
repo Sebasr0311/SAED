@@ -190,6 +190,16 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean reservarIntentoPin(Long idPaquete, int maxIntentos) {
+        // Conditional increment: concurrent attempts cannot exceed maxIntentos (F08-02).
+        return jdbcTemplate.update(
+            "UPDATE PAQUETES SET INTENTOS_FALLIDOS_PIN = NVL(INTENTOS_FALLIDOS_PIN, 0) + 1 "
+                + "WHERE ID_PAQUETE = :id AND NVL(INTENTOS_FALLIDOS_PIN, 0) < :max",
+            new MapSqlParameterSource("id", idPaquete).addValue("max", maxIntentos)) == 1;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void incrementarIntentosFallidos(Long idPaquete) {
         String sql = "UPDATE PAQUETES SET INTENTOS_FALLIDOS_PIN = NVL(INTENTOS_FALLIDOS_PIN, 0) + 1 WHERE ID_PAQUETE = :id";
         jdbcTemplate.update(sql, new MapSqlParameterSource("id", idPaquete));

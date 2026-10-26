@@ -30,4 +30,11 @@ public interface ReservasRepository {
     boolean updateZona(Long idZona, Long idPropiedad, UpdateZonaComunDTO dto);
     boolean softDeleteZona(Long idZona, Long idPropiedad);
     boolean existsZonaNombreInPropiedad(String nombre, Long idPropiedad, Long excludeIdZona);
+
+    // F08-01 parallel booking and deposit
+    /** Row lock on the unit so concurrent bookings of the same unit (any zone) are serialized. */
+    void lockUnidadForUpdate(Long idUnidad);
+    int countActiveReservasUnidad(Long idUnidad, java.time.LocalDate desde);
+    boolean hasOverlappingReservaUnidad(Long idUnidad, java.time.LocalDate fechaReserva, String horaInicio, String horaFin);
+    void registrarDeposito(Long idReserva, java.math.BigDecimal monto);
 }

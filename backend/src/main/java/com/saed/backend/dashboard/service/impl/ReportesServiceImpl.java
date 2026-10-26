@@ -51,54 +51,55 @@ public class ReportesServiceImpl implements ReportesService {
         }
 
         SaedContext ctx = SaedContextHolder.getContext();
-        boolean isSuperAdmin = auth.getAuthorities().stream()
-                .anyMatch(a -> "SCOPE_SUPERADMIN".equals(a.getAuthority()));
         boolean isAdminProp = auth.getAuthorities().stream()
                 .anyMatch(a -> "SCOPE_ADMIN_PROPIEDAD".equals(a.getAuthority()));
         boolean isAdminOrg = auth.getAuthorities().stream()
                 .anyMatch(a -> "SCOPE_ADMIN_ORGANIZACION".equals(a.getAuthority()));
 
-        if (!isSuperAdmin && !isAdminProp && !isAdminOrg) {
+        // DEC-02: SUPERADMIN does not read operational (financial) report data.
+        if (!isAdminProp && !isAdminOrg) {
             throw new AccessDeniedException("Rol no autorizado para acceder a reportes");
         }
-
-        if (isSuperAdmin) {
-            return new TenantScope(requestedPropertyId, null);
+        Long orgId = ctx != null ? ctx.getOrganizationId() : null;
+        if (orgId == null) {
+            throw new AccessDeniedException("No hay un contexto de organización activo");
         }
 
         if (isAdminProp) {
-            Long assignedPropId = ctx != null ? ctx.getPropertyId() : null;
-            if (assignedPropId != null) {
-                if (requestedPropertyId != null && !requestedPropertyId.equals(assignedPropId)) {
-                    throw new AccessDeniedException("No está autorizado a consultar una propiedad distinta a la asignada en su contexto");
-                }
-                return new TenantScope(assignedPropId, ctx != null ? ctx.getOrganizationId() : null);
+            Long assignedPropId = ctx.getPropertyId();
+            // An absent property context never broadens the scope to the requested or to every property.
+            if (assignedPropId == null) {
+                throw new AccessDeniedException("No hay un contexto de propiedad activo");
             }
-            // En pruebas unitarias o de integración sin SaedContext explícito
-            return new TenantScope(requestedPropertyId, null);
+            if (requestedPropertyId != null && !requestedPropertyId.equals(assignedPropId)) {
+                throw new AccessDeniedException("No está autorizado a consultar una propiedad distinta a la asignada en su contexto");
+            }
+            return new TenantScope(assignedPropId, orgId);
         }
 
         // ADMIN_ORGANIZACION
-        Long orgId = ctx != null ? ctx.getOrganizationId() : null;
         if (requestedPropertyId != null) {
-            if (orgId != null) {
-                MapSqlParameterSource params = new MapSqlParameterSource()
-                        .addValue("propId", requestedPropertyId, Types.NUMERIC)
-                        .addValue("orgId", orgId, Types.NUMERIC);
-                Integer count = jdbcTemplate.queryForObject(
-                        "SELECT COUNT(*) FROM PROPIEDADES WHERE ID_PROPIEDAD = :propId AND ID_ORGANIZACION = :orgId",
-                        params,
-                        Integer.class
-                );
-                if (count == null || count == 0) {
-                    throw new AccessDeniedException("La propiedad especificada no pertenece a la organización autenticada");
-                }
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("propId", requestedPropertyId, Types.NUMERIC)
+                    .addValue("orgId", orgId, Types.NUMERIC);
+            Integer count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM PROPIEDADES WHERE ID_PROPIEDAD = :propId AND ID_ORGANIZACION = :orgId",
+                    params,
+                    Integer.class
+            );
+            if (count == null || count == 0) {
+                throw new AccessDeniedException("La propiedad especificada no pertenece a la organización autenticada");
             }
             return new TenantScope(requestedPropertyId, orgId);
         }
 
         // Consulta agregada a nivel de toda la organización
         return new TenantScope(null, orgId);
+    }
+
+    @Override
+    public Long resolveScopePropertyId(Long requestedPropertyId) {
+        return resolveTenantScope(requestedPropertyId).propertyId;
     }
 
     private void validateDateRange(LocalDate fechaInicio, LocalDate fechaFin) {
@@ -138,7 +139,8 @@ public class ReportesServiceImpl implements ReportesService {
             FROM CUOTAS c
             JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD
             JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD
-            WHERE c.ESTADO IN ('PENDIENTE', 'VENCIDA', 'EN_MORA')
+            WHERE c.ESTADO IN ('PENDIENTE', 'PAGADA_PARCIAL', 'VENCIDA')
+              AND c.SALDO_PENDIENTE > 0
               AND (:propId IS NULL OR u.ID_PROPIEDAD = :propId)
               AND (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId)
               AND (:fechaInicio IS NULL OR c.FECHA_VENCIMIENTO >= :fechaInicio)
@@ -203,14 +205,15 @@ public class ReportesServiceImpl implements ReportesService {
             SELECT c.PERIODO,
                    COUNT(*) AS TOTAL_CUOTAS,
                    SUM(CASE WHEN c.ESTADO = 'PAGADA' THEN 1 ELSE 0 END) AS PAGADAS,
-                   SUM(CASE WHEN c.ESTADO IN ('PENDIENTE', 'VENCIDA', 'EN_MORA') THEN 1 ELSE 0 END) AS PENDIENTES,
+                   SUM(CASE WHEN c.ESTADO IN ('PENDIENTE', 'PAGADA_PARCIAL', 'VENCIDA') THEN 1 ELSE 0 END) AS PENDIENTES,
                    NVL(SUM(c.VALOR_BASE), 0) AS TOTAL_FACTURADO,
                    NVL(SUM(c.SALDO_PENDIENTE), 0) AS TOTAL_PENDIENTE,
                    NVL(SUM(c.VALOR_BASE - c.SALDO_PENDIENTE), 0) AS TOTAL_RECAUDADO
             FROM CUOTAS c
             JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD
             JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD
-            WHERE (:propId IS NULL OR u.ID_PROPIEDAD = :propId)
+            WHERE c.ESTADO <> 'ANULADA'
+              AND (:propId IS NULL OR u.ID_PROPIEDAD = :propId)
               AND (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId)
               AND (:periodoInicio IS NULL OR c.PERIODO >= :periodoInicio)
               AND (:periodoFin IS NULL OR c.PERIODO <= :periodoFin)

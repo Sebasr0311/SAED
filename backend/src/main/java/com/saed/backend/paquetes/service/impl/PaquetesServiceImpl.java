@@ -11,6 +11,7 @@ import com.saed.backend.paquetes.repository.PaquetesRepository;
 import com.saed.backend.paquetes.service.PaquetesService;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
@@ -50,49 +51,70 @@ public class PaquetesServiceImpl implements PaquetesService {
     @Override
     @Transactional
     public PaqueteDTO registrarPaquete(PaqueteRequestDTO request) {
-        SaedContext ctx = SaedContextHolder.getContext();
-        Long propId = ctx != null && ctx.getPropertyId() != null ? ctx.getPropertyId() : 1L;
-        Long userId = ctx != null && ctx.getUserId() != null ? ctx.getUserId() : 1L;
-        Long orgId = ctx != null ? ctx.getOrganizationId() : null;
+        SaedContext ctx = requireStaffContext();
+        Long propId = ctx.getPropertyId();
+        Long userId = ctx.getUserId();
+        Long orgId = ctx.getOrganizationId();
 
         // Anti-IDOR / Tenant isolation: La unidad debe pertenecer a la propiedad activa
-        Integer unitCount = jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM UNIDADES WHERE ID_UNIDAD = :unitId AND ID_PROPIEDAD = :propId",
-                new MapSqlParameterSource("unitId", request.idUnidad()).addValue("propId", propId),
-                Integer.class
-        );
-        if (unitCount == null || unitCount == 0) {
-            throw new AccessDeniedException("La unidad especificada no pertenece a la propiedad activa");
-        }
+        requireUnitInProperty(request.idUnidad(), propId);
 
         // Generar PIN criptográficamente seguro de 4 dígitos exclusivamente en backend
         String pin = generatePin();
 
         PaqueteDTO paquete = paquetesRepository.registrarPaquete(request, propId, pin, userId);
 
-        // Notificar a los residentes activos de la unidad en NOTIFICACIONES
-        try {
-            Long idComunicado = null;
-            try {
-                idComunicado = jdbcTemplate.queryForObject(
-                        "SELECT MIN(ID_COMUNICADO) FROM COMUNICADOS WHERE ID_PROPIEDAD = :propId",
-                        new MapSqlParameterSource("propId", propId),
-                        Long.class
-                );
-            } catch (Exception ignored) {
-            }
-            if (idComunicado == null) {
-                try {
-                    idComunicado = jdbcTemplate.queryForObject(
-                            "SELECT MIN(ID_COMUNICADO) FROM COMUNICADOS",
-                            new MapSqlParameterSource(),
-                            Long.class
-                    );
-                } catch (Exception ignored) {
-                }
-            }
+        notifyPickup(paquete, pin, request.empresaMensajeria());
 
-            String findResidentsSql = "SELECT DISTINCT u.ID_USUARIO FROM USUARIOS u " +
+        // Auditoría segura (sin exponer el PIN)
+        auditService.recordSuccess(userId, orgId, propId, "INSERT", "PAQUETE", paquete.idPaquete(),
+                null, null, null, "{\"evento\":\"PACKAGE_RECEIVED\",\"unidad\":" + request.idUnidad() + "}");
+
+        return forCaller(paquete);
+    }
+
+    /** Staff re-sends the pickup notification (F08-02 recovery); the PIN goes only to unit residents. */
+    @Override
+    @Transactional
+    public int reenviarNotificacion(Long id) {
+        SaedContext ctx = requireStaffContext();
+        PaqueteDTO pq = paquetesRepository.getPaqueteById(id)
+                .orElseThrow(() -> new NoSuchElementException("Paquete no encontrado"));
+        if (!ctx.getPropertyId().equals(pq.idPropiedad())) {
+            throw new AccessDeniedException("El paquete no pertenece a la propiedad activa");
+        }
+        if (!"RECIBIDO".equalsIgnoreCase(pq.estado()) && !"PENDIENTE_ENTREGA".equalsIgnoreCase(pq.estado())) {
+            throw new IllegalStateException("El paquete ya no está pendiente de entrega");
+        }
+        return notifyPickup(pq, pq.codigoRetiroPin(), pq.empresaMensajeria());
+    }
+
+    private int notifyPickup(PaqueteDTO paquete, String pin, String empresa) {
+        String descNotif = (paquete.descripcion() != null && !paquete.descripcion().isBlank())
+                ? paquete.descripcion() : "encomienda";
+        String aptoTxt = (paquete.numeroApartamento() != null && !paquete.numeroApartamento().isBlank())
+                ? (" para el apartamento " + paquete.numeroApartamento()) : "";
+        String msg = "Se ha recibido un paquete (" + descNotif + ") de " +
+                (empresa != null ? empresa : "mensajería") +
+                aptoTxt + ". Código de retiro PIN: " + pin + ". Presenta este código en portería para retirar la encomienda.";
+        return notifyUnitResidents(paquete, "📦 Paquete recibido en portería", msg, "/paquetes/" + paquete.idPaquete());
+    }
+
+    /**
+     * Inserts one in-app notification per active resident of the package unit. A failure is logged with
+     * the package id and failure type only (never the message text, which carries the PIN) and the
+     * notification can be re-sent with {@link #reenviarNotificacion}; residents also see the PIN in their
+     * package list.
+     */
+    private int notifyUnitResidents(PaqueteDTO pq, String titulo, String msg, String enlace) {
+        try {
+            Long idComunicado = jdbcTemplate.queryForObject(
+                    "SELECT MIN(ID_COMUNICADO) FROM COMUNICADOS WHERE ID_PROPIEDAD = :propId",
+                    new MapSqlParameterSource("propId", pq.idPropiedad()),
+                    Long.class
+            );
+            List<Long> residentUserIds = jdbcTemplate.query(
+                    "SELECT DISTINCT u.ID_USUARIO FROM USUARIOS u " +
                     "WHERE NVL(u.ESTADO, 'ACTIVO') = 'ACTIVO' AND (" +
                     "  u.ID_USUARIO IN (" +
                     "    SELECT ua.ID_USUARIO FROM USUARIO_ASIGNACIONES ua JOIN ROLES r ON ua.ID_ROL = r.ID_ROL " +
@@ -101,128 +123,87 @@ public class PaquetesServiceImpl implements PaquetesService {
                     "  ) OR u.ID_PERSONA IN (" +
                     "    SELECT ru.ID_PERSONA FROM RESIDENTES_UNIDAD ru " +
                     "    WHERE ru.ID_UNIDAD = :unitId AND NVL(ru.ESTADO, 'ACTIVO') = 'ACTIVO'" +
-                    "  )" +
-                    (request.idPersonaDestinatario() != null ? " OR u.ID_PERSONA = :destPersonaId" : "") +
-                    ")";
-
-            MapSqlParameterSource resParams = new MapSqlParameterSource("unitId", request.idUnidad());
-            if (request.idPersonaDestinatario() != null) {
-                resParams.addValue("destPersonaId", request.idPersonaDestinatario());
-            }
-
-            List<Long> residentUserIds = jdbcTemplate.query(
-                    findResidentsSql,
-                    resParams,
+                    "  ))",
+                    new MapSqlParameterSource("unitId", pq.idUnidad()),
                     (rs, rowNum) -> rs.getLong("ID_USUARIO")
             );
-
-            // Obtener identificador del apartamento / unidad
-            String identificadorApto = "";
-            try {
-                identificadorApto = jdbcTemplate.queryForObject(
-                        "SELECT IDENTIFICADOR FROM UNIDADES WHERE ID_UNIDAD = :unitId",
-                        new MapSqlParameterSource("unitId", request.idUnidad()),
-                        String.class
-                );
-            } catch (Exception ignored) {
-            }
-            String aptoTxt = (identificadorApto != null && !identificadorApto.isBlank())
-                    ? (" para el apartamento " + identificadorApto) : "";
-
-            String enlace = "/paquetes/" + paquete.idPaquete();
+            int sent = 0;
             for (Long resUserId : residentUserIds) {
-                String notifSql = "INSERT INTO NOTIFICACIONES (ID_COMUNICADO, ID_USUARIO_DESTINATARIO, " +
-                        "CANAL, TITULO, MENSAJE, ENLACE_DESTINO, ESTADO_ENVIO) " +
-                        "VALUES (:comunicadoId, :dest, 'IN_APP', '📦 Paquete recibido en portería', :msg, :enlace, 'ENVIADO')";
-                String descNotif = (request.descripcion() != null && !request.descripcion().isBlank())
-                        ? request.descripcion() : "encomienda";
-                String msg = "Se ha recibido un paquete (" + descNotif + ") de " +
-                        (request.empresaMensajeria() != null ? request.empresaMensajeria() : "mensajería") +
-                        aptoTxt + ". Código de retiro PIN: " + pin + ". Presenta este código en portería para retirar la encomienda.";
-                jdbcTemplate.update(notifSql, new MapSqlParameterSource()
-                        .addValue("comunicadoId", idComunicado)
-                        .addValue("dest", resUserId)
-                        .addValue("msg", msg)
-                        .addValue("enlace", enlace));
+                sent += jdbcTemplate.update(
+                        "INSERT INTO NOTIFICACIONES (ID_COMUNICADO, ID_USUARIO_DESTINATARIO, CANAL, TITULO, MENSAJE, "
+                                + "ENLACE_DESTINO, ESTADO_ENVIO) VALUES (:comunicadoId, :dest, 'IN_APP', :titulo, :msg, :enlace, 'ENVIADO')",
+                        new MapSqlParameterSource()
+                                .addValue("comunicadoId", idComunicado)
+                                .addValue("dest", resUserId)
+                                .addValue("titulo", titulo)
+                                .addValue("msg", msg)
+                                .addValue("enlace", enlace));
             }
-        } catch (Exception e) {
-            log.warn("Aviso al registrar notificaciones de paquete: {}", e.getMessage());
+            return sent;
+        } catch (DataAccessException e) {
+            log.warn("Package {} notification not stored ({}); it can be re-sent", pq.idPaquete(), e.getClass().getSimpleName());
+            return 0;
         }
-
-        // Auditoría segura (sin exponer el PIN)
-        try {
-            auditService.recordSuccess(userId, orgId, propId, "INSERT", "PAQUETE", paquete.idPaquete(),
-                    null, null, null, "{\"evento\":\"PACKAGE_RECEIVED\",\"unidad\":" + request.idUnidad() + "}");
-        } catch (Exception ignored) {
-        }
-
-        return paquete;
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<PaqueteDTO> getPaquetes() {
-        SaedContext ctx = SaedContextHolder.getContext();
-        if (ctx != null && ("RESIDENTE".equalsIgnoreCase(ctx.getRoleCode())
-                || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(ctx.getRoleCode())
-                || "UNIDAD".equalsIgnoreCase(ctx.getRoleScope()))) {
+        SaedContext ctx = requireOperationalContext();
+        if (isUnitScopedResident(ctx)) {
             Long unitId = ctx.getUnitId();
             if (unitId == null) {
                 return List.of();
             }
-            return paquetesRepository.getPaquetesByUnidad(unitId);
+            return forCaller(paquetesRepository.getPaquetesByUnidad(unitId));
         }
-        return paquetesRepository.getPaquetesList();
+        Long propId = requireProperty(ctx);
+        return forCaller(paquetesRepository.getPaquetesList().stream()
+                .filter(p -> propId.equals(p.idPropiedad())).toList());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<PaqueteDTO> getPaquetesByUnidad(Long idUnidad) {
-        SaedContext ctx = SaedContextHolder.getContext();
-        if (ctx != null && ("RESIDENTE".equalsIgnoreCase(ctx.getRoleCode())
-                || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(ctx.getRoleCode())
-                || "UNIDAD".equalsIgnoreCase(ctx.getRoleScope()))) {
-            if (ctx.getUnitId() != null && !ctx.getUnitId().equals(idUnidad)) {
+        SaedContext ctx = requireOperationalContext();
+        if (isUnitScopedResident(ctx)) {
+            if (ctx.getUnitId() == null || !ctx.getUnitId().equals(idUnidad)) {
                 throw new AccessDeniedException("Acceso denegado a paquetes de otra unidad");
             }
+        } else {
+            requireUnitInProperty(idUnidad, requireProperty(ctx));
         }
-        return paquetesRepository.getPaquetesByUnidad(idUnidad);
+        return forCaller(paquetesRepository.getPaquetesByUnidad(idUnidad));
     }
 
     @Override
     @Transactional(readOnly = true)
     public PaqueteDTO getPaqueteById(Long id) {
-        SaedContext ctx = SaedContextHolder.getContext();
+        SaedContext ctx = requireOperationalContext();
         PaqueteDTO pq = paquetesRepository.getPaqueteById(id)
                 .orElseThrow(() -> new NoSuchElementException("Paquete no encontrado"));
 
-        if (ctx != null && ("RESIDENTE".equalsIgnoreCase(ctx.getRoleCode())
-                || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(ctx.getRoleCode())
-                || "UNIDAD".equalsIgnoreCase(ctx.getRoleScope()))) {
+        if (isUnitScopedResident(ctx)) {
             Long unitId = ctx.getUnitId();
             if (unitId == null || !unitId.equals(pq.idUnidad())) {
                 throw new AccessDeniedException("Acceso denegado a paquetes de otra unidad");
             }
-        } else if (ctx != null && ("PORTERO".equalsIgnoreCase(ctx.getRoleCode())
-                || "ADMIN_PROPIEDAD".equalsIgnoreCase(ctx.getRoleCode()))) {
-            Long propId = ctx.getPropertyId();
-            if (propId != null && !propId.equals(pq.idPropiedad())) {
-                throw new AccessDeniedException("Acceso denegado a paquetes de otra propiedad");
-            }
+        } else if (!requireProperty(ctx).equals(pq.idPropiedad())) {
+            throw new AccessDeniedException("Acceso denegado a paquetes de otra propiedad");
         }
 
-        return pq;
+        return forCaller(pq);
     }
 
     @Override
     @Transactional
     public PaqueteDTO actualizarPaquete(Long id, PaqueteRequestDTO request) {
-        SaedContext ctx = SaedContextHolder.getContext();
+        SaedContext ctx = requireStaffContext();
         PaqueteDTO existing = paquetesRepository.getPaqueteById(id)
                 .orElseThrow(() -> new NoSuchElementException("Paquete no encontrado"));
 
-        Long propId = ctx != null ? ctx.getPropertyId() : null;
-        if (propId != null && !propId.equals(existing.idPropiedad())) {
+        Long propId = ctx.getPropertyId();
+        if (!propId.equals(existing.idPropiedad())) {
             throw new AccessDeniedException("El paquete no pertenece a la propiedad activa");
         }
 
@@ -241,29 +222,22 @@ public class PaquetesServiceImpl implements PaquetesService {
             }
         }
 
-        return paquetesRepository.actualizarPaquete(id, request);
+        return forCaller(paquetesRepository.actualizarPaquete(id, request));
     }
 
     @Override
     @Transactional
     public PaqueteDTO registrarEntrega(Long id, PaqueteEntregaDTO request) {
-        SaedContext ctx = SaedContextHolder.getContext();
-        Long userId = ctx != null && ctx.getUserId() != null ? ctx.getUserId() : 1L;
-        Long propId = ctx != null ? ctx.getPropertyId() : null;
-        Long orgId = ctx != null ? ctx.getOrganizationId() : null;
-
-        // Auditoría de intento de entrega
-        try {
-            auditService.recordSuccess(userId, orgId, propId, "UPDATE", "PAQUETE", id,
-                    null, null, null, "{\"evento\":\"PACKAGE_DELIVERY_ATTEMPT\"}");
-        } catch (Exception ignored) {
-        }
+        SaedContext ctx = requireStaffContext();
+        Long userId = ctx.getUserId();
+        Long propId = ctx.getPropertyId();
+        Long orgId = ctx.getOrganizationId();
 
         PaqueteDTO pq = paquetesRepository.getPaqueteById(id)
                 .orElseThrow(() -> new NoSuchElementException("Paquete no encontrado"));
 
         // Aislamiento por propiedad
-        if (propId != null && !propId.equals(pq.idPropiedad())) {
+        if (!propId.equals(pq.idPropiedad())) {
             throw new AccessDeniedException("El paquete no pertenece a la propiedad activa del portero");
         }
 
@@ -275,100 +249,100 @@ public class PaquetesServiceImpl implements PaquetesService {
             throw new IllegalStateException("El paquete no se encuentra en estado pendiente de entrega");
         }
 
-        // Protección anti-fuerza bruta: verificar contador de intentos fallidos
-        Integer intentos = jdbcTemplate.queryForObject(
-                "SELECT NVL(INTENTOS_FALLIDOS_PIN, 0) FROM PAQUETES WHERE ID_PAQUETE = :id",
-                new MapSqlParameterSource("id", id),
-                Integer.class
-        );
-        if (intentos != null && intentos >= MAX_INTENTOS_PIN) {
-            try {
-                auditService.recordFailure(userId, orgId, propId, "ACCESO_DENEGADO", "PAQUETE", id,
-                        null, null, null, "{\"evento\":\"PACKAGE_LOCKED\",\"motivo\":\"MAX_INTENTOS_EXCEDIDO\"}");
-            } catch (Exception ignored) {
-            }
+        // F08-02: every attempt is counted atomically (own transaction) before the PIN is compared, so
+        // concurrent requests can never make more than MAX_INTENTOS_PIN comparisons.
+        if (!paquetesRepository.reservarIntentoPin(id, MAX_INTENTOS_PIN)) {
+            auditService.recordFailure(userId, orgId, propId, "ACCESO_DENEGADO", "PAQUETE", id,
+                    null, null, null, "{\"evento\":\"PACKAGE_LOCKED\",\"motivo\":\"MAX_INTENTOS_EXCEDIDO\"}");
             throw new SecurityException("El paquete se encuentra bloqueado por superar el límite de intentos de PIN (3). " +
                     "Contacte a la administración.");
         }
 
-        // Validación estricta del PIN de 4 dígitos
         if (request.codigoRetiroPin() == null || !pq.codigoRetiroPin().equalsIgnoreCase(request.codigoRetiroPin().trim())) {
-            paquetesRepository.incrementarIntentosFallidos(id);
-            int nuevosIntentos = (intentos != null ? intentos : 0) + 1;
-            int restantes = Math.max(0, MAX_INTENTOS_PIN - nuevosIntentos);
-            try {
-                auditService.recordFailure(userId, orgId, propId, "ACCESO_DENEGADO", "PAQUETE", id,
-                        null, null, null, "{\"evento\":\"PACKAGE_INVALID_PIN\",\"intentosRestantes\":" + restantes + "}");
-            } catch (Exception ignored) {
-            }
-            throw new IllegalArgumentException("PIN de retiro incorrecto. Intentos restantes: " + restantes);
+            auditService.recordFailure(userId, orgId, propId, "ACCESO_DENEGADO", "PAQUETE", id,
+                    null, null, null, "{\"evento\":\"PACKAGE_INVALID_PIN\"}");
+            throw new IllegalArgumentException("PIN de retiro incorrecto");
         }
 
-        // Transición atómica en base de datos: solo una entrega concurrente puede ganar
+        // Transición atómica en base de datos: solo una entrega concurrente puede ganar (resetea intentos)
         boolean updated = paquetesRepository.registrarEntrega(id, request, userId);
         if (!updated) {
             throw new IllegalStateException("El paquete ya fue entregado por otra solicitud concurrente");
         }
 
-        // Notificación de entrega al residente (sin exponer el PIN)
-        try {
-            Long idComunicado = null;
-            try {
-                idComunicado = jdbcTemplate.queryForObject(
-                        "SELECT MIN(ID_COMUNICADO) FROM COMUNICADOS WHERE ID_PROPIEDAD = :propId",
-                        new MapSqlParameterSource("propId", pq.idPropiedad()),
-                        Long.class
-                );
-            } catch (Exception ignored) {
-            }
+        String descNotif = (pq.descripcion() != null && !pq.descripcion().isBlank()) ? pq.descripcion() : "encomienda";
+        notifyUnitResidents(pq, "📦 Paquete entregado",
+                "El paquete (" + descNotif + ") ha sido retirado y entregado exitosamente en portería.", null);
 
-            String findResidentsSql = "SELECT DISTINCT u.ID_USUARIO FROM USUARIOS u " +
-                    "WHERE NVL(u.ESTADO, 'ACTIVO') = 'ACTIVO' AND (" +
-                    "  u.ID_USUARIO IN (" +
-                    "    SELECT ua.ID_USUARIO FROM USUARIO_ASIGNACIONES ua JOIN ROLES r ON ua.ID_ROL = r.ID_ROL " +
-                    "    WHERE ua.ID_UNIDAD = :unitId AND ua.ESTADO = 'ACTIVA' " +
-                    "    AND r.CODIGO IN ('RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO_UNIDAD', 'ARRENDATARIO')" +
-                    "  ) OR u.ID_PERSONA IN (" +
-                    "    SELECT ru.ID_PERSONA FROM RESIDENTES_UNIDAD ru " +
-                    "    WHERE ru.ID_UNIDAD = :unitId AND NVL(ru.ESTADO, 'ACTIVO') = 'ACTIVO'" +
-                    "  )" +
-                    (pq.idPersonaDestinatario() != null ? " OR u.ID_PERSONA = :destPersonaId" : "") +
-                    ")";
-
-            MapSqlParameterSource resParams = new MapSqlParameterSource("unitId", pq.idUnidad());
-            if (pq.idPersonaDestinatario() != null) {
-                resParams.addValue("destPersonaId", pq.idPersonaDestinatario());
-            }
-
-            List<Long> residentUserIds = jdbcTemplate.query(
-                    findResidentsSql,
-                    resParams,
-                    (rs, rowNum) -> rs.getLong("ID_USUARIO")
-            );
-
-            for (Long resUserId : residentUserIds) {
-                String notifSql = "INSERT INTO NOTIFICACIONES (ID_COMUNICADO, ID_USUARIO_DESTINATARIO, " +
-                        "CANAL, TITULO, MENSAJE, ESTADO_ENVIO) " +
-                        "VALUES (:comunicadoId, :dest, 'IN_APP', '📦 Paquete entregado', :msg, 'ENVIADO')";
-                String descNotif = (pq.descripcion() != null && !pq.descripcion().isBlank()) ? pq.descripcion() : "encomienda";
-                String msg = "El paquete (" + descNotif + ") ha sido retirado y entregado exitosamente en portería.";
-                jdbcTemplate.update(notifSql, new MapSqlParameterSource()
-                        .addValue("comunicadoId", idComunicado)
-                        .addValue("dest", resUserId)
-                        .addValue("msg", msg));
-            }
-        } catch (Exception e) {
-            log.warn("Aviso al registrar notificación de entrega de paquete: {}", e.getMessage());
-        }
-
-        // Auditoría de entrega exitosa
-        try {
-            auditService.recordSuccess(userId, orgId, propId, "UPDATE", "PAQUETE", id,
-                    null, null, null, "{\"evento\":\"PACKAGE_DELIVERED\",\"unidad\":" + pq.idUnidad() + "}");
-        } catch (Exception ignored) {
-        }
+        auditService.recordSuccess(userId, orgId, propId, "UPDATE", "PAQUETE", id,
+                null, null, null, "{\"evento\":\"PACKAGE_DELIVERED\",\"unidad\":" + pq.idUnidad() + "}");
 
         return getPaqueteById(id);
+    }
+
+    /** Operational context; SUPERADMIN never reads package data (DEC-02). */
+    private static SaedContext requireOperationalContext() {
+        SaedContext ctx = SaedContextHolder.getContext();
+        if (ctx == null || ctx.getUserId() == null) {
+            throw new AccessDeniedException("Missing tenant context");
+        }
+        if ("SUPERADMIN".equalsIgnoreCase(ctx.getRoleCode()) || "GLOBAL".equalsIgnoreCase(ctx.getRoleScope())) {
+            throw new AccessDeniedException("Platform administrators do not access package data");
+        }
+        return ctx;
+    }
+
+    private static Long requireProperty(SaedContext ctx) {
+        if (ctx.getPropertyId() == null) {
+            throw new AccessDeniedException("Missing property context");
+        }
+        return ctx.getPropertyId();
+    }
+
+    private static SaedContext requireStaffContext() {
+        SaedContext ctx = requireOperationalContext();
+        if (isUnitScopedResident(ctx)) {
+            throw new AccessDeniedException("Only gate staff manage package custody");
+        }
+        requireProperty(ctx);
+        return ctx;
+    }
+
+    private void requireUnitInProperty(Long unitId, Long propId) {
+        Integer unitCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM UNIDADES WHERE ID_UNIDAD = :unitId AND ID_PROPIEDAD = :propId",
+                new MapSqlParameterSource("unitId", unitId).addValue("propId", propId),
+                Integer.class
+        );
+        if (unitCount == null || unitCount == 0) {
+            throw new AccessDeniedException("La unidad especificada no pertenece a la propiedad activa");
+        }
+    }
+
+    private static boolean isUnitScopedResident(SaedContext ctx) {
+        return ctx != null && ("RESIDENTE".equalsIgnoreCase(ctx.getRoleCode())
+                || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(ctx.getRoleCode())
+                || "UNIDAD".equalsIgnoreCase(ctx.getRoleScope()));
+    }
+
+    /**
+     * The pickup PIN is only returned to a resident of the recipient unit. Staff (portero,
+     * admin) and any other caller get a redacted copy; the portero receives the PIN from the
+     * resident at pickup and the server verifies it in {@link #registrarEntrega}.
+     */
+    private PaqueteDTO forCaller(PaqueteDTO pq) {
+        if (pq == null) {
+            return null;
+        }
+        SaedContext ctx = SaedContextHolder.getContext();
+        boolean recipient = isUnitScopedResident(ctx)
+                && ctx.getUnitId() != null
+                && ctx.getUnitId().equals(pq.idUnidad());
+        return recipient ? pq : pq.withoutPin();
+    }
+
+    private List<PaqueteDTO> forCaller(List<PaqueteDTO> paquetes) {
+        return paquetes.stream().map(this::forCaller).toList();
     }
 
     @Override

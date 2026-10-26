@@ -125,6 +125,11 @@ public class CentroComunicacionesTest {
 
     @Test
     public void testPublicarYArchivarAvisoOficial() {
+        // DEC-02: notices are operational data; publish and read them as the property administrator (user 2, assignment 102: the DB session
+        // context only accepts a role the user is actually assigned).
+        SaedContextHolder.setContext(SaedContext.builder()
+                .userId(2L).organizationId(1L).propertyId(1L)
+                .roleCode("ADMIN_PROPIEDAD").roleScope("PROPIEDAD").build());
         String titulo = "Corte programado de agua por mantenimiento " + System.currentTimeMillis();
         Map<String, Object> payload = Map.of(
                 "titulo", titulo,

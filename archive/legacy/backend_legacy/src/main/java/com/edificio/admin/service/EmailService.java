@@ -36,7 +36,7 @@ public class EmailService {
 
     static {
         GMAIL_USER     = System.getenv("GMAIL_USER") != null
-            ? System.getenv("GMAIL_USER") : "gestion.residencias.upc@gmail.com";
+            ? System.getenv("GMAIL_USER") : "no-reply@example.invalid";
         // Sin app password configurada el SMTP NO se intenta (fail fast). Un default
         // hardcodeado hacia fallar con esperas de 15-30s y mensajes confusos.
         GMAIL_PASSWORD = System.getenv("GMAIL_APP_PASSWORD") != null

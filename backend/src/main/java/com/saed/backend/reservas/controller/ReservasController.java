@@ -58,7 +58,7 @@ public class ReservasController {
 
     // --- Reservas ---
     @GetMapping("/reservas/todas")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<List<ReservaDTO>> getAllReservas() {
         return ResponseEntity.ok(reservasService.getAllReservas());
     }
@@ -70,7 +70,7 @@ public class ReservasController {
     }
 
     @GetMapping("/reservas/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<ReservaDTO> getReservaById(@PathVariable Long id) {
         return ResponseEntity.ok(reservasService.getReservaById(id));
     }
@@ -85,6 +85,14 @@ public class ReservasController {
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> payload) {
         reservasService.updateReservaStatus(id, payload.get("estado"));
+        return ResponseEntity.ok().build();
+    }
+
+    /** F08-01: the administrator records the deposit paid; approval requires the zone deposit. */
+    @PutMapping("/reservas/{id}/deposito")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<Void> registrarDeposito(@PathVariable Long id, @RequestBody Map<String, java.math.BigDecimal> payload) {
+        reservasService.registrarDeposito(id, payload.get("monto"));
         return ResponseEntity.ok().build();
     }
 

@@ -1,5 +1,7 @@
 package com.saed.backend.obras.controller;
 
+import com.saed.backend.obras.dto.IngresoObraDTO;
+import com.saed.backend.obras.dto.InspeccionObraDTO;
 import com.saed.backend.obras.dto.ObraDTO;
 import com.saed.backend.obras.service.ObraService;
 import com.saed.backend.trabajadores.dto.ObraTrabajadorDTO;
@@ -10,6 +12,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import com.saed.backend.platform.annotation.RequireModule;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 
@@ -82,9 +86,16 @@ public class ObraController {
 
     @PostMapping("/{id}/finalizar")
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
-    public ResponseEntity<Void> finalizarObra(@PathVariable Long id) {
-        obraService.finalizarObra(id);
+    public ResponseEntity<Void> finalizarObra(@PathVariable Long id,
+                                              @RequestBody(required = false) InspeccionObraDTO inspeccion) {
+        obraService.finalizarObra(id, inspeccion);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{id}/trabajadores/{idTrabajador}/ingreso")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
+    public ResponseEntity<IngresoObraDTO> verificarIngreso(@PathVariable Long id, @PathVariable Long idTrabajador) {
+        return ResponseEntity.ok(obraService.verificarIngresoTrabajador(id, idTrabajador, LocalDate.now(ZoneId.of("America/Bogota"))));
     }
 
     @GetMapping("/{id}/trabajadores")

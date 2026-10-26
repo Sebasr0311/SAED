@@ -1,11 +1,15 @@
 package com.saed.backend.person.repository.impl;
 
+import com.saed.backend.context.SaedContext;
+import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.person.dto.*;
 import com.saed.backend.person.repository.DependentRepository;
+import com.saed.backend.person.service.VisitorIdentityRegistry;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -18,8 +22,11 @@ public class DependentRepositoryImpl implements DependentRepository {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
+    private final VisitorIdentityRegistry visitorRegistry;
+
     public DependentRepositoryImpl(NamedParameterJdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+        this.visitorRegistry = new VisitorIdentityRegistry(jdbcTemplate);
     }
 
     // --- Mascotas ---
@@ -145,7 +152,7 @@ public class DependentRepositoryImpl implements DependentRepository {
                 .addValue("foto", request.fotoUrl())
                 .addValue("estado", estado);
         jdbcTemplate.update(sql, params);
-        return getMascotaById(id).orElseThrow();
+        return getMascotaById(id).orElseThrow(() -> new java.util.NoSuchElementException("Mascota no encontrada"));
     }
 
     @Override
@@ -246,7 +253,7 @@ public class DependentRepositoryImpl implements DependentRepository {
                 .addValue("tagRfid", request.tagRfid())
                 .addValue("estado", estado);
         jdbcTemplate.update(sql, params);
-        return getVehiculoById(id).orElseThrow();
+        return getVehiculoById(id).orElseThrow(() -> new java.util.NoSuchElementException("Vehiculo no encontrado"));
     }
 
     @Override
@@ -333,7 +340,7 @@ public class DependentRepositoryImpl implements DependentRepository {
                 .addValue("documento", request.documentoSoporteUrl())
                 .addValue("estado", request.estado() != null ? request.estado() : "ACTIVO");
         jdbcTemplate.update(sql, params);
-        return getTutorById(id).orElseThrow();
+        return getTutorById(id).orElseThrow(() -> new java.util.NoSuchElementException("Tutor no encontrado"));
     }
 
     @Override
@@ -344,28 +351,26 @@ public class DependentRepositoryImpl implements DependentRepository {
     // --- Visitantes ---
     @Override
     public VisitanteDTO createVisitante(VisitanteRequestDTO request) {
-        String sql = "INSERT INTO VISITANTES (id_persona, es_frecuente, empresa, foto_url, observaciones, estado) " +
-                     "VALUES (:personaId, :esFrecuente, :empresa, :foto, :obs, :estado)";
+        SaedContext ctx = SaedContextHolder.getContext();
+        if (ctx == null || ctx.getPropertyId() == null || ctx.getUserId() == null) {
+            throw new AccessDeniedException("Acceso denegado: operación sin contexto de propiedad");
+        }
+        String esFrecuente = request.esFrecuente() != null ? request.esFrecuente() : "N";
+        String estado = request.estado() != null ? request.estado() : "ACTIVO";
+        // The visitor identity is global (one row per person) but the row-level policy only shows a caller its own
+        // visitors: the security-schema resolver finds or creates the row and returns just its id (V5.67).
+        Long id = visitorRegistry.resolveByPerson(request.personaId(), "S".equalsIgnoreCase(esFrecuente), request.empresa());
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("personaId", request.personaId())
-                .addValue("esFrecuente", request.esFrecuente() != null ? request.esFrecuente() : "N")
+                .addValue("id", id)
+                .addValue("esFrecuente", esFrecuente)
                 .addValue("empresa", request.empresa())
                 .addValue("foto", request.fotoUrl())
                 .addValue("obs", request.observaciones())
-                .addValue("estado", request.estado() != null ? request.estado() : "ACTIVO");
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_VISITANTE"});
-        Number key = keyHolder.getKey();
-        Long id = key != null ? key.longValue() : null;
+                .addValue("estado", estado);
+        jdbcTemplate.update("UPDATE VISITANTES SET es_frecuente = :esFrecuente, empresa = :empresa, foto_url = :foto, "
+                + "observaciones = :obs, estado = :estado WHERE id_visitante = :id", params);
         return getVisitanteById(id).orElseGet(() -> new VisitanteDTO(
-                id,
-                request.personaId(),
-                request.esFrecuente() != null ? request.esFrecuente() : "N",
-                request.empresa(),
-                request.fotoUrl(),
-                request.observaciones(),
-                request.estado() != null ? request.estado() : "ACTIVO"
-        ));
+                id, request.personaId(), esFrecuente, request.empresa(), request.fotoUrl(), request.observaciones(), estado));
     }
 
     @Override
@@ -407,11 +412,39 @@ public class DependentRepositoryImpl implements DependentRepository {
                 .addValue("obs", request.observaciones())
                 .addValue("estado", request.estado() != null ? request.estado() : "ACTIVO");
         jdbcTemplate.update(sql, params);
-        return getVisitanteById(id).orElseThrow();
+        return getVisitanteById(id).orElseThrow(() -> new java.util.NoSuchElementException("Visitante no encontrado"));
     }
 
     @Override
     public void deleteVisitante(Long id) {
         jdbcTemplate.update("DELETE FROM VISITANTES WHERE id_visitante = :id", new MapSqlParameterSource("id", id));
+    }
+
+    // --- F08-04 ownership checks ---
+    @Override
+    public boolean isPersonOfUnit(Long personaId, Long unidadId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM DUAL WHERE EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = :p "
+                        + "AND ru.ID_UNIDAD = :u AND NVL(ru.ESTADO, 'ACTIVO') = 'ACTIVO') "
+                        + "OR EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = :p AND pu.ID_UNIDAD = :u "
+                        + "AND NVL(pu.ESTADO, 'ACTIVO') IN ('ACTIVO', 'ACTIVA'))",
+                new MapSqlParameterSource("p", personaId).addValue("u", unidadId), Integer.class);
+        return count != null && count > 0;
+    }
+
+    @Override
+    public List<Long> findActiveUnitIdsOfPersona(Long personaId) {
+        return jdbcTemplate.query(
+                "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = :p AND ESTADO = 'ACTIVO' "
+                        + "UNION SELECT ID_UNIDAD FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA = :p AND ESTADO = 'ACTIVO'",
+                new MapSqlParameterSource("p", personaId), (rs, i) -> rs.getLong(1));
+    }
+
+    @Override
+    public boolean isUnitInProperty(Long unidadId, Long propiedadId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM UNIDADES WHERE ID_UNIDAD = :u AND ID_PROPIEDAD = :p",
+                new MapSqlParameterSource("u", unidadId).addValue("p", propiedadId), Integer.class);
+        return count != null && count > 0;
     }
 }

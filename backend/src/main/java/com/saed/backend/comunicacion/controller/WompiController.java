@@ -1,5 +1,6 @@
 package com.saed.backend.comunicacion.controller;
 
+import com.saed.backend.platform.annotation.RequireModule;
 import com.saed.backend.finanzas.service.WompiService;
 import com.saed.backend.finanzas.service.impl.WompiServiceImpl;
 import org.springframework.http.ResponseEntity;
@@ -26,12 +27,17 @@ public class WompiController {
         this.wompiServiceImpl = wompiServiceImpl;
     }
 
+    @RequireModule("FINANZAS")
     @GetMapping("/registrados")
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
     public List<Map<String, Object>> getPagosRegistrados() {
-        return jdbcTemplate.queryForList("SELECT * FROM PAGOS ORDER BY FECHA_PAGO DESC", new MapSqlParameterSource());
+        // Explicit columns only: approvers, rejecters and the idempotency key are internal (F6-22).
+        return jdbcTemplate.queryForList(
+            "SELECT ID_PAGO, ID_UNIDAD, MONTO_TOTAL, METODO_PAGO, REFERENCIA_COMPROBANTE, FECHA_PAGO, ESTADO " +
+            "FROM PAGOS ORDER BY FECHA_PAGO DESC", new MapSqlParameterSource());
     }
 
+    @RequireModule("FINANZAS")
     @GetMapping("/wompi/historial")
     @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
     public List<Map<String, Object>> getHistorialWompi() {
@@ -43,27 +49,31 @@ public class WompiController {
     }
 
     @GetMapping("/wompi/estado")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_RESIDENTE')")
     public Map<String, Object> getEstadoWompi(@RequestParam String referencia) {
         return wompiServiceImpl.estadoIntencion(referencia);
     }
 
+    @RequireModule("FINANZAS")
     @PostMapping("/wompi/solicitud")
     @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
-    public Map<String, Object> postSolicitud(@RequestBody Map<String, Object> payload) {
-        try {
-            String concepto = (String) payload.getOrDefault("concepto", "CUOTA");
-            Object idObj = payload.get("idItem") != null ? payload.get("idItem") : payload.get("id");
-            if (idObj == null) {
-                throw new IllegalArgumentException("idItem o id es requerido");
-            }
-            Long idItem = Long.valueOf(String.valueOf(idObj));
-            return wompiService.crearIntencion(concepto, idItem);
-        } catch (Exception e) {
-            throw new RuntimeException(e.getMessage());
+    public Map<String, Object> postSolicitud(@RequestBody Map<String, Object> payload) throws Exception {
+        // Exceptions keep their type so the global handler maps them (404, 400, 409) instead of a blanket 500.
+        String concepto = (String) payload.getOrDefault("concepto", "CUOTA");
+        Object idObj = payload.get("idItem") != null ? payload.get("idItem") : payload.get("id");
+        if (idObj == null) {
+            throw new IllegalArgumentException("idItem o id es requerido");
         }
+        Long idItem;
+        try {
+            idItem = Long.valueOf(String.valueOf(idObj));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("idItem invalido");
+        }
+        return wompiService.crearIntencion(concepto, idItem);
     }
 
+    @RequireModule("FINANZAS")
     @PostMapping("/wompi/transaccion")
     @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
     public ResponseEntity<Void> postTransaccion(@RequestBody Map<String, Object> payload) {

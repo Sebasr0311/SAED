@@ -74,8 +74,6 @@ export default function AsambleasAdminPage() {
   const [modalAsistenciaOpen, setModalAsistenciaOpen] = useState(false);
   const [modalPoderOpen, setModalPoderOpen] = useState(false);
   const [modalVotacionOpen, setModalVotacionOpen] = useState(false);
-  const [modalVotoOpen, setModalVotoOpen] = useState(false);
-  const [votacionParaVotar, setVotacionParaVotar] = useState(null);
 
   // Formularios
   const [formConvocar, setFormConvocar] = useState({
@@ -95,7 +93,6 @@ export default function AsambleasAdminPage() {
     idPersonaAsistente: '',
     esPropietarioDirecto: 'S',
     idPoder: '',
-    coeficientePonderado: '',
   });
 
   const [formPoder, setFormPoder] = useState({
@@ -112,11 +109,6 @@ export default function AsambleasAdminPage() {
     tipoMayoriaRequerida: 'SIMPLE_50_MAS_1',
   });
 
-  const [formVoto, setFormVoto] = useState({
-    idUnidad: '',
-    idPersonaVotante: '',
-    opcionVoto: 'SI',
-  });
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -412,16 +404,20 @@ export default function AsambleasAdminPage() {
       toast.error('Seleccione unidad y persona asistente');
       return;
     }
+    if (formAsistencia.esPropietarioDirecto === 'N' && !formAsistencia.idPoder) {
+      toast.error('Seleccione el poder aprobado que acredita la representación');
+      return;
+    }
     setSubmitting(true);
     try {
       await tenantApi.post(`/asambleas/${activeId}/asistencias`, {
         idUnidad: Number(formAsistencia.idUnidad),
         idPersonaAsistente: Number(formAsistencia.idPersonaAsistente),
         esPropietarioDirecto: formAsistencia.esPropietarioDirecto,
-        idPoder: formAsistencia.idPoder ? Number(formAsistencia.idPoder) : null,
-        coeficientePonderado: formAsistencia.coeficientePonderado
-          ? Number(formAsistencia.coeficientePonderado)
-          : null,
+        idPoder:
+          formAsistencia.esPropietarioDirecto === 'N' && formAsistencia.idPoder
+            ? Number(formAsistencia.idPoder)
+            : null,
       });
       toast.success('Asistencia registrada y quórum actualizado');
       setModalAsistenciaOpen(false);
@@ -430,8 +426,7 @@ export default function AsambleasAdminPage() {
         idPersonaAsistente: '',
         esPropietarioDirecto: 'S',
         idPoder: '',
-        coeficientePonderado: '',
-      });
+          });
       refetchAsistencias();
       refetchQuorum();
       refetchAsambleas();
@@ -530,30 +525,6 @@ export default function AsambleasAdminPage() {
       refetchVotaciones();
     } catch (err) {
       toast.error(err.response?.data?.message || err.message || 'Error al cerrar votación');
-    }
-  };
-
-  const handleEmitirVoto = async (e) => {
-    e.preventDefault();
-    if (!formVoto.idUnidad || !formVoto.idPersonaVotante) {
-      toast.error('Seleccione la unidad y el votante');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await tenantApi.post(`/asambleas/${activeId}/votaciones/${votacionParaVotar.idVotacion}/votar`, {
-        idUnidad: Number(formVoto.idUnidad),
-        idPersonaVotante: Number(formVoto.idPersonaVotante),
-        opcionVoto: formVoto.opcionVoto,
-      });
-      toast.success(`Voto [${formVoto.opcionVoto}] registrado exitosamente`);
-      setModalVotoOpen(false);
-      setFormVoto({ idUnidad: '', idPersonaVotante: '', opcionVoto: 'SI' });
-      refetchVotaciones();
-    } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Error al emitir voto');
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -1217,15 +1188,6 @@ export default function AsambleasAdminPage() {
                       {v.estado === 'ABIERTA' && (
                         <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
                           <button
-                            onClick={() => {
-                              setVotacionParaVotar(v);
-                              setModalVotoOpen(true);
-                            }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs"
-                          >
-                            <Vote className="w-3.5 h-3.5" /> Registrar Voto
-                          </button>
-                          <button
                             onClick={() => handleCerrarVotacion(v.idVotacion)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
                           >
@@ -1821,17 +1783,36 @@ export default function AsambleasAdminPage() {
                 <option value="N">Apoderado / Representante</option>
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1">Coeficiente (Opcional)</label>
-              <input
-                type="number"
-                step="0.0001"
-                placeholder="Auto-calculado de unidad"
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                value={formAsistencia.coeficientePonderado}
-                onChange={(e) => setFormAsistencia({ ...formAsistencia, coeficientePonderado: e.target.value })}
-              />
-            </div>
+            {formAsistencia.esPropietarioDirecto === 'N' ? (
+              <div>
+                <label className="block text-xs font-semibold mb-1">Poder aprobado *</label>
+                <select
+                  required
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  value={formAsistencia.idPoder}
+                  onChange={(e) => setFormAsistencia({ ...formAsistencia, idPoder: e.target.value })}
+                >
+                  <option value="">Seleccione...</option>
+                  {poderes
+                    .filter(
+                      (p) =>
+                        p.estado === 'APROBADO' &&
+                        String(p.idUnidad) === String(formAsistencia.idUnidad) &&
+                        String(p.idPersonaApoderado) === String(formAsistencia.idPersonaAsistente)
+                    )
+                    .map((p) => (
+                      <option key={p.idPoder} value={p.idPoder}>
+                        Poder #{p.idPoder} - {p.nombreApoderado || p.idPersonaApoderado}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-semibold mb-1">Coeficiente</label>
+                <p className="px-3 py-2 text-xs text-muted-foreground">Se toma del coeficiente registrado de la unidad</p>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
@@ -2016,89 +1997,6 @@ export default function AsambleasAdminPage() {
         </form>
       </Modal>
 
-      {/* MODAL 5: EMITIR VOTO DE UNIDAD */}
-      <Modal
-        isOpen={modalVotoOpen}
-        onClose={() => setModalVotoOpen(false)}
-        title={`Emitir Voto - ${votacionParaVotar?.titulo || ''}`}
-      >
-        <form onSubmit={handleEmitirVoto} className="space-y-4 text-sm">
-          <div>
-            <label className="block text-xs font-semibold mb-1">Unidad Votante *</label>
-            <select
-              required
-              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              value={formVoto.idUnidad}
-              onChange={(e) => setFormVoto({ ...formVoto, idUnidad: e.target.value })}
-            >
-              <option value="">Seleccione apartamento...</option>
-              {unidades.map((u) => (
-                <option key={u.idUnidad || u.id} value={u.idUnidad || u.id}>
-                  {u.identificador || `Unidad ${u.idUnidad || u.id}`}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold mb-1">Persona que Vota (Propietario o Apoderado) *</label>
-            <select
-              required
-              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              value={formVoto.idPersonaVotante}
-              onChange={(e) => setFormVoto({ ...formVoto, idPersonaVotante: e.target.value })}
-            >
-              <option value="">Seleccione persona...</option>
-              {personas.map((p) => (
-                <option key={p.idPersona} value={p.idPersona}>
-                  {p.primerNombre} {p.primerApellido}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold mb-1">Sentido del Voto *</label>
-            <div className="grid grid-cols-4 gap-2 pt-1">
-              {['SI', 'NO', 'BLANCO', 'ABSTENCION'].map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => setFormVoto({ ...formVoto, opcionVoto: opt })}
-                  className={`px-3 py-2 text-sm font-semibold rounded-lg border transition-colors ${
-                    formVoto.opcionVoto === opt
-                      ? opt === 'SI'
-                        ? 'bg-emerald-600 text-white border-emerald-600'
-                        : opt === 'NO'
-                        ? 'bg-red-600 text-white border-red-600'
-                        : 'bg-primary text-primary-foreground border-primary'
-                      : 'border-border bg-background text-foreground hover:bg-muted'
-                  }`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-4">
-            <button
-              type="button"
-              onClick={() => setModalVotoOpen(false)}
-              className="px-4 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:bg-muted transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              {submitting ? 'Registrando...' : 'Confirmar Voto'}
-            </button>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 }

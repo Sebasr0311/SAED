@@ -212,7 +212,7 @@ public class ReporteConfiguradoRepositoryImpl implements ReporteConfiguradoRepos
         params.add(id);
 
         jdbcTemplate.update(sql.toString(), params.toArray());
-        return findById(id).orElseThrow(() -> new IllegalStateException("Reporte configurado no encontrado tras actualización."));
+        return findById(id).orElseThrow(() -> new java.util.NoSuchElementException("Reporte configurado no encontrado."));
     }
 
     @Override
@@ -220,5 +220,16 @@ public class ReporteConfiguradoRepositoryImpl implements ReporteConfiguradoRepos
         String sql = "UPDATE REPORTES_CONFIGURADOS SET ESTADO = 'INACTIVO', FECHA_ACTUALIZACION = CURRENT_TIMESTAMP WHERE ID_REPORTE_CONFIG = ?";
         int rows = jdbcTemplate.update(sql, id);
         return rows > 0;
+    }
+
+    @Override
+    public boolean propertyBelongsToOrganization(Long propertyId, Long organizationId) {
+        if (propertyId == null || organizationId == null) {
+            return false;
+        }
+        Integer count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM PROPIEDADES WHERE ID_PROPIEDAD = ? AND ID_ORGANIZACION = ?",
+            Integer.class, propertyId, organizationId);
+        return count != null && count > 0;
     }
 }

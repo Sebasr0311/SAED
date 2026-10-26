@@ -48,8 +48,10 @@ public class DebidoProcesoSancionesIntegrationTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    // Apto 101 and its seeded owner-resident (persona 4, user 4): a sanction is only valid for an active owner/resident
+    // of the unit, and the discharges are filed by that resident (7ec2c78). Rows created here are removed after each test.
     private Long testUnidadId = 1L;
-    private Long testPersonaId = 1L;
+    private Long testPersonaId = 4L;
 
     @BeforeEach
     public void setup() {
@@ -79,14 +81,13 @@ public class DebidoProcesoSancionesIntegrationTest {
             jdbcTemplate.execute("BEGIN SAED_SEC_MASTER.PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
         } catch (Exception ignored) {}
 
-        // Obtener una unidad y persona real existentes en la base de datos
-        try {
-            List<Long> uList = jdbcTemplate.queryForList("SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = 1 AND ROWNUM = 1", Long.class);
-            if (!uList.isEmpty()) testUnidadId = uList.get(0);
+        cleanFixture();
 
-            List<Long> pList = jdbcTemplate.queryForList("SELECT ID_PERSONA FROM PERSONAS WHERE ROWNUM = 1", Long.class);
-            if (!pList.isEmpty()) testPersonaId = pList.get(0);
-        } catch (Exception ignored) {}
+        // DEC-02: sanctions are operational data and SUPERADMIN cannot see them (findSancionVisible), so the flow runs as
+        // the demo property administrator (user 2, assignment 102) once the fixture is in place.
+        SaedContextHolder.setContext(SaedContext.builder()
+                .userId(2L).organizationId(1L).propertyId(1L).roleCode("ADMIN_PROPIEDAD").roleScope("PROPIEDAD").build());
+        SecurityContextHolder.getContext().setAuthentication(adminAuthentication());
 
         // Garantizar concepto de cobro tipo MULTA activo para propiedad 1
         try {
@@ -101,8 +102,52 @@ public class DebidoProcesoSancionesIntegrationTest {
         } catch (Exception ignored) {}
     }
 
+    /** The imputed resident (user 4, Apto 101) files the discharges; afterwards the suite continues as the property administrator. */
+    private <T> T asResident(java.util.function.Supplier<T> action) {
+        SaedContext admin = SaedContextHolder.getContext();
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("camartinez", "n/a",
+                List.of(new SimpleGrantedAuthority("SCOPE_RESIDENTE"))));
+        SaedContextHolder.setContext(SaedContext.builder().userId(4L).organizationId(1L).propertyId(1L).unitId(1L)
+                .roleCode("RESIDENTE").roleScope("UNIDAD").build());
+        try {
+            return action.get();
+        } finally {
+            SaedContextHolder.setContext(admin);
+            SecurityContextHolder.getContext().setAuthentication(adminAuthentication());
+        }
+    }
+
+    private UsernamePasswordAuthenticationToken adminAuthentication() {
+        return new UsernamePasswordAuthenticationToken("admin", "n/a", List.of(
+                new SimpleGrantedAuthority("SCOPE_ADMIN_PROPIEDAD"),
+                new SimpleGrantedAuthority("SCOPE_ADMIN_ORGANIZACION")));
+    }
+
+    /** 7ec2c78: a point cannot be resolved before the discharge term expires unless the imputed person filed discharges. */
+    private void radicarDescargos(Long sancionId) {
+        DescargoRequestDTO descargo = new DescargoRequestDTO();
+        descargo.setDescargos("Descargos radicados por el imputado antes de la resolucion del expediente de prueba.");
+        asResident(() -> controller.radicarDescargos(sancionId, descargo));
+    }
+
+    /** Removes only what this suite creates for its own unit: fines (and the fees they generate), discharges, sanctions and the household link. */
+    private void cleanFixture() {
+        jdbcTemplate.update("DELETE FROM SANCION_DESCARGOS WHERE ID_SANCION IN (SELECT ID_SANCION FROM SANCIONES WHERE ID_UNIDAD = ?)", testUnidadId);
+        jdbcTemplate.update("DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD = ? AND ID_CUOTA > 3)", testUnidadId);
+        // CUOTAS.ID_MULTA_ORIGEN and MULTAS.ID_CUOTA reference each other: detach the fine before removing the fees.
+        jdbcTemplate.update("UPDATE MULTAS SET ID_CUOTA = NULL WHERE ID_UNIDAD = ?", testUnidadId);
+        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = ? AND ID_CUOTA > 3", testUnidadId);
+        jdbcTemplate.update("DELETE FROM MULTAS WHERE ID_UNIDAD = ?", testUnidadId);
+        jdbcTemplate.update("DELETE FROM SANCIONES WHERE ID_UNIDAD = ?", testUnidadId);
+    }
+
     @AfterEach
     public void tearDown() {
+        try {
+            cleanFixture();
+        } catch (RuntimeException ignored) {
+            // best effort: the fixture ids are test-owned and reset at the next setup
+        }
         SaedContextHolder.clearContext();
         SecurityContextHolder.clearContext();
     }
@@ -143,7 +188,7 @@ public class DebidoProcesoSancionesIntegrationTest {
         descargoReq.setDescargos("Estábamos celebrando un cumpleaños familiar con volumen moderado; lamentamos el inconveniente y nos comprometemos a no repetir.");
         descargoReq.setPruebasAdjuntasUrl("https://storage.saed.com/evidencias/descargo1.pdf");
 
-        ResponseEntity<Map<String, String>> respDescargo = controller.radicarDescargos(sancionId, descargoReq);
+        ResponseEntity<Map<String, String>> respDescargo = asResident(() -> controller.radicarDescargos(sancionId, descargoReq));
         assertEquals(200, respDescargo.getStatusCode().value());
 
         // Verificar que el estado cambió a EN_DESCARGOS y tiene 1 descargo registrado
@@ -176,7 +221,7 @@ public class DebidoProcesoSancionesIntegrationTest {
         assertEquals("IMPUESTA", multas.get(0).get("ESTADO"));
 
         // 7. Verificar que no se pueden radicar más descargos una vez en firme
-        assertThrows(IllegalStateException.class, () -> controller.radicarDescargos(sancionId, descargoReq));
+        assertThrows(IllegalStateException.class, () -> asResident(() -> controller.radicarDescargos(sancionId, descargoReq)));
     }
 
     @Test
@@ -191,6 +236,7 @@ public class DebidoProcesoSancionesIntegrationTest {
 
         ResponseEntity<SancionDTO> respCrear = controller.crearPliego(createReq);
         Long sancionId = respCrear.getBody().getIdSancion();
+        radicarDescargos(sancionId);
 
         ResolucionRequestDTO resolucionReq = new ResolucionRequestDTO();
         resolucionReq.setDecision("ABSUELTA");
@@ -219,6 +265,7 @@ public class DebidoProcesoSancionesIntegrationTest {
 
         ResponseEntity<SancionDTO> respCrear = controller.crearPliego(createReq);
         Long sancionId = respCrear.getBody().getIdSancion();
+        radicarDescargos(sancionId);
 
         // Intento con monto null
         ResolucionRequestDTO resNull = new ResolucionRequestDTO();
@@ -322,6 +369,7 @@ public class DebidoProcesoSancionesIntegrationTest {
         req2.setDescripcionHechos("Expediente ya resuelto.");
         req2.setTipoSancionPropuesta("AMONESTACION_ESCRITA");
         Long id2 = controller.crearPliego(req2).getBody().getIdSancion();
+        radicarDescargos(id2);
 
         ResolucionRequestDTO res = new ResolucionRequestDTO();
         res.setDecision("APLICADA");
@@ -345,6 +393,7 @@ public class DebidoProcesoSancionesIntegrationTest {
         req.setTipoSancionPropuesta("MULTA_ECONOMICA");
 
         Long idSancion = controller.crearPliego(req).getBody().getIdSancion();
+        radicarDescargos(idSancion);
 
         ResolucionRequestDTO res = new ResolucionRequestDTO();
         res.setDecision("APLICADA");
@@ -357,15 +406,19 @@ public class DebidoProcesoSancionesIntegrationTest {
         assertFalse(multas.isEmpty());
         Long idMulta = ((Number) multas.get(0).get("ID_MULTA")).longValue();
 
-        // 1. Pagar multa
-        ResponseEntity<Void> pagarResp = multasController.pagarMulta(idMulta, Map.of("metodoPago", "TRANSFERENCIA"));
-        assertEquals(200, pagarResp.getStatusCode().value());
+        // 1. de09f16 (F10-06): a resolved fine is posted to the receivables as a fee, so it is collected only through
+        // that fee and a direct fine payment is rejected (never collected twice).
+        IllegalStateException posted = assertThrows(IllegalStateException.class,
+                () -> multasController.pagarMulta(idMulta, Map.of("metodoPago", "TRANSFERENCIA")));
+        assertTrue(posted.getMessage().contains("cartera"), posted.getMessage());
 
-        MultaDTO pagada = multasController.getMultaById(idMulta).getBody();
-        assertEquals("PAGADA", pagada.getEstado());
+        MultaDTO sinPagar = multasController.getMultaById(idMulta).getBody();
+        assertEquals("IMPUESTA", sinPagar.getEstado());
 
-        // 2. Intentar anular una multa ya PAGADA -> debe lanzar IllegalStateException
-        assertThrows(IllegalStateException.class, () -> multasController.anularMulta(idMulta));
+        // 2. Anulling a fine with a posted fee is a valid transition from IMPUESTA
+        ResponseEntity<Void> anularResp = multasController.anularMulta(idMulta);
+        assertEquals(200, anularResp.getStatusCode().value());
+        assertEquals("ANULADA", multasController.getMultaById(idMulta).getBody().getEstado());
     }
 
     @Test

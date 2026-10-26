@@ -61,6 +61,9 @@ public class P301SuperAdminOperationalRestrictionSecurityTest {
     private EmailService emailService;
 
     @MockBean
+    private com.saed.backend.comunicacion.service.ComunicadoService comunicadoService;
+
+    @MockBean
     private JwtProvider jwtTokenProvider;
 
     @BeforeEach

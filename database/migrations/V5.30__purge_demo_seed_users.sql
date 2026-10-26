@@ -224,8 +224,8 @@ BEGIN
     BEGIN
         EXECUTE IMMEDIATE '
             MERGE INTO ORGANIZACIONES o USING (
-                SELECT 201 AS ID_ORGANIZACION, ''rincon farelo'' AS NOMBRE, ''1066872103'' AS IDENTIFICACION_FISCAL,
-                       ''danielaaacunaa8@gmail.com'' AS EMAIL_CONTACTO, ''3146313413'' AS TELEFONO_CONTACTO,
+                SELECT 201 AS ID_ORGANIZACION, ''Organizacion Demo'' AS NOMBRE, ''900000001'' AS IDENTIFICACION_FISCAL,
+                       ''contacto@example.invalid'' AS EMAIL_CONTACTO, ''3000000000'' AS TELEFONO_CONTACTO,
                        ''Valledupar (Cesar)'' AS CIUDAD, ''Colombia'' AS PAIS, ''ACTIVA'' AS ESTADO
                 FROM DUAL
             ) s ON (o.ID_ORGANIZACION = s.ID_ORGANIZACION)

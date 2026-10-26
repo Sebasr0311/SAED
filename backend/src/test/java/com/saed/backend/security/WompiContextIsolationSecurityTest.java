@@ -71,6 +71,22 @@ public class WompiContextIsolationSecurityTest {
 
     @AfterEach
     void tearDown() {
+        // The fees created for the webhooks (periods from 2200-01 on) must not stay outstanding on the demo unit, where
+        // the real-time paz y salvo gate (1ca286d) would read them in every later suite.
+        try {
+            SaedContextHolder.setContext(com.saed.backend.context.SaedContext.builder()
+                    .userId(1L).organizationId(1L).propertyId(1L).roleCode("SUPERADMIN").roleScope("GLOBAL").build());
+            jdbcTemplate.update("DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD = 1 AND PERIODO >= '2200-01')");
+            jdbcTemplate.update("UPDATE MULTAS SET ID_CUOTA = NULL WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD = 1 AND PERIODO >= '2200-01')");
+            jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 1 AND PERIODO >= '2200-01'");
+        } catch (Exception ignored) {
+            // referenced by payment intents of the webhooks: marked as settled so they are not outstanding
+            try {
+                jdbcTemplate.update("UPDATE CUOTAS SET SALDO_PENDIENTE = 0, ESTADO = 'ANULADA' WHERE ID_UNIDAD = 1 AND PERIODO >= '2200-01'");
+            } catch (Exception ignoredToo) {
+                // best effort
+            }
+        }
         SaedContextHolder.clearContext();
         try {
             jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT(); END;");
@@ -484,14 +500,6 @@ public class WompiContextIsolationSecurityTest {
     }
 
     private Long ensureTestCuota() {
-        List<Long> ids = jdbcTemplate.queryForList(
-                "SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD = 1 ORDER BY ID_CUOTA ASC",
-                Long.class
-        );
-        if (!ids.isEmpty()) {
-            return ids.get(0);
-        }
-
         List<Long> conceptos = jdbcTemplate.queryForList(
                 "SELECT ID_CONCEPTO FROM CONCEPTOS_COBRO WHERE ID_PROPIEDAD = 1 ORDER BY ID_CONCEPTO ASC",
                 Long.class
@@ -509,7 +517,12 @@ public class WompiContextIsolationSecurityTest {
             );
         }
 
-        String periodoUnico = "P" + (System.currentTimeMillis() % 1000000);
+        // CK_CUOTAS_PERIODO requires 'YYYY-MM' and (unit, concept, period) is unique: take the month after the latest
+        // fee this suite created (periods from 2200-01 on never collide with the demo fees of 2026).
+        String ultimo = jdbcTemplate.queryForObject(
+                "SELECT MAX(PERIODO) FROM CUOTAS WHERE ID_UNIDAD = 1 AND ID_CONCEPTO = ? AND PERIODO >= '2200-01'",
+                String.class, idConcepto);
+        String periodoUnico = ultimo == null ? "2200-01" : java.time.YearMonth.parse(ultimo).plusMonths(1).toString();
         jdbcTemplate.update(
                 "INSERT INTO CUOTAS (ID_UNIDAD, ID_CONCEPTO, PERIODO, VALOR_BASE, SALDO_PENDIENTE, FECHA_VENCIMIENTO, ESTADO) " +
                 "VALUES (1, ?, ?, 250000, 250000, SYSDATE + 15, 'PENDIENTE')",
@@ -517,8 +530,8 @@ public class WompiContextIsolationSecurityTest {
         );
 
         return jdbcTemplate.queryForObject(
-                "SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD = 1 AND PERIODO = ?",
-                Long.class, periodoUnico
+                "SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD = 1 AND ID_CONCEPTO = ? AND PERIODO = ?",
+                Long.class, idConcepto, periodoUnico
         );
     }
 

@@ -511,7 +511,7 @@ public class Phase9ProveedoresIntegrationTest {
                 .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(contratoCrossTenant)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());   // F06: indistinguishable from a missing supplier
 
         // Verificación en Oracle XE: exactamente 0 contratos insertados
         setElevatedContext();
@@ -705,7 +705,7 @@ public class Phase9ProveedoresIntegrationTest {
     private void ensureOrganizacion(Long idOrg, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, idOrg);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     idOrg, nombre, nit, email);
         }
     }

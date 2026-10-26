@@ -6,6 +6,7 @@ import com.saed.backend.authorization.service.AssignmentService;
 import com.saed.backend.common.service.FileStorageService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
+import com.saed.backend.finanzas.domain.CarteraRecalculation;
 import com.saed.backend.finanzas.dto.PazYSalvoDetalleDTO;
 import com.saed.backend.finanzas.dto.PazYSalvoEstadoFinancieroDTO;
 import com.saed.backend.finanzas.service.PazYSalvoService;
@@ -121,11 +122,19 @@ public class PazYSalvoFinancialIntegrityTest {
                 BEGIN
                     DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (1, 2, 9992);
                     DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992));
+                    UPDATE MULTAS SET ID_CUOTA = NULL WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3;
                     DELETE FROM MULTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CARTERA > 4;
+                    UPDATE CUOTAS SET ESTADO = 'ANULADA' WHERE ID_CUOTA = 2 AND ESTADO <> 'ANULADA';
                 END;
             """);
+            // CARTERA is a snapshot derived from CUOTAS. The cleanup above voids the seeded fee 2 (overdue since the seed's
+            // due date), so the snapshot must be recomputed too; otherwise a stale mora written by an earlier class
+            // (Mvp04 recalculates the property) is read back by the service as the unit's arrears.
+            for (long unit : new long[] {1L, 2L, 9992L}) {
+                CarteraRecalculation.recalcularUnidad(namedParameterJdbcTemplate, unit);
+            }
 
             ensureOrganizacion(9992L, "Org 9992 Foranea", "900009992-9", "org9992@test.com");
             ensurePropiedad(9992L, 9992L, "Propiedad 9992 Test");
@@ -178,9 +187,11 @@ public class PazYSalvoFinancialIntegrityTest {
                 BEGIN
                     DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (1, 2, 9992);
                     DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992));
+                    UPDATE CUOTAS SET ESTADO = 'PENDIENTE' WHERE ID_CUOTA = 2 AND ESTADO = 'ANULADA';
+                    UPDATE MULTAS SET ID_CUOTA = NULL WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3;
                     DELETE FROM MULTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CARTERA > 4;
                 END;
             """);
         } catch (Exception ignored) {}
@@ -724,7 +735,7 @@ public class PazYSalvoFinancialIntegrityTest {
     }
 
     @Test
-    @DisplayName("PS-18: Descarga Global SuperAdmin: SUPERADMIN puede descargar cualquier certificado de Paz y Salvo")
+    @DisplayName("PS-18: SUPERADMIN no descarga certificados de Paz y Salvo (dato operativo, DEC-02)")
     void test18_superAdminPuedeDescargarCualquierPdf() throws Exception {
         // Emitir paz y salvo en Propiedad 1
         String tokenAdminProp1 = jwtProvider.generateIdentityToken(USER_ADMIN_PROP_1);
@@ -739,13 +750,12 @@ public class PazYSalvoFinancialIntegrityTest {
 
         long id = objectMapper.readTree(emitRes.getResponse().getContentAsString()).get("data").get("id").asLong();
 
-        // SuperAdmin descarga globalmente
+        // DEC-02 / c074514: the SUPERADMIN scope was removed from operational endpoints (certificates included).
         String tokenSuperAdmin = jwtProvider.generateIdentityToken(USER_SUPERADMIN);
         mockMvc.perform(get("/api/v1/paz-y-salvos/" + id + "/descargar")
                 .header("Authorization", "Bearer " + tokenSuperAdmin)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_SUPERADMIN)))
-                .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type", "application/pdf"));
+                .andExpect(status().isForbidden());
     }
 
     // --- MÉTODOS AUXILIARES DE ASEGURAMIENTO DE DATOS ---
@@ -753,7 +763,7 @@ public class PazYSalvoFinancialIntegrityTest {
     private void ensureOrganizacion(Long id, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     id, nombre, nit, email);
         }
     }
@@ -761,31 +771,31 @@ public class PazYSalvoFinancialIntegrityTest {
     private void ensurePropiedad(Long id, Long idOrg, String nombre) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM PROPIEDADES WHERE ID_PROPIEDAD = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, NOMBRE, DIRECCION, CIUDAD, TIPO_OCUPACION_PREDOMINANTE, ESTADO) " +
-                    "VALUES (?, ?, ?, 'Calle 123', 'Bogotá', 'RESIDENCIAL', 'ACTIVA')", id, idOrg, nombre);
+            jdbcTemplate.update("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, TIPO_OCUPACION_PREDOMINANTE, ESTADO) " +
+                    "VALUES (?, ?, 1, ?, 'Calle 123', 'Bogotá', 'MIXTA', 'ACTIVA')", id, idOrg, nombre);
         }
     }
 
     private void ensureUnidad(Long id, Long idProp, String identificador) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM UNIDADES WHERE ID_UNIDAD = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, IDENTIFICADOR, TIPO_UNIDAD, COEFICIENTE_COPROPIEDAD, ESTADO) " +
-                    "VALUES (?, ?, ?, 'RESIDENCIAL', 0.05, 'DISPONIBLE')", id, idProp, identificador);
+            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, COEFICIENTE_COPROPIEDAD, ESTADO) " +
+                    "VALUES (?, ?, 1, ?, 0.05, 'ACTIVA')", id, idProp, identificador);
         }
     }
 
     private void ensurePersona(Long id, String doc, String nombre, String apellido, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM PERSONAS WHERE ID_PERSONA = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, NUMERO_DOCUMENTO, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) " +
-                    "VALUES (?, ?, ?, ?, ?)", id, doc, nombre, apellido, email);
+            jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) " +
+                    "VALUES (?, 1, ?, ?, ?, ?)", id, doc, nombre, apellido, email);
         }
     }
 
     private void ensureUsuario(Long id, Long idPersona, String username, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM USUARIOS WHERE ID_USUARIO = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, USERNAME, EMAIL, PASSWORD_HASH, ESTADO) " +
+            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) " +
                     "VALUES (?, ?, ?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyz123456', 'ACTIVO')", id, idPersona, username, email);
         }
     }

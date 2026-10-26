@@ -81,11 +81,20 @@ public class PropertyService {
         if (!"SUPERADMIN".equals(ctx.getRoleCode()) && !"GLOBAL".equals(scope)) {
             request.setIdOrganizacion(ctx.getOrganizationId());
         }
+        // F04-03: an inactive property is read-only; only the status endpoint may change it.
+        propertyStatusService.validatePropertyIsActive(id);
         propertyRepository.update(id, request);
     }
 
     @Transactional
     public void updateStatus(Long id, String estado) {
+        // F03-02: re-activating an inactive property consumes a plan slot, under the same
+        // membership lock as creation.
+        if ("ACTIVA".equalsIgnoreCase(estado)) {
+            propertyRepository.findById(id)
+                    .filter(p -> !"ACTIVA".equalsIgnoreCase(p.getEstado()) && p.getIdOrganizacion() != null)
+                    .ifPresent(p -> planLimitService.validateAndLockPropertyLimit(p.getIdOrganizacion()));
+        }
         propertyRepository.updateStatus(id, estado);
         propertyStatusService.updateCache(id, estado);
     }

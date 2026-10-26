@@ -511,10 +511,11 @@ public class ResidenteAdversarialAuthorizationTest {
     @DisplayName("IDOR / IDENTITY: RESIDENTE no puede consultar el dashboard financiero de otro residente")
     void residente_cannotAccessOtherResidentFinancialDashboard() throws Exception {
         String token = jwtProvider.generateIdentityToken(resUserId1);
+        // d5d1d0d: a household member only sees their own dashboard; anyone else's resident id is "not found" (404).
         mockMvc.perform(get("/api/v1/residentes/5/dashboard")
                 .header("Authorization", "Bearer " + token)
                 .header("X-Assignment-Id", resAssignment1))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
     }
 
     // =========================================================================
@@ -706,7 +707,7 @@ public class ResidenteAdversarialAuthorizationTest {
     }
 
     @Test
-    @DisplayName("DENEGACIÓN: RESIDENTE no puede acceder a pólizas ni contratos")
+    @DisplayName("DENEGACIÓN: RESIDENTE no puede acceder a pólizas; sus contratos propios son visibles")
     void residente_cannotAccessLegalAndInsurance() throws Exception {
         String token = jwtProvider.generateIdentityToken(resUserId1);
         mockMvc.perform(get("/api/v1/seguros/polizas")
@@ -714,10 +715,12 @@ public class ResidenteAdversarialAuthorizationTest {
                 .header("X-Assignment-Id", resAssignment1))
                 .andExpect(status().isForbidden());
 
+        // 8c091b6: residents list their own lease contracts (ContratosController grants SCOPE_RESIDENTE; the service
+        // scopes the list to the caller's unit), so the list answers 200 instead of 403.
         mockMvc.perform(get("/api/v1/contratos")
                 .header("Authorization", "Bearer " + token)
                 .header("X-Assignment-Id", resAssignment1))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
     }
 
     @Test

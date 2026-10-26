@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDateTime } from '../lib/utils.js';
+import { safeHttpUrls } from '../lib/safeUrl.js';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
@@ -702,15 +703,24 @@ export default function ResIncidentesPage() {
             {selectedIncidente.evidenciasUrls && (
               <div className="p-3 rounded-lg border border-border bg-card text-xs flex items-center justify-between">
                 <span className="text-muted-foreground">Evidencia o Anexos:</span>
-                <a
-                  href={selectedIncidente.evidenciasUrls}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-medium text-primary hover:underline flex items-center gap-1"
-                >
-                  <span>Abrir enlace de evidencia</span>
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+                {safeHttpUrls(selectedIncidente.evidenciasUrls).length > 0 ? (
+                  <span className="flex flex-col items-end gap-1">
+                    {safeHttpUrls(selectedIncidente.evidenciasUrls).map((href, i) => (
+                      <a
+                        key={href}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-primary hover:underline flex items-center gap-1"
+                      >
+                        <span>Abrir enlace de evidencia {i + 1}</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ))}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Adjunto no enlazable</span>
+                )}
               </div>
             )}
 

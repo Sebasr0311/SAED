@@ -1,5 +1,6 @@
 package com.saed.backend.finanzas.controller;
 
+import com.saed.backend.platform.annotation.RequireModule;
 import com.saed.backend.audit.Auditable;
 import com.saed.backend.audit.AuditCategory;
 import com.saed.backend.audit.AuditSeverity;
@@ -31,10 +32,15 @@ import java.util.Map;
  *   GET    /api/v1/presupuestos/resumen      - resumen: totales, saldo, % ejecucion
  */
 @Tag(name = "Presupuestos", description = "Gestion de presupuestos por propiedad")
+@RequireModule("FINANZAS")
 @RestController
 @RequestMapping("/api/v1/presupuestos")
 @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class PresupuestoController {
+
+    /** CK_PRESUPUESTOS_TIPO and CK_PRESUPUESTOS_ESTADO. */
+    private static final List<String> TIPOS = List.of("INGRESO", "EGRESO");
+    private static final List<String> ESTADOS = List.of("BORRADOR", "APROBADO", "CERRADO");
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
@@ -73,7 +79,7 @@ public class PresupuestoController {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql,
                 new MapSqlParameterSource("id", id));
         if (rows.isEmpty()) {
-            return ApiResponse.error("Presupuesto no encontrado");
+            throw new java.util.NoSuchElementException("Presupuesto no encontrado");
         }
         return ApiResponse.success(rows.get(0));
     }
@@ -83,26 +89,37 @@ public class PresupuestoController {
     @PostMapping
     @Auditable(action = "CREATE", resource = "PRESUPUESTO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<ApiResponse<Map<String, Object>>> crear(@RequestBody Map<String, Object> body) {
-        String rubro = (String) body.getOrDefault("rubro", "");
-        String tipo = body.get("tipo") != null ? ((String) body.get("tipo")).toUpperCase() : "";
-        Number montoPresupuestado = (Number) body.getOrDefault("montoPresupuestado", 0);
-        Number vigenciaAnio = (Number) body.getOrDefault("vigenciaAnio", 0);
+        String rubro = body.get("rubro") != null ? body.get("rubro").toString().trim() : "";
+        String tipo = body.get("tipo") != null ? body.get("tipo").toString().trim().toUpperCase() : "";
+        Number montoPresupuestado = body.get("montoPresupuestado") instanceof Number n ? n : 0;
+        Number vigenciaAnio = body.get("vigenciaAnio") instanceof Number n ? n : 0;
+        String estado = body.get("estado") != null ? body.get("estado").toString().trim().toUpperCase() : "APROBADO";
 
         if (rubro.isBlank()) {
             return ResponseEntity.badRequest().body(ApiResponse.error("rubro es obligatorio"));
         }
-        if (!List.of("INGRESO", "EGRESO").contains(tipo)) {
+        if (!TIPOS.contains(tipo)) {
             return ResponseEntity.badRequest().body(ApiResponse.error("tipo debe ser INGRESO o EGRESO"));
         }
+        if (!ESTADOS.contains(estado)) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("estado debe ser BORRADOR, APROBADO o CERRADO"));
+        }
+        if (vigenciaAnio.intValue() < 2000 || vigenciaAnio.intValue() > 2100) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("vigenciaAnio es obligatorio (2000-2100)"));
+        }
+        if (montoPresupuestado.doubleValue() < 0) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("montoPresupuestado no puede ser negativo"));
+        }
 
-        String sql = "INSERT INTO PRESUPUESTOS (ID_PROPIEDAD, VIGENCIA_ANIO, RUBRO, TIPO, MONTO_PRESUPUESTADO) " +
-                "VALUES (SYS_CONTEXT('SAED_CTX', 'ID_PROPIEDAD'), :vigencia, :rubro, :tipo, :monto)";
+        String sql = "INSERT INTO PRESUPUESTOS (ID_PROPIEDAD, VIGENCIA_ANIO, RUBRO, TIPO, MONTO_PRESUPUESTADO, ESTADO) " +
+                "VALUES (SYS_CONTEXT('SAED_CTX', 'ID_PROPIEDAD'), :vigencia, :rubro, :tipo, :monto, :estado)";
 
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("vigencia", vigenciaAnio)
                 .addValue("rubro", rubro)
                 .addValue("tipo", tipo)
-                .addValue("monto", montoPresupuestado);
+                .addValue("monto", montoPresupuestado)
+                .addValue("estado", estado);
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_PRESUPUESTO"});
@@ -114,7 +131,8 @@ public class PresupuestoController {
                 "rubro", rubro,
                 "tipo", tipo,
                 "montoPresupuestado", montoPresupuestado,
-                "vigenciaAnio", vigenciaAnio
+                "vigenciaAnio", vigenciaAnio,
+                "estado", estado
         )));
     }
 
@@ -122,25 +140,32 @@ public class PresupuestoController {
 
     @PutMapping("/{id}")
     @Auditable(action = "UPDATE", resource = "PRESUPUESTO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
-    public ApiResponse<String> actualizar(@PathVariable Long id, @RequestBody Map<String, Object> body) {
-        String rubro = (String) body.getOrDefault("rubro", null);
-        String tipo = body.get("tipo") != null ? ((String) body.get("tipo")).toUpperCase() : null;
-        Number montoPresupuestado = (Number) body.getOrDefault("montoPresupuestado", null);
-        String estado = body.get("estado") != null ? ((String) body.get("estado")).toUpperCase() : null;
+    public ResponseEntity<ApiResponse<String>> actualizar(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        String rubro = body.get("rubro") != null ? body.get("rubro").toString().trim() : null;
+        String tipo = body.get("tipo") != null ? body.get("tipo").toString().trim().toUpperCase() : null;
+        Number montoPresupuestado = body.get("montoPresupuestado") instanceof Number n ? n : null;
+        String estado = body.get("estado") != null ? body.get("estado").toString().trim().toUpperCase() : null;
+
+        if (tipo != null && !TIPOS.contains(tipo)) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("tipo debe ser INGRESO o EGRESO"));
+        }
+        if (estado != null && !ESTADOS.contains(estado)) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("estado debe ser BORRADOR, APROBADO o CERRADO"));
+        }
+        if (montoPresupuestado != null && montoPresupuestado.doubleValue() < 0) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("montoPresupuestado no puede ser negativo"));
+        }
 
         StringBuilder sb = new StringBuilder("UPDATE PRESUPUESTOS SET ");
         MapSqlParameterSource params = new MapSqlParameterSource("id", id);
         boolean first = true;
 
-        if (rubro != null) {
+        if (rubro != null && !rubro.isBlank()) {
             sb.append(first ? "" : ", ").append("RUBRO = :rubro");
             params.addValue("rubro", rubro);
             first = false;
         }
         if (tipo != null) {
-            if (!List.of("INGRESO", "EGRESO").contains(tipo)) {
-                return ApiResponse.error("tipo debe ser INGRESO o EGRESO");
-            }
             sb.append(first ? "" : ", ").append("TIPO = :tipo");
             params.addValue("tipo", tipo);
             first = false;
@@ -156,23 +181,34 @@ public class PresupuestoController {
             first = false;
         }
 
-        if (first) return ApiResponse.error("Ningun campo para actualizar");
+        if (first) return ResponseEntity.badRequest().body(ApiResponse.error("Ningun campo para actualizar"));
 
         sb.append(" WHERE ID_PRESUPUESTO = :id");
         int rows = jdbcTemplate.update(sb.toString(), params);
-        if (rows == 0) return ApiResponse.error("Presupuesto no encontrado");
-        return ApiResponse.success("OK");
+        if (rows == 0) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Presupuesto no encontrado"));
+        }
+        return ResponseEntity.ok(ApiResponse.success("OK"));
     }
 
     // --- ELIMINAR ---
 
     @DeleteMapping("/{id}")
     @Auditable(action = "DELETE", resource = "PRESUPUESTO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
-    public ApiResponse<String> eliminar(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<String>> eliminar(@PathVariable Long id) {
+        Integer expenses = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM GASTOS WHERE ID_PRESUPUESTO = :id",
+                new MapSqlParameterSource("id", id), Integer.class);
+        if (expenses != null && expenses > 0) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(
+                    "El presupuesto tiene gastos asociados; reasignelos o cierre el presupuesto en lugar de eliminarlo"));
+        }
         int rows = jdbcTemplate.update("DELETE FROM PRESUPUESTOS WHERE ID_PRESUPUESTO = :id",
                 new MapSqlParameterSource("id", id));
-        if (rows == 0) return ApiResponse.error("Presupuesto no encontrado");
-        return ApiResponse.success("Eliminado");
+        if (rows == 0) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Presupuesto no encontrado"));
+        }
+        return ResponseEntity.ok(ApiResponse.success("Eliminado"));
     }
 
     // --- REPORTE DE EJECUCION ---

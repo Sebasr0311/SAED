@@ -16,7 +16,6 @@ import {
   ShieldAlert,
   UserCheck,
   UserX,
-  Lock,
 } from 'lucide-react';
 import {
   valNombre,
@@ -31,6 +30,7 @@ import {
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
+import { mensajeEnlaceEnviado, reenviarEnlaceActivacion } from '../lib/activation.js';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
@@ -55,7 +55,6 @@ const emptyForm = {
   email: '',
   username: '',
   password: '',
-  generarPasswordAuto: true,
   cargo: 'PORTERO',
   activo: true,
 };
@@ -186,7 +185,6 @@ export default function EmpleadosPage() {
         email: row.email,
         username: row.username,
         password: '',
-        generarPasswordAuto: false,
         cargo: 'PORTERO',
         activo: row.activo,
       });
@@ -238,10 +236,7 @@ export default function EmpleadosPage() {
     const rUsr = valUsername(form.username);
     if (!rUsr.ok) e.username = rUsr.mensaje;
 
-    if (!editing && !form.generarPasswordAuto) {
-      const rPwd = valPassword(form.password);
-      if (!rPwd.ok) e.password = rPwd.mensaje;
-    } else if (editing && form.password && form.password.trim()) {
+    if (editing && form.password && form.password.trim()) {
       const rPwd = valPassword(form.password);
       if (!rPwd.ok) e.password = rPwd.mensaje;
     }
@@ -288,7 +283,6 @@ export default function EmpleadosPage() {
         // Crear nuevo empleado (PORTERO)
         const payload = {
           username: form.username.trim().toLowerCase(),
-          password: form.generarPasswordAuto ? undefined : form.password.trim(),
           enviarCorreoActivacion: true,
           rol: 'PORTERO',
           activo: form.activo,
@@ -303,14 +297,10 @@ export default function EmpleadosPage() {
         };
 
         const res = await tenantApi.post('/usuarios', payload);
-        const passMsg = res?.data?.passwordGenerada || res?.passwordGenerada;
-        if (passMsg) {
-          toast.success(
-            `Portero creado con éxito. Clave temporal asignada: ${passMsg}. Se enviaron las credenciales a ${form.email}.`,
-            { duration: 8000 }
-          );
+        if ((res?.data || res)?.accountCreated === false) {
+          toast.success("Cuenta existente vinculada sin modificar sus credenciales.");
         } else {
-          toast.success(`Portero creado con éxito. Se enviaron las credenciales de acceso a ${form.email}.`);
+          toast.success(`Portero creado con éxito. ${mensajeEnlaceEnviado(form.email)}`, { duration: 8000 });
         }
       }
 
@@ -350,6 +340,20 @@ export default function EmpleadosPage() {
     },
     [refetch, tenantApi]
   );
+
+  // Reenviar enlace de activación (endpoint público con límite de intentos)
+  const [resendingId, setResendingId] = useState(null);
+  const resendActivation = useCallback(async (emp) => {
+    setResendingId(emp.idUsuario);
+    try {
+      await reenviarEnlaceActivacion(emp.username);
+      toast.success(`Si la cuenta de ${emp.nombreCompleto} está pendiente de activación, se envió un nuevo enlace a su correo.`);
+    } catch (err) {
+      toast.error(err.message || 'No se pudo reenviar el enlace de activación');
+    } finally {
+      setResendingId(null);
+    }
+  }, []);
 
   // Eliminar empleado
   const handleDelete = useCallback(async () => {
@@ -562,6 +566,20 @@ export default function EmpleadosPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => resendActivation(emp)}
+                          disabled={resendingId === emp.idUsuario}
+                          className="h-8 px-2 text-xs"
+                          title="Reenviar enlace de activación"
+                        >
+                          {resendingId === emp.idUsuario ? (
+                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Mail className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => openEdit(emp)}
                           className="h-8 px-2 text-xs"
                           title="Editar empleado y credenciales"
@@ -752,37 +770,15 @@ export default function EmpleadosPage() {
                   placeholder="Dejar en blanco para mantener la actual"
                   error={errors.password}
                 />
-              ) : form.generarPasswordAuto ? (
+              ) : (
                 <div className="flex flex-col justify-end">
                   <div className="text-[11px] bg-muted/60 p-2.5 rounded-lg border border-border text-muted-foreground flex items-center gap-2">
-                    <Lock className="h-4 w-4 text-primary shrink-0" />
-                    <span>Se generará una contraseña segura aleatoria y se enviará por correo.</span>
+                    <Mail className="h-4 w-4 text-primary shrink-0" />
+                    <span>La persona recibirá por correo un enlace de un solo uso (48 horas) para definir su contraseña.</span>
                   </div>
                 </div>
-              ) : (
-                <Input
-                  id="password"
-                  label="Contraseña de Acceso *"
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => update('password', e.target.value)}
-                  placeholder="Mínimo 8 caracteres"
-                  error={errors.password}
-                />
               )}
             </div>
-
-            {!editing && (
-              <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer pt-1">
-                <input
-                  type="checkbox"
-                  checked={form.generarPasswordAuto}
-                  onChange={(e) => update('generarPasswordAuto', e.target.checked)}
-                  className="rounded-sm border-border text-primary focus:ring-primary/20"
-                />
-                <span>Generar contraseña temporal segura automáticamente y enviar por correo</span>
-              </label>
-            )}
 
             <div className="flex items-center justify-between pt-1 border-t border-border/40">
               <span className="text-xs font-medium text-foreground">Estado de la cuenta:</span>

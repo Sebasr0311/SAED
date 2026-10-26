@@ -30,6 +30,14 @@ public class PorteriaExtController {
         return porteriaController.programarVisita(body);
     }
 
+    /** Used by the visits page cancel action; cancels the visit and revokes its QR codes (F07-01). */
+    @DeleteMapping("/visitas/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    public void cancelarVisita(@PathVariable Long id) {
+        porteriaController.cancelarVisita(id);
+    }
+
     @PostMapping("/visitas/rapida")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA') or hasAuthority('SCOPE_PORTERO')")

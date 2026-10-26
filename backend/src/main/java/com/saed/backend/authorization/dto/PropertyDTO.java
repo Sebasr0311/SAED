@@ -10,6 +10,8 @@ public class PropertyDTO {
     private String nombre;
     private String direccion;
     private String ciudad;
+    private String departamento;
+    private String pais;
     private String tipoOcupacionPredominante;
     private String estado;
 
@@ -38,6 +40,10 @@ public class PropertyDTO {
     public void setDireccion(String direccion) { this.direccion = direccion; }
     public String getCiudad() { return ciudad; }
     public void setCiudad(String ciudad) { this.ciudad = ciudad; }
+    public String getDepartamento() { return departamento; }
+    public void setDepartamento(String departamento) { this.departamento = departamento; }
+    public String getPais() { return pais; }
+    public void setPais(String pais) { this.pais = pais; }
     public String getTipoOcupacionPredominante() { return tipoOcupacionPredominante; }
     public void setTipoOcupacionPredominante(String tipoOcupacionPredominante) { this.tipoOcupacionPredominante = tipoOcupacionPredominante; }
     public String getEstado() { return estado; }

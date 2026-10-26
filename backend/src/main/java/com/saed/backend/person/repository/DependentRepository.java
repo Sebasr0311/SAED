@@ -26,10 +26,19 @@ public interface DependentRepository {
     TutorDTO updateTutor(Long id, TutorRequestDTO request);
     void deleteTutor(Long id);
 
+    /** Units where the person has an active residence or ownership (scope of guardian records, F5-H08). */
+    List<Long> findActiveUnitIdsOfPersona(Long personaId);
+
     // Visitantes
     VisitanteDTO createVisitante(VisitanteRequestDTO request);
     Optional<VisitanteDTO> getVisitanteById(Long id);
     Optional<VisitanteDTO> getVisitanteByPersona(Long personaId);
     VisitanteDTO updateVisitante(Long id, VisitanteRequestDTO request);
     void deleteVisitante(Long id);
+
+    // F08-04 ownership checks
+    /** True when the person is an active resident or owner of the unit. */
+    boolean isPersonOfUnit(Long personaId, Long unidadId);
+
+    boolean isUnitInProperty(Long unidadId, Long propiedadId);
 }

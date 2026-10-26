@@ -79,7 +79,7 @@ export default function ConciliacionPage() {
     try {
       const payload = {
         periodo: form.periodo.trim(),
-        cuentaBanco: form.cuentaBanco.trim(),
+        bancoCuenta: form.cuentaBanco.trim(),
         saldoBanco: sb,
         saldoLibros: sl,
         estado: form.estado,

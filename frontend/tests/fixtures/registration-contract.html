@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Registration contract fixture</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import React from 'react';
+      import { createRoot } from 'react-dom/client';
+      import { Toaster } from 'sonner';
+      import { ConvivientesSection } from '/src/components/residents/ConvivientesSection.jsx';
+      import '/src/index.css';
+
+      createRoot(document.getElementById('root')).render(
+        React.createElement(React.Fragment, null,
+          React.createElement(ConvivientesSection, {
+            unitId: 1000,
+            residentId: 20,
+            tiposDoc: [{ idTipoDoc: 1, codigo: 'CC', nombre: 'Cédula' }],
+            quotaData: { limiteConfigurado: 4, convivientesActivos: 0, cuposDisponibles: 4 },
+            residentsData: [],
+          }),
+          React.createElement(Toaster)
+        )
+      );
+    </script>
+  </body>
+</html>

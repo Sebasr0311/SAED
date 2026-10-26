@@ -74,6 +74,12 @@ public class H04SuperAdminResidualOperationalRestrictionSecurityTest {
     private MockMvc mockMvc;
 
     @MockBean
+    private com.saed.backend.dashboard.export.ReportExportService reportExportServiceMock;
+
+    @MockBean
+    private com.saed.backend.dashboard.service.ReportesService reportesServiceMock;
+
+    @MockBean
     private PersonaService personaService;
 
     @MockBean
@@ -135,7 +141,7 @@ public class H04SuperAdminResidualOperationalRestrictionSecurityTest {
     private static final String VALID_CONTACTO_EMERGENCIA_JSON = """
         {
             "entidad": "Bomberos",
-            "tipoServicio": "EMERGENCIA",
+            "tipoServicio": "BOMBEROS",
             "telefonoPrincipal": "119"
         }
     """;

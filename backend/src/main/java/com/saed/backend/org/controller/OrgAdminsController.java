@@ -13,6 +13,8 @@ import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.org.dto.CreateOrgAdminRequestDTO;
 import com.saed.backend.org.dto.OrgAdminDTO;
 import com.saed.backend.org.dto.UpdateOrgAdminRequestDTO;
+import com.saed.backend.org.service.OrgAdminAccountService;
+import com.saed.backend.platform.service.PlanLimitService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -52,19 +54,25 @@ public class OrgAdminsController {
     private final PasswordEncoder passwordEncoder;
     private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider;
     private final com.saed.backend.common.service.EmailService emailService;
+    private final OrgAdminAccountService orgAdminAccountService;
+    private final PlanLimitService planLimitService;
 
     public OrgAdminsController(NamedParameterJdbcTemplate jdbcTemplate,
                                PropertyRepository propertyRepository,
                                AssignmentManagementService assignmentManagementService,
                                PasswordEncoder passwordEncoder,
                                org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider,
-                               com.saed.backend.common.service.EmailService emailService) {
+                               com.saed.backend.common.service.EmailService emailService,
+                               OrgAdminAccountService orgAdminAccountService,
+                               PlanLimitService planLimitService) {
         this.jdbcTemplate = jdbcTemplate;
         this.propertyRepository = propertyRepository;
         this.assignmentManagementService = assignmentManagementService;
         this.passwordEncoder = passwordEncoder;
         this.tokenServiceProvider = tokenServiceProvider;
         this.emailService = emailService;
+        this.orgAdminAccountService = orgAdminAccountService;
+        this.planLimitService = planLimitService;
     }
 
     @GetMapping
@@ -213,124 +221,11 @@ public class OrgAdminsController {
         }
 
 
-        // 1. Resolver o Crear PERSONA
-        Long idPersona = null;
-        String doc = request.getNumeroDocumento() != null ? request.getNumeroDocumento().trim() : "";
-        if (!doc.isBlank()) {
-            List<Long> existingPersonas = jdbcTemplate.query(
-                "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
-                Map.of("doc", doc),
-                (rs, rowNum) -> rs.getLong("ID_PERSONA")
-            );
-            if (!existingPersonas.isEmpty()) {
-                idPersona = existingPersonas.get(0);
-                try {
-                    jdbcTemplate.update("""
-                        UPDATE PERSONAS 
-                        SET primer_nombre = COALESCE(:nombre, primer_nombre),
-                            primer_apellido = COALESCE(:apellido, primer_apellido),
-                            email = COALESCE(:email, email),
-                            telefono = COALESCE(:tel, telefono)
-                        WHERE id_persona = :idPersona
-                    """, new MapSqlParameterSource()
-                        .addValue("idPersona", idPersona)
-                        .addValue("nombre", request.getPrimerNombre())
-                        .addValue("apellido", request.getPrimerApellido())
-                        .addValue("email", request.getEmail())
-                        .addValue("tel", request.getTelefono())
-                    );
-                } catch (Exception ignored) {}
-            }
-        }
-
-        if (idPersona == null) {
-            String sqlPersona = """
-                INSERT INTO PERSONAS (id_tipo_documento, numero_documento, primer_nombre, primer_apellido, email, telefono, estado)
-                VALUES (:idTipoDoc, :numDoc, :nombre, :apellido, :email, :tel, 'ACTIVO')
-            """;
-            MapSqlParameterSource paramPersona = new MapSqlParameterSource()
-                    .addValue("idTipoDoc", request.getIdTipoDocumento() != null ? request.getIdTipoDocumento() : 1L)
-                    .addValue("numDoc", request.getNumeroDocumento())
-                    .addValue("nombre", request.getPrimerNombre())
-                    .addValue("apellido", request.getPrimerApellido())
-                    .addValue("email", request.getEmail())
-                    .addValue("tel", request.getTelefono());
-
-            KeyHolder khPersona = new GeneratedKeyHolder();
-            jdbcTemplate.update(sqlPersona, paramPersona, khPersona, new String[]{"ID_PERSONA"});
-            Number idPersonaNum = khPersona.getKey();
-            if (idPersonaNum == null) {
-                throw new IllegalStateException("No se pudo generar el ID para la persona");
-            }
-            idPersona = idPersonaNum.longValue();
-        }
-
-        // 2. Resolver o Crear USUARIO
-        Long idUsuario = null;
-        String rawPassword = request.getPassword();
-        if (rawPassword == null || rawPassword.trim().isBlank()) {
-            rawPassword = com.saed.backend.common.util.PasswordGenerator.generate();
-        }
-
-        try {
-            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(" + ctx.getUserId() + "); EXCEPTION WHEN OTHERS THEN NULL; END;");
-        } catch (Exception ignored) {}
-
-        List<Map<String, Object>> existingUsers = jdbcTemplate.queryForList(
-            "SELECT ID_USUARIO, NOMBRE_USUARIO, EMAIL FROM USUARIOS WHERE ID_PERSONA = :p",
-            Map.of("p", idPersona)
-        );
-        if (existingUsers.isEmpty() && request.getEmail() != null && !request.getEmail().trim().isBlank()) {
-            existingUsers = jdbcTemplate.queryForList(
-                "SELECT ID_USUARIO, NOMBRE_USUARIO, EMAIL FROM USUARIOS WHERE LOWER(EMAIL) = LOWER(:email)",
-                Map.of("email", request.getEmail().trim())
-            );
-        }
-
-        if (!existingUsers.isEmpty()) {
-            idUsuario = ((Number) existingUsers.get(0).get("ID_USUARIO")).longValue();
-            jdbcTemplate.update(
-                "UPDATE USUARIOS SET ID_PERSONA = :p WHERE ID_USUARIO = :uid AND ID_PERSONA IS NULL",
-                Map.of("p", idPersona, "uid", idUsuario)
-            );
-            if (request.getPassword() != null && !request.getPassword().trim().isBlank()) {
-                jdbcTemplate.update(
-                    "UPDATE USUARIOS SET HASH_PASSWORD = :pwd WHERE ID_USUARIO = :uid",
-                    Map.of("pwd", passwordEncoder.encode(rawPassword), "uid", idUsuario)
-                );
-            }
-        } else {
-            String username = request.getNombreUsuario();
-            if (username == null || username.trim().isBlank()) {
-                username = request.getEmail().split("@")[0].toLowerCase().replaceAll("[^a-z0-9]", ".");
-            }
-            Integer usernameCount = jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = LOWER(:u)",
-                Map.of("u", username.trim()),
-                Integer.class
-            );
-            if (usernameCount != null && usernameCount > 0) {
-                username = username.trim() + "." + ((int)(Math.random() * 900) + 100);
-            }
-
-            String sqlUsuario = """
-                INSERT INTO USUARIOS (id_persona, nombre_usuario, email, hash_password, estado, intentos_fallidos)
-                VALUES (:idPersona, :username, :email, :pwd, 'ACTIVO', 0)
-            """;
-            MapSqlParameterSource paramUsuario = new MapSqlParameterSource()
-                    .addValue("idPersona", idPersona)
-                    .addValue("username", username)
-                    .addValue("email", request.getEmail())
-                    .addValue("pwd", passwordEncoder.encode(rawPassword));
-
-            KeyHolder khUsuario = new GeneratedKeyHolder();
-            jdbcTemplate.update(sqlUsuario, paramUsuario, khUsuario, new String[]{"ID_USUARIO"});
-            Number idUsuarioNum = khUsuario.getKey();
-            if (idUsuarioNum == null) {
-                throw new IllegalStateException("No se pudo generar el ID para el usuario");
-            }
-            idUsuario = idUsuarioNum.longValue();
-        }
+        // 1-2. Resolve the account inside the caller's organization only (F3-03): no bootstrap
+        // context, no reuse or overwrite of identities from other organizations, no password set
+        // by the caller. New accounts are created pending activation.
+        OrgAdminAccountService.AccountResolution account = orgAdminAccountService.resolveOrCreate(orgId, request);
+        Long idUsuario = account.idUsuario();
 
         // 3. Crear Asignaciones (soporte para múltiples propiedades o inactiva si no se seleccionó ninguna)
         Long primaryAsignacionId = null;
@@ -346,7 +241,7 @@ public class OrgAdminsController {
                 KeyHolder khAsig = new GeneratedKeyHolder();
                 jdbcTemplate.update("""
                     INSERT INTO USUARIO_ASIGNACIONES (id_usuario, id_rol, id_organizacion, id_propiedad, estado, fecha_inicio)
-                    VALUES (:uid, :rolId, :orgId, NULL, 'INACTIVA', TRUNC(CURRENT_DATE))
+                    VALUES (:uid, :rolId, :orgId, NULL, 'INACTIVA', TRUNC(SYSDATE))
                 """, new MapSqlParameterSource()
                     .addValue("uid", idUsuario)
                     .addValue("rolId", requestedRoleId)
@@ -372,6 +267,8 @@ public class OrgAdminsController {
                 Long asigId;
                 if (!existingAssignments.isEmpty()) {
                     asigId = existingAssignments.get(0);
+                    // Re-activation consumes a plan seat like a new assignment (F03-02).
+                    planLimitService.validateAndLockUserLimit(orgId, idUsuario);
                     jdbcTemplate.update(
                         "UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'ACTIVA' WHERE ID_ASIGNACION = :asigId",
                         Map.of("asigId", asigId)
@@ -390,63 +287,15 @@ public class OrgAdminsController {
             }
         }
 
-        // Restaurar contexto organizacional normal
-        try {
-            jdbcTemplate.getJdbcOperations().execute(String.format(
-                "BEGIN PKG_SAED_SESSION.SET_CONTEXT(%d, %d, NULL, '%s'); EXCEPTION WHEN OTHERS THEN NULL; END;",
-                ctx.getUserId(), orgId, ctx.getRoleCode()
-            ));
-        } catch (Exception ignored) {}
-
-        // 4. Enviar correo con credenciales de acceso creadas por el usuario
-        String creatorName = "Administrador de Organización";
-        try {
-            if (ctx.getUserId() != null) {
-                List<String> names = jdbcTemplate.query(
-                    "SELECT TRIM(p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO) FROM PERSONAS p JOIN USUARIOS u ON u.ID_PERSONA = p.ID_PERSONA WHERE u.ID_USUARIO = :uid",
-                    Map.of("uid", ctx.getUserId()),
-                    (rs, rowNum) -> rs.getString(1)
-                );
-                if (!names.isEmpty() && names.get(0) != null && !names.get(0).isBlank()) {
-                    creatorName = names.get(0);
-                }
-            }
-        } catch (Exception ignored) {}
-
-        String orgName = "Tu Organización";
-        try {
-            List<String> oNames = jdbcTemplate.query(
-                "SELECT NOMBRE FROM ORGANIZACIONES WHERE ID_ORGANIZACION = :oid",
-                Map.of("oid", orgId),
-                (rs, rowNum) -> rs.getString(1)
-            );
-            if (!oNames.isEmpty()) orgName = oNames.get(0);
-        } catch (Exception ignored) {}
-
-        String propName = assignedPropNames.isEmpty() 
-            ? "Sin propiedades asignadas (Inactivo)" 
-            : String.join(", ", assignedPropNames);
-
-        String fullName = (request.getPrimerNombre().trim() + " " + request.getPrimerApellido().trim()).trim();
-        try {
-            emailService.enviarCredencialesCreadoPorUsuarioAsync(
-                request.getEmail(),
-                fullName,
-                creatorName,
-                "ADMIN_ORGANIZACION",
-                orgName,
-                propName,
-                null,
-                "ADMIN_PROPIEDAD",
-                request.getNombreUsuario(),
-                rawPassword,
-                "https://saedfront.vercel.app/login"
-            );
-        } catch (Exception ignored) {}
+        // 4. New accounts receive a single-use activation link; no password is generated or e-mailed.
+        if (account.created()) {
+            tokenServiceProvider.getObject().generarYEnviarTokenActivacion(idUsuario, null);
+        }
 
         String respMessage = targetPropIds.isEmpty()
             ? "Administrador creado exitosamente en estado inactivo (sin propiedades a su cargo)."
-            : "Administrador creado y asignado exitosamente a " + targetPropIds.size() + " propiedad(es). Se enviaron credenciales a " + request.getEmail();
+            : "Administrador asignado exitosamente a " + targetPropIds.size() + " propiedad(es)."
+                + (account.created() ? " Se envió un enlace de activación a " + request.getEmail() : "");
 
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                 "success", true,
@@ -535,6 +384,7 @@ public class OrgAdminsController {
                     if (!newPropIds.contains(cpId)) {
                         jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ASIGNACION = :asigId", Map.of("asigId", asigItem));
                     } else {
+                        planLimitService.validateAndLockUserLimit(orgId, targetUserId);
                         jdbcTemplate.update("UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'ACTIVA' WHERE ID_ASIGNACION = :asigId", Map.of("asigId", asigItem));
                     }
                 }
@@ -560,7 +410,7 @@ public class OrgAdminsController {
                 if (placeholderCount == null || placeholderCount == 0) {
                     jdbcTemplate.update("""
                         INSERT INTO USUARIO_ASIGNACIONES (id_usuario, id_rol, id_organizacion, id_propiedad, estado, fecha_inicio)
-                        VALUES (:uid, :rolId, :orgId, NULL, 'INACTIVA', TRUNC(CURRENT_DATE))
+                        VALUES (:uid, :rolId, :orgId, NULL, 'INACTIVA', TRUNC(SYSDATE))
                     """, Map.of("uid", targetUserId, "rolId", roleId, "orgId", orgId));
                 }
             }
@@ -587,8 +437,14 @@ public class OrgAdminsController {
         }
 
 
-        // 3. Actualizar datos de persona si se proporcionaron
-        if (idPersona != null) {
+        // 3. Identity attributes are global: only accounts that belong exclusively to this
+        // organization may have person data or e-mail changed from here (F3-03).
+        boolean identityChange = notBlank(request.getPrimerNombre()) || notBlank(request.getPrimerApellido())
+                || notBlank(request.getTelefono()) || notBlank(request.getEmail());
+        if (identityChange) {
+            orgAdminAccountService.assertIdentityManagedByOrganization(orgId, targetUserId);
+        }
+        if (idPersona != null && identityChange) {
             MapSqlParameterSource personParams = new MapSqlParameterSource()
                     .addValue("pId", idPersona, java.sql.Types.NUMERIC)
                     .addValue("nombre", request.getPrimerNombre() != null && !request.getPrimerNombre().isBlank() ? request.getPrimerNombre().trim() : null, java.sql.Types.VARCHAR)
@@ -622,12 +478,13 @@ public class OrgAdminsController {
             );
         }
 
-        // 5. Si se actualizó la contraseña
-        if (request.getPassword() != null && !request.getPassword().trim().isBlank()) {
-            jdbcTemplate.update(
-                "UPDATE USUARIOS SET HASH_PASSWORD = :pwd WHERE ID_USUARIO = :uid",
-                Map.of("pwd", passwordEncoder.encode(request.getPassword().trim()), "uid", targetUserId)
-            );
+        // 5. Administrators never set another user's password: a password request issues a
+        // single-use reset link to the account owner instead.
+        boolean resetLinkSent = false;
+        if (notBlank(request.getPassword())) {
+            orgAdminAccountService.assertIdentityManagedByOrganization(orgId, targetUserId);
+            tokenServiceProvider.getObject().generarYEnviarTokenActivacion(targetUserId, null);
+            resetLinkSent = true;
         }
 
         // 6. Si se envió estado para la asignación
@@ -640,8 +497,14 @@ public class OrgAdminsController {
 
         return ResponseEntity.ok(Map.of(
             "success", true,
-            "message", "Administrador de propiedad actualizado exitosamente"
+            "message", resetLinkSent
+                ? "Administrador de propiedad actualizado. Se envió un enlace para definir una nueva contraseña."
+                : "Administrador de propiedad actualizado exitosamente"
         ));
+    }
+
+    private static boolean notBlank(String value) {
+        return value != null && !value.trim().isBlank();
     }
 
     @DeleteMapping("/{userId}/propiedades/{propertyId}")
@@ -696,7 +559,7 @@ public class OrgAdminsController {
             if (placeholderCount == null || placeholderCount == 0) {
                 jdbcTemplate.update("""
                     INSERT INTO USUARIO_ASIGNACIONES (id_usuario, id_rol, id_organizacion, id_propiedad, estado, fecha_inicio)
-                    VALUES (:uid, :rolId, :orgId, NULL, 'INACTIVA', TRUNC(CURRENT_DATE))
+                    VALUES (:uid, :rolId, :orgId, NULL, 'INACTIVA', TRUNC(SYSDATE))
                 """, Map.of("uid", userId, "rolId", adminPropRoleId, "orgId", orgId));
             }
         }

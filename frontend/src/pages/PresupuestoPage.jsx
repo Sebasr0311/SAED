@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 
 const fmtCOP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' });
 
-const EMPTY_FORM = { rubro: '', tipo: 'INGRESO', montoPresupuestado: 0, estado: 'ACTIVO', vigenciaAnio: new Date().getFullYear() };
+const EMPTY_FORM = { rubro: '', tipo: 'INGRESO', montoPresupuestado: 0, estado: 'APROBADO', vigenciaAnio: new Date().getFullYear() };
 
 const TABS = [
   { id: 'lista', label: 'Presupuestos', icon: 'list' },
@@ -55,7 +55,7 @@ export default function PresupuestoPage() {
       rubro: p.RUBRO || p.rubro || '',
       tipo: p.TIPO || p.tipo || 'INGRESO',
       montoPresupuestado: p.MONTO_PRESUPUESTADO || p.monto_presupuestado || p.montoPresupuestado || 0,
-      estado: p.ESTADO || p.estado || 'ACTIVO',
+      estado: p.ESTADO || p.estado || 'APROBADO',
       vigenciaAnio: p.VIGENCIA_ANIO || p.vigencia_anio || p.vigenciaAnio || new Date().getFullYear(),
     });
     setDialogOpen(true);
@@ -83,6 +83,7 @@ export default function PresupuestoPage() {
         tipo: form.tipo,
         montoPresupuestado: monto,
         vigenciaAnio: anio,
+        estado: form.estado,
       };
       if (editando) {
         const id = editando.ID_PRESUPUESTO || editando.idPresupuesto || editando.ID || editando.id;
@@ -178,7 +179,7 @@ export default function PresupuestoPage() {
                           <TableCell className="text-right">{fmtCOP.format(ejecutado)}</TableCell>
                           <TableCell className="text-right">{pct.toFixed(1)}%</TableCell>
                           <TableCell>
-                            <Badge variant={(p.ESTADO || p.estado) === 'ACTIVO' ? 'default' : 'secondary'}>
+                            <Badge variant={(p.ESTADO || p.estado) === 'APROBADO' ? 'default' : 'secondary'}>
                               {p.ESTADO || p.estado}
                             </Badge>
                           </TableCell>
@@ -279,8 +280,9 @@ export default function PresupuestoPage() {
                 <label className="text-sm font-medium">Estado</label>
                 <select className="border rounded px-3 py-2 text-sm" value={form.estado}
                   onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}>
-                  <option value="ACTIVO">ACTIVO</option>
-                  <option value="INACTIVO">INACTIVO</option>
+                  <option value="BORRADOR">BORRADOR</option>
+                  <option value="APROBADO">APROBADO</option>
+                  <option value="CERRADO">CERRADO</option>
                 </select>
               </div>
             </div>

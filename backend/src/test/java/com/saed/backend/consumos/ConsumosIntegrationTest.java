@@ -122,7 +122,7 @@ public class ConsumosIntegrationTest {
         assertTrue(new BigDecimal("325000.00").compareTo(detalleAgua.getBody().getCostoTotal()) == 0);
 
         // 4. Listar filtrando por servicio
-        ResponseEntity<List<MedicionConsumoDTO>> listAgua = controller.getAll("2026-05", "AGUA", null);
+        ResponseEntity<List<MedicionConsumoDTO>> listAgua = controller.getAll("2026-05", "AGUA", null, false);
         assertTrue(listAgua.getBody().stream().anyMatch(m -> m.getIdMedicion().equals(idAgua)));
         assertFalse(listAgua.getBody().stream().anyMatch(m -> m.getIdMedicion().equals(idLuz)));
 
@@ -135,7 +135,7 @@ public class ConsumosIntegrationTest {
         assertTrue(resumenResp.getBody().getConsumoTotalEnergia().compareTo(new BigDecimal("250.00")) >= 0);
 
         // 6. Consultar Tendencias
-        ResponseEntity<List<ConsumoTendenciaDTO>> tendencias = controller.getTendencias(null, 12);
+        ResponseEntity<List<ConsumoTendenciaDTO>> tendencias = controller.getTendencias(null, 12, null);
         assertEquals(200, tendencias.getStatusCode().value());
         assertTrue(tendencias.getBody().stream().anyMatch(t -> "2026-05".equals(t.getPeriodo())));
 

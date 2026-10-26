@@ -34,7 +34,7 @@ public class AsambleasIntegrationTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    private Long testUnidadId = 1L;
+    private Long testUnidadId = 9961L;
     private Long testPersona1Id = 1L;
     private Long testPersona2Id = 2L;
 
@@ -64,24 +64,39 @@ public class AsambleasIntegrationTest {
 
         jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
 
-        // Asegurar que existe la unidad 1 y personas 1 y 2
-        try {
-            List<Map<String, Object>> u = jdbcTemplate.queryForList("SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = 1 AND ROWNUM = 1");
-            if (!u.isEmpty()) {
-                testUnidadId = ((Number) u.get(0).get("ID_UNIDAD")).longValue();
-            }
-            List<Map<String, Object>> p = jdbcTemplate.queryForList("SELECT ID_PERSONA FROM PERSONAS ORDER BY ID_PERSONA ASC FETCH FIRST 2 ROWS ONLY");
-            if (p.size() >= 2) {
-                testPersona1Id = ((Number) p.get(0).get("ID_PERSONA")).longValue();
-                testPersona2Id = ((Number) p.get(1).get("ID_PERSONA")).longValue();
-            }
-        } catch (Exception e) {
-            // Se mantienen defaults
+        // Test-owned unit (coefficient 52.5%) owned by person 1; the voter of a vote is always the caller's own person
+        // (DEC-03), and only the unit's active legal owner (PROPIETARIOS_UNIDAD) may attend, grant a proxy or vote.
+        cleanFixture();
+        // The proxy must belong to the organization of the assembly (AsambleaServiceImpl.radicarPoder).
+        jdbcTemplate.update("UPDATE PERSONAS SET ID_ORGANIZACION = 1 WHERE ID_PERSONA IN (?, ?) AND ID_ORGANIZACION IS NULL", testPersona1Id, testPersona2Id);
+        Integer unit = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM UNIDADES WHERE ID_UNIDAD = ?", Integer.class, testUnidadId);
+        if (unit == null || unit == 0) {
+            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, COEFICIENTE_COPROPIEDAD, ESTADO) "
+                    + "VALUES (?, 1, 1, 'T-9961', 0.525000, 'ACTIVA')", testUnidadId);
+        } else {
+            jdbcTemplate.update("UPDATE UNIDADES SET ID_PROPIEDAD = 1, COEFICIENTE_COPROPIEDAD = 0.525000 WHERE ID_UNIDAD = ?", testUnidadId);
         }
+        jdbcTemplate.update("INSERT INTO PROPIETARIOS_UNIDAD (ID_UNIDAD, ID_PERSONA, PORCENTAJE_PROPIEDAD, ES_PRINCIPAL, FECHA_INICIO, ESTADO) "
+                + "VALUES (?, ?, 100, 'S', TRUNC(SYSDATE) - 1, 'ACTIVO')", testUnidadId, testPersona1Id);
+    }
+
+    private void cleanFixture() {
+        String titles = "('Asamblea General Ordinaria Test 2026', 'Asamblea Extraordinaria Poderes Test')";
+        jdbcTemplate.update("DELETE FROM VOTOS WHERE ID_VOTACION IN (SELECT ID_VOTACION FROM VOTACIONES WHERE ID_ASAMBLEA IN (SELECT ID_ASAMBLEA FROM ASAMBLEAS WHERE TITULO IN " + titles + "))");
+        jdbcTemplate.update("DELETE FROM VOTACIONES WHERE ID_ASAMBLEA IN (SELECT ID_ASAMBLEA FROM ASAMBLEAS WHERE TITULO IN " + titles + ")");
+        jdbcTemplate.update("DELETE FROM ASISTENCIAS_ASAMBLEA WHERE ID_ASAMBLEA IN (SELECT ID_ASAMBLEA FROM ASAMBLEAS WHERE TITULO IN " + titles + ")");
+        jdbcTemplate.update("DELETE FROM PODERES_REPRESENTACION WHERE ID_ASAMBLEA IN (SELECT ID_ASAMBLEA FROM ASAMBLEAS WHERE TITULO IN " + titles + ")");
+        jdbcTemplate.update("DELETE FROM ASAMBLEAS WHERE TITULO IN " + titles);
+        jdbcTemplate.update("DELETE FROM PROPIETARIOS_UNIDAD WHERE ID_UNIDAD = ?", testUnidadId);
     }
 
     @AfterEach
     public void tearDown() {
+        try {
+            cleanFixture();
+        } catch (RuntimeException ignored) {
+            // best effort: the fixture ids are test-owned and reset at the next setup
+        }
         SaedContextHolder.clearContext();
         SecurityContextHolder.clearContext();
     }

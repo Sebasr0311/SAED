@@ -55,8 +55,17 @@ public class ConvivienteQuotaIntegrationTest {
     private JdbcTemplate jdbcTemplate;
 
     private static final Long TEST_PROP_ID = 1L;
-    private static final Long TEST_UNIT_ID = 1L;
+    // Test-owned unit, tenants and resident user: the demo unit 1 and persons 1-4 are the seeded household/users and
+    // must not be re-assigned or wiped by this suite.
+    private static final Long TEST_UNIT_ID = 9958L;
     private static final Long OTHER_UNIT_ID = 2L;
+    private static final Long PERSONA_TITULAR = 9974L;
+    private static final Long PERSONA_CONV_1 = 9971L;
+    private static final Long PERSONA_CONV_2 = 9972L;
+    private static final Long PERSONA_CONV_3 = 9973L;
+    private static final Long RESIDENT_USER_ID = 9981L;
+
+    private String originalLimit;
 
     @BeforeEach
     public void setup() {
@@ -71,33 +80,68 @@ public class ConvivienteQuotaIntegrationTest {
         } catch (Exception ignored) {}
 
         try {
-            jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD DROP CONSTRAINT CK_RESIDUNIDAD_TIPO");
-        } catch (Exception ignored) {}
-        try {
-            jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD ADD CONSTRAINT CK_RESIDUNIDAD_TIPO CHECK (tipo_residente IN ('PROPIETARIO', 'ARRENDATARIO', 'FAMILIAR', 'CONVIVIENTE', 'OTRO', 'TITULAR'))");
-        } catch (Exception ignored) {}
+            fixture();
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("ConvivienteQuota fixture failed", e);
+        }
+        setAdminAuth();
+    }
 
-        // Limpiar habitantes previos de TEST_UNIT_ID para aislar ejecuciones
-        try {
-            jdbcTemplate.update(
-                    "DELETE FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = ?",
-                    TEST_UNIT_ID
-            );
-            // Configurar límite de 2 para TEST_PROP_ID para probar saturación rápida y predecible
-            jdbcTemplate.update(
-                    "MERGE INTO PROPIEDAD_CONFIGURACION c " +
-                    "USING (SELECT ? AS id_propiedad, 'LIMITE_CONVIVIENTES_POR_UNIDAD' AS clave, '2' AS valor FROM DUAL) s " +
-                    "ON (c.ID_PROPIEDAD = s.id_propiedad AND c.CLAVE = s.clave) " +
-                    "WHEN MATCHED THEN UPDATE SET c.VALOR = s.valor " +
-                    "WHEN NOT MATCHED THEN INSERT (ID_PROPIEDAD, CLAVE, VALOR, DESCRIPCION) VALUES (s.id_propiedad, s.clave, s.valor, 'Límite test')",
-                    TEST_PROP_ID
-            );
-        } catch (Exception ignored) {}
+    private void fixture() {
+        Integer unit = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM UNIDADES WHERE ID_UNIDAD = ?", Integer.class, TEST_UNIT_ID);
+        if (unit == null || unit == 0) {
+            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, ESTADO) VALUES (?, ?, 1, 'T-9958', 'ACTIVA')",
+                    TEST_UNIT_ID, TEST_PROP_ID);
+        }
+        for (long id : new long[]{PERSONA_TITULAR, PERSONA_CONV_1, PERSONA_CONV_2, PERSONA_CONV_3, RESIDENT_USER_ID}) {
+            Integer c = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM PERSONAS WHERE ID_PERSONA = ?", Integer.class, id);
+            if (c == null || c == 0) {
+                jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, ESTADO, ID_ORGANIZACION, ID_PROPIEDAD) "
+                        + "VALUES (?, 1, ?, 'NATURAL', 'Cuota', 'Test', ?, 'ACTIVO', 1, 1)", id, "CQ" + id, "cq" + id + "@saed.com");
+            }
+        }
+        // The application start-up clears the tenant columns of persons without a household link, so they are set on every run.
+        jdbcTemplate.update("UPDATE PERSONAS SET ID_ORGANIZACION = 1, ID_PROPIEDAD = ?, ESTADO = 'ACTIVO' WHERE ID_PERSONA IN (?, ?, ?, ?, ?)",
+                TEST_PROP_ID, PERSONA_TITULAR, PERSONA_CONV_1, PERSONA_CONV_2, PERSONA_CONV_3, RESIDENT_USER_ID);
+        Integer usr = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM USUARIOS WHERE ID_USUARIO = ?", Integer.class, RESIDENT_USER_ID);
+        if (usr == null || usr == 0) {
+            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) "
+                    + "VALUES (?, ?, 'cq_resident_9981', 'cq9981@saed.com', '$2a$10$Y8yWwG2uR38jM8eIq0f6oOV3/1vM7Z13GkIefw7U9M/P0FqX3q4P3', 'ACTIVO')",
+                    RESIDENT_USER_ID, RESIDENT_USER_ID);
+        }
+        // The resident's visibility comes from its own active assignment (V5.58: units are read from USUARIO_ASIGNACIONES).
+        jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = ?", RESIDENT_USER_ID);
+        jdbcTemplate.update("INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO) "
+                + "VALUES (?, (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE'), 1, ?, ?, 'ACTIVA', TRUNC(SYSDATE))",
+                RESIDENT_USER_ID, TEST_PROP_ID, TEST_UNIT_ID);
+
+        // Limpiar habitantes previos de la unidad de prueba para aislar ejecuciones
+        jdbcTemplate.update("DELETE FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = ?", TEST_UNIT_ID);
+        // Limite de 2 para TEST_PROP_ID para probar saturacion rapida y predecible (restored in tearDown)
+        List<String> previous = jdbcTemplate.queryForList(
+                "SELECT VALOR FROM PROPIEDAD_CONFIGURACION WHERE ID_PROPIEDAD = ? AND CLAVE = 'LIMITE_CONVIVIENTES_POR_UNIDAD'",
+                String.class, TEST_PROP_ID);
+        originalLimit = previous.isEmpty() ? null : previous.get(0);
+        jdbcTemplate.update(
+                "MERGE INTO PROPIEDAD_CONFIGURACION c " +
+                "USING (SELECT ? AS id_propiedad, 'LIMITE_CONVIVIENTES_POR_UNIDAD' AS clave, '2' AS valor FROM DUAL) s " +
+                "ON (c.ID_PROPIEDAD = s.id_propiedad AND c.CLAVE = s.clave) " +
+                "WHEN MATCHED THEN UPDATE SET c.VALOR = s.valor " +
+                "WHEN NOT MATCHED THEN INSERT (ID_PROPIEDAD, CLAVE, VALOR, DESCRIPCION) VALUES (s.id_propiedad, s.clave, s.valor, 'Limite test')",
+                TEST_PROP_ID
+        );
     }
 
     @AfterEach
     public void tearDown() {
         try {
+            setSuperadminAuth();
+            jdbcTemplate.update("DELETE FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = ?", TEST_UNIT_ID);
+            jdbcTemplate.update("DELETE FROM PROPIEDAD_CONFIGURACION WHERE ID_PROPIEDAD = ? AND CLAVE = 'LIMITE_CONVIVIENTES_POR_UNIDAD'", TEST_PROP_ID);
+            if (originalLimit != null) {
+                jdbcTemplate.update("INSERT INTO PROPIEDAD_CONFIGURACION (ID_PROPIEDAD, CLAVE, VALOR, DESCRIPCION) VALUES (?, 'LIMITE_CONVIVIENTES_POR_UNIDAD', ?, 'Restaurado')",
+                        TEST_PROP_ID, originalLimit);
+            }
             jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT; END;");
         } catch (Exception ignored) {}
         SecurityContextHolder.clearContext();
@@ -126,9 +170,17 @@ public class ConvivienteQuotaIntegrationTest {
         );
     }
 
+    /** DEC-02: the SUPERADMIN has no operational access; the suite acts as the demo property administrator (user 2, assignment 102). */
+    private void setAdminAuth() {
+        SaedContextHolder.setContext(SaedContext.builder()
+                .userId(2L).organizationId(1L).propertyId(TEST_PROP_ID).roleCode("ADMIN_PROPIEDAD").roleScope("PROPIEDAD").build());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("admin", "n/a", List.of(new SimpleGrantedAuthority("SCOPE_ADMIN_PROPIEDAD"))));
+    }
+
     private void setResidentAuth(Long unitId) {
         SaedContextHolder.setContext(SaedContext.builder()
-                .userId(4L)
+                .userId(RESIDENT_USER_ID)
                 .organizationId(1L)
                 .propertyId(TEST_PROP_ID)
                 .unitId(unitId)
@@ -167,7 +219,7 @@ public class ConvivienteQuotaIntegrationTest {
     @DisplayName("P2-01 [REQ-02]: Residente principal (PROPIETARIO/ARRENDATARIO) NO consume cupo de conviviente")
     public void test02_PrincipalResident_DoesNotConsumeQuota() {
         // Registrar residente titular
-        UnitResidentRequestDTO titularReq = new UnitResidentRequestDTO(1L, "PROPIETARIO");
+        UnitResidentRequestDTO titularReq = new UnitResidentRequestDTO(PERSONA_TITULAR, "PROPIETARIO");
         ResponseEntity<Long> respTitular = unitInhabitantController.addResident(TEST_UNIT_ID, titularReq);
         assertEquals(201, respTitular.getStatusCode().value());
 
@@ -183,7 +235,7 @@ public class ConvivienteQuotaIntegrationTest {
     @DisplayName("P2-01 [REQ-03/04]: Registrar convivientes hasta el límite y rechazar excedente con HTTP 409")
     public void test03_RegisterConvivientes_EnforcesLimitAndRejectsExcess() {
         // Conviviente 1 (Persona 2)
-        UnitResidentRequestDTO conv1 = new UnitResidentRequestDTO(2L, "CONVIVIENTE");
+        UnitResidentRequestDTO conv1 = new UnitResidentRequestDTO(PERSONA_CONV_1, "CONVIVIENTE");
         ResponseEntity<Long> res1 = unitInhabitantController.addResident(TEST_UNIT_ID, conv1);
         assertEquals(201, res1.getStatusCode().value());
 
@@ -193,7 +245,7 @@ public class ConvivienteQuotaIntegrationTest {
         assertFalse(quotaAfter1.limiteAlcanzado());
 
         // Conviviente 2 (Persona 3) -> Límite 2 alcanzado
-        UnitResidentRequestDTO conv2 = new UnitResidentRequestDTO(3L, "CONVIVIENTE");
+        UnitResidentRequestDTO conv2 = new UnitResidentRequestDTO(PERSONA_CONV_2, "CONVIVIENTE");
         ResponseEntity<Long> res2 = unitInhabitantController.addResident(TEST_UNIT_ID, conv2);
         assertEquals(201, res2.getStatusCode().value());
 
@@ -203,7 +255,7 @@ public class ConvivienteQuotaIntegrationTest {
         assertTrue(quotaAfter2.limiteAlcanzado());
 
         // Conviviente 3 (Persona 4) -> Intento de exceder cupo
-        UnitResidentRequestDTO conv3 = new UnitResidentRequestDTO(4L, "CONVIVIENTE");
+        UnitResidentRequestDTO conv3 = new UnitResidentRequestDTO(PERSONA_CONV_3, "CONVIVIENTE");
         ConvivienteLimitExceededException ex = assertThrows(
                 ConvivienteLimitExceededException.class,
                 () -> unitInhabitantController.addResident(TEST_UNIT_ID, conv3),
@@ -220,8 +272,8 @@ public class ConvivienteQuotaIntegrationTest {
     @DisplayName("P2-01 [REQ-05]: Rollback transaccional estricto: sin inserciones parciales al exceder límite")
     public void test04_TransactionRollback_NoPartialInsertOnExceededLimit() {
         // Insertar los 2 permitidos
-        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(2L, "CONVIVIENTE"));
-        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(3L, "CONVIVIENTE"));
+        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_1, "CONVIVIENTE"));
+        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_2, "CONVIVIENTE"));
 
         Integer countBefore = jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = ? AND ESTADO = 'ACTIVO'",
@@ -232,7 +284,7 @@ public class ConvivienteQuotaIntegrationTest {
         // Intentar registrar el 3.º
         assertThrows(
                 ConvivienteLimitExceededException.class,
-                () -> unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(4L, "CONVIVIENTE"))
+                () -> unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_3, "CONVIVIENTE"))
         );
 
         Integer countAfter = jdbcTemplate.queryForObject(
@@ -249,8 +301,8 @@ public class ConvivienteQuotaIntegrationTest {
     @DisplayName("P2-01 [REQ-06/07]: Desactivar conviviente libera cupo y permite nuevo registro")
     public void test05_DeactivateConviviente_ReleasesQuotaAndAllowsNewRegistration() {
         // Llenar cupo (2 convivientes)
-        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(2L, "CONVIVIENTE"));
-        ResponseEntity<Long> r2 = unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(3L, "CONVIVIENTE"));
+        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_1, "CONVIVIENTE"));
+        ResponseEntity<Long> r2 = unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_2, "CONVIVIENTE"));
         Long residentId2 = r2.getBody();
 
         // Desactivar conviviente 2
@@ -267,7 +319,7 @@ public class ConvivienteQuotaIntegrationTest {
 
         // Ahora registrar Persona 4 en el cupo liberado debe ser exitoso
         ResponseEntity<Long> r4 = unitInhabitantController.addResident(
-                TEST_UNIT_ID, new UnitResidentRequestDTO(4L, "CONVIVIENTE")
+                TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_3, "CONVIVIENTE")
         );
         assertEquals(201, r4.getStatusCode().value());
 
@@ -282,15 +334,15 @@ public class ConvivienteQuotaIntegrationTest {
     @DisplayName("P2-01 [REQ-08]: Reactivar conviviente con cupo lleno es rechazado con HTTP 409")
     public void test06_ReactivateConviviente_WhenQuotaFull_ThrowsConflict() {
         // Conviviente 1 (Persona 2)
-        ResponseEntity<Long> r1 = unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(2L, "CONVIVIENTE"));
+        ResponseEntity<Long> r1 = unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_1, "CONVIVIENTE"));
         Long resident1Id = r1.getBody();
 
         // Desactivar conviviente 1 para tenerlo en estado INACTIVO
         unitInhabitantController.updateResidentStatus(TEST_UNIT_ID, resident1Id, new UpdateResidentStatusRequestDTO("INACTIVO"));
 
         // Llenar el cupo con otros 2 convivientes activos (Persona 3 y 4)
-        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(3L, "CONVIVIENTE"));
-        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(4L, "CONVIVIENTE"));
+        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_2, "CONVIVIENTE"));
+        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_3, "CONVIVIENTE"));
 
         // Intentar reactivar Conviviente 1 cuando el cupo ya está en 2/2
         assertThrows(
@@ -304,8 +356,8 @@ public class ConvivienteQuotaIntegrationTest {
     @Order(7)
     @DisplayName("P2-01 [REQ-09]: Desvinculación de habitante (DELETE) libera cupo preservando trazabilidad")
     public void test07_SoftUnlinkConviviente_ReleasesQuota() {
-        ResponseEntity<Long> r1 = unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(2L, "CONVIVIENTE"));
-        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(3L, "CONVIVIENTE"));
+        ResponseEntity<Long> r1 = unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_1, "CONVIVIENTE"));
+        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_2, "CONVIVIENTE"));
 
         Long resident1Id = r1.getBody();
 
@@ -344,7 +396,7 @@ public class ConvivienteQuotaIntegrationTest {
         // Intento de agregar conviviente a OTHER_UNIT_ID -> 403 Forbidden
         assertThrows(
                 AccessDeniedException.class,
-                () -> unitInhabitantController.addResident(OTHER_UNIT_ID, new UnitResidentRequestDTO(2L, "CONVIVIENTE"))
+                () -> unitInhabitantController.addResident(OTHER_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_1, "CONVIVIENTE"))
         );
 
         // Intento de alterar estado en OTHER_UNIT_ID -> 403 Forbidden
@@ -367,7 +419,7 @@ public class ConvivienteQuotaIntegrationTest {
 
         // Residente agrega conviviente a su propia unidad -> éxito
         ResponseEntity<Long> addRes = unitInhabitantController.addResident(
-                TEST_UNIT_ID, new UnitResidentRequestDTO(2L, "CONVIVIENTE")
+                TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_1, "CONVIVIENTE")
         );
         assertEquals(201, addRes.getStatusCode().value());
     }
@@ -377,8 +429,8 @@ public class ConvivienteQuotaIntegrationTest {
     @DisplayName("P2-01 [REQ-12]: Blindaje contra bypass directo vía DashboardController.asignarApartamento")
     public void test10_DirectHttpBypass_DashboardController_EnforcesLimit() {
         // Llenar el cupo
-        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(2L, "CONVIVIENTE"));
-        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(3L, "CONVIVIENTE"));
+        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_1, "CONVIVIENTE"));
+        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_2, "CONVIVIENTE"));
 
         // Intentar bypass vía dashboardController.asignarApartamento
         Map<String, Object> payload = Map.of(
@@ -388,7 +440,7 @@ public class ConvivienteQuotaIntegrationTest {
 
         assertThrows(
                 ConvivienteLimitExceededException.class,
-                () -> dashboardController.asignarApartamento(4L, payload),
+                () -> dashboardController.asignarApartamento(PERSONA_CONV_3, payload),
                 "dashboardController.asignarApartamento debe validar cuota y rechazar si se excede el límite"
         );
     }
@@ -398,8 +450,13 @@ public class ConvivienteQuotaIntegrationTest {
     @DisplayName("P2-01 [REQ-13]: Blindaje contra bypass directo vía UsuarioController.crearUsuario")
     public void test11_DirectHttpBypass_UsuarioController_EnforcesLimit() {
         // Llenar el cupo
-        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(2L, "CONVIVIENTE"));
-        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(3L, "CONVIVIENTE"));
+        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_1, "CONVIVIENTE"));
+        unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_2, "CONVIVIENTE"));
+
+        // UserRegistrationPolicy.authorizePerson: the target person must already belong to the caller's property
+        // (a non-conviviente household link, which does not consume quota).
+        jdbcTemplate.update("INSERT INTO RESIDENTES_UNIDAD (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE, FECHA_INICIO, ESTADO) VALUES (?, ?, 'FAMILIAR', TRUNC(SYSDATE), 'ACTIVO')",
+                TEST_UNIT_ID, PERSONA_CONV_3);
 
         // Intentar crear un usuario con rol RESIDENTE_CONVIVENCIA para TEST_UNIT_ID
         String testUser = "conv_byp_" + System.currentTimeMillis();
@@ -407,7 +464,7 @@ public class ConvivienteQuotaIntegrationTest {
                 "username", testUser,
                 "password", "Password123!",
                 "email", testUser + "@test.com",
-                "idPersona", 4L,
+                "idPersona", PERSONA_CONV_3,
                 "idOrganizacion", 1L,
                 "idPropiedad", TEST_PROP_ID,
                 "idUnidad", TEST_UNIT_ID,
@@ -498,8 +555,8 @@ public class ConvivienteQuotaIntegrationTest {
 
     @Test
     @Order(14)
-    @DisplayName("P2-02 [REQ-15-REAC]: Residente puede re-crear/reactivar un conviviente eliminado previamente con el mismo documento y usuario")
-    public void test14_ResidentCanRecreateOrReactivatePreviouslyDeletedConvivienteAccount() {
+    @DisplayName("P2-02 [REQ-15-REAC]: Residente NO reactiva por registro un conviviente inactivo (política de registro)")
+    public void test14_ResidentCannotReactivateInactiveConvivienteByRegistration() {
         setResidentAuth(TEST_UNIT_ID);
 
         String testUsername = "reac_" + System.currentTimeMillis();
@@ -536,37 +593,24 @@ public class ConvivienteQuotaIntegrationTest {
         jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = ?", idUsuario1.longValue());
         jdbcTemplate.update("UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'INACTIVA' WHERE ID_USUARIO = ?", idUsuario1.longValue());
 
-        // 3. Volver a registrar con la misma cédula y mismo username
+        // 3. Registration never reactivates an inactive identity (UserRegistrationPolicy.authorizeAccount,
+        //    F-series registration hardening; UserRegistrationAuthorizationTest.registrationCannotReactivateInactiveIdentity):
+        //    the resident is refused and an administrator must reactivate the account.
         setResidentAuth(TEST_UNIT_ID);
-        ResponseEntity<com.saed.backend.common.dto.ApiResponse<Map<String, Object>>> resp2 =
-                usuarioController.crearUsuario(payload);
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> usuarioController.crearUsuario(payload));
 
-        assertNotNull(resp2);
-        assertEquals(201, resp2.getStatusCode().value(), () -> "Reactivation failed: " + (resp2.getBody() != null ? resp2.getBody().getMessage() : "null"));
-        assertNotNull(resp2.getBody());
-        assertEquals("success", resp2.getBody().getStatus());
-
-        Number idUsuario2 = (Number) resp2.getBody().getData().get("idUsuario");
-        assertEquals(idUsuario1.longValue(), idUsuario2.longValue(), "Debe reactivar la cuenta de usuario existente");
-
-        // 4. Verificar bajo SUPERADMIN que el usuario y asignaciones están activos
+        // 4. The refused attempt changed nothing: the account stays inactive and no assignment is active.
         setSuperadminAuth();
         try {
             jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
         } catch (Exception ignored) {}
         String userEstado = jdbcTemplate.queryForObject(
-                "SELECT ESTADO FROM USUARIOS WHERE ID_USUARIO = ?",
-                String.class,
-                idUsuario1.longValue()
-        );
-        assertEquals("ACTIVO", userEstado, "El usuario debe quedar ACTIVO");
-
+                "SELECT ESTADO FROM USUARIOS WHERE ID_USUARIO = ?", String.class, idUsuario1.longValue());
+        assertEquals("INACTIVO", userEstado, "El usuario inactivo no se reactiva por registro");
         Integer activeAsigs = jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = ? AND ESTADO = 'ACTIVA' AND ID_UNIDAD = ?",
-                Integer.class,
-                idUsuario1.longValue(),
-                TEST_UNIT_ID
-        );
-        assertTrue(activeAsigs != null && activeAsigs >= 1, "Debe tener asignación ACTIVA a la unidad");
+                Integer.class, idUsuario1.longValue(), TEST_UNIT_ID);
+        assertEquals(0, activeAsigs, "No debe haber asignación ACTIVA tras el intento rechazado");
     }
 }

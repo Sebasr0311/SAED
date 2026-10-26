@@ -1,5 +1,6 @@
 package com.saed.backend.finanzas.controller;
 
+import com.saed.backend.platform.annotation.RequireModule;
 import com.saed.backend.audit.AuditCategory;
 import com.saed.backend.audit.AuditSeverity;
 import com.saed.backend.audit.Auditable;
@@ -40,7 +41,8 @@ import java.util.NoSuchElementException;
 @Tag(name = "Paz y Salvos", description = "Emisión, verificación y descarga de certificados de paz y salvo")
 @RestController
 @RequestMapping("/api/v1/paz-y-salvos")
-@PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA')")
+// F5-H03: RESIDENTE_CONVIVENCIA reads no finances; it keeps only the arrears flag of mi-estado-financiero.
+@PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
 public class PazYSalvoController {
 
     private final PazYSalvoService pazYSalvoService;
@@ -52,6 +54,7 @@ public class PazYSalvoController {
     // --- LISTAR ---
 
     @Operation(summary = "Listar certificados de paz y salvo visibles según el rol del usuario")
+    @RequireModule("FINANZAS")
     @GetMapping
     public ApiResponse<List<Map<String, Object>>> listar() {
         return ApiResponse.success(pazYSalvoService.listar());
@@ -60,18 +63,26 @@ public class PazYSalvoController {
     // --- ESTADO FINANCIERO DE UNIDAD ---
 
     @Operation(summary = "Consultar estado financiero de la unidad del usuario autenticado (residente o conviviente)")
+    @RequireModule("FINANZAS")
     @GetMapping("/mi-estado-financiero")
-    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_SUPERADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<PazYSalvoEstadoFinancieroDTO>> miEstadoFinanciero() {
         SaedContext ctx = SaedContextHolder.getContext();
         if (ctx == null || ctx.getUnitId() == null) {
             throw new AccessDeniedException("El contexto de usuario no tiene una unidad asignada.");
         }
         PazYSalvoEstadoFinancieroDTO estado = pazYSalvoService.verificarEstadoFinanciero(ctx.getUnitId());
+        if ("RESIDENTE_CONVIVENCIA".equals(ctx.getRoleCode())) {
+            // Booking/works pages only need to know whether the unit is in arrears: no amounts, no itemized debt.
+            estado = new PazYSalvoEstadoFinancieroDTO(estado.idUnidad(), estado.identificadorUnidad(), null, null, null,
+                    estado.pazYSalvo(),
+                    estado.pazYSalvo() ? List.of() : List.of("La unidad tiene obligaciones pendientes con la administración"));
+        }
         return ResponseEntity.ok(ApiResponse.success(estado));
     }
 
     @Operation(summary = "Consultar estado financiero integral de una unidad (cartera + multas sin doble conteo)")
+    @RequireModule("FINANZAS")
     @GetMapping("/unidad/{idUnidad}/estado-financiero")
     public ResponseEntity<ApiResponse<PazYSalvoEstadoFinancieroDTO>> estadoFinanciero(@PathVariable Long idUnidad) {
         PazYSalvoEstadoFinancieroDTO estado = pazYSalvoService.verificarEstadoFinanciero(idUnidad);
@@ -81,8 +92,9 @@ public class PazYSalvoController {
     // --- GENERAR ---
 
     @Operation(summary = "Generar certificado oficial de paz y salvo (solo administración)")
+    @RequireModule("FINANZAS")
     @PostMapping
-    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "CREATE", resource = "PAZ_Y_SALVO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<ApiResponse<Map<String, Object>>> generar(@RequestBody Map<String, Object> body) {
         Object rawIdUnidad = body != null ? body.get("idUnidad") : null;
@@ -116,6 +128,7 @@ public class PazYSalvoController {
     // --- DETALLE ---
 
     @Operation(summary = "Detalle de un paz y salvo con validación anti-IDOR")
+    @RequireModule("FINANZAS")
     @GetMapping("/{id}")
     public ApiResponse<Object> detalle(@PathVariable Long id) {
         try {
@@ -129,12 +142,14 @@ public class PazYSalvoController {
     // --- DESCARGAR PDF ---
 
     @Operation(summary = "Descargar el documento PDF oficial del paz y salvo con validación de integridad SHA-256")
+    @RequireModule("FINANZAS")
     @GetMapping("/{id}/descargar")
     public ResponseEntity<Resource> descargar(@PathVariable Long id) {
         return buildPdfDownloadResponse(id);
     }
 
     @Operation(summary = "Alias de descarga del PDF oficial del paz y salvo")
+    @RequireModule("FINANZAS")
     @GetMapping("/{id}/pdf")
     public ResponseEntity<Resource> descargarPdfAlias(@PathVariable Long id) {
         return buildPdfDownloadResponse(id);

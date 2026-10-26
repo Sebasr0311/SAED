@@ -49,7 +49,7 @@ const ESTADOS_INCIDENTE = {
 };
 
 export default function IncidentesAdminPage() {
-  const { data, loading, refetch } = useFetch(() => api.get('/incidentes/admin'), []);
+  const { data, loading, error: loadError, refetch } = useFetch(() => api.get('/incidentes/admin'), []);
 
   // Modals state
   const [modalOpen, setModalOpen] = useState(false);
@@ -201,7 +201,7 @@ export default function IncidentesAdminPage() {
     }
     setSaving(true);
     try {
-      await api.post(`/incidentes/${selectedIncidente.idIncidente}/reabrir`, { motivoReapertura });
+      await api.post(`/incidentes/${selectedIncidente.idIncidente}/reabrir`, { motivo: motivoReapertura.trim() });
       toast.success('Incidente reabierto en etapa de investigación');
       setReabrirOpen(false);
       setSelectedIncidente(null);
@@ -410,6 +410,17 @@ export default function IncidentesAdminPage() {
         <div className="p-12 text-center text-muted-foreground bg-card border border-border rounded-xl">
           <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-3" />
           <p className="text-sm">Cargando incidentes y bitácora de seguridad...</p>
+        </div>
+      ) : loadError ? (
+        <div role="alert" className="p-12 text-center bg-card border border-destructive/30 rounded-xl">
+          <AlertTriangle className="w-12 h-12 text-destructive/60 mx-auto mb-3" />
+          <h3 className="text-base font-semibold text-foreground">No se pudieron cargar los incidentes</h3>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+            {loadError.response?.data?.message || loadError.message || 'Error de comunicación con el servidor.'}
+          </p>
+          <Button variant="outline" className="mt-4" onClick={() => refetch().catch(() => undefined)}>
+            Reintentar
+          </Button>
         </div>
       ) : filteredItems.length === 0 ? (
         <div className="p-12 text-center bg-card border border-border rounded-xl">

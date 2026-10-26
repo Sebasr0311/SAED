@@ -1,9 +1,8 @@
 package com.saed.backend.asambleas.repository.impl;
 
 import com.saed.backend.asambleas.dto.*;
+import com.saed.backend.asambleas.service.impl.QuorumCalculator;
 import com.saed.backend.asambleas.repository.AsambleaRepository;
-import com.saed.backend.context.SaedContext;
-import com.saed.backend.context.SaedContextHolder;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -61,15 +60,11 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
         dto.setTotalAsistentes(rs.getInt("TOTAL_ASISTENTES"));
         dto.setTotalVotaciones(rs.getInt("TOTAL_VOTACIONES"));
 
-        try {
-            long idOrg = rs.getLong("ID_ORGANIZACION");
-            if (!rs.wasNull()) dto.setIdOrganizacion(idOrg);
-        } catch (Exception ignored) {}
+        long idOrg = rs.getLong("ID_ORGANIZACION");
+        if (!rs.wasNull()) dto.setIdOrganizacion(idOrg);
 
-        try {
-            long idDoc = rs.getLong("ID_DOCUMENTO");
-            if (!rs.wasNull()) dto.setIdDocumento(idDoc);
-        } catch (Exception ignored) {}
+        long idDoc = rs.getLong("ID_DOCUMENTO");
+        if (!rs.wasNull()) dto.setIdDocumento(idDoc);
 
         return dto;
     };
@@ -125,6 +120,12 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
         return dto;
     };
 
+    // F10-12: outcome columns persisted when a voting is closed
+    private static final String RESULT_COLUMNS = "v.RESULTADO, v.OPCION_GANADORA, v.PESO_TOTAL_EMITIDO, " +
+            "v.BASE_COEFICIENTES, v.PESO_REPRESENTADO, v.PORCENTAJE_SI, ";
+    private static final String RESULT_COLUMNS_GROUP = "v.RESULTADO, v.OPCION_GANADORA, v.PESO_TOTAL_EMITIDO, " +
+            "v.BASE_COEFICIENTES, v.PESO_REPRESENTADO, v.PORCENTAJE_SI ";
+
     private final RowMapper<VotacionDTO> votacionRowMapper = (rs, rowNum) -> {
         VotacionDTO dto = new VotacionDTO();
         dto.setIdVotacion(rs.getLong("ID_VOTACION"));
@@ -168,6 +169,18 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
         }
         dto.setAprobada(aprobada);
 
+        String resultado = rs.getString("RESULTADO");
+        if (resultado != null) {
+            // F10-12: the persisted outcome of a closed voting is authoritative over the live recount.
+            dto.setResultado(resultado);
+            dto.setAprobada("APROBADA".equals(resultado));
+            dto.setOpcionGanadora(rs.getString("OPCION_GANADORA"));
+            dto.setPesoTotalEmitido(rs.getBigDecimal("PESO_TOTAL_EMITIDO"));
+            dto.setBaseCoeficientes(rs.getBigDecimal("BASE_COEFICIENTES"));
+            dto.setPesoRepresentado(rs.getBigDecimal("PESO_REPRESENTADO"));
+            dto.setPorcentajeSi(rs.getBigDecimal("PORCENTAJE_SI"));
+        }
+
         return dto;
     };
 
@@ -205,15 +218,11 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
 
     @Override
     public Long findOrganizacionPropiedad(Long idPropiedad) {
-        try {
-            return jdbcTemplate.queryForObject(
-                    "SELECT ID_ORGANIZACION FROM PROPIEDADES WHERE ID_PROPIEDAD = :idPropiedad",
-                    new MapSqlParameterSource("idPropiedad", idPropiedad),
-                    Long.class
-            );
-        } catch (Exception e) {
-            return null;
-        }
+        List<Long> rows = jdbcTemplate.queryForList(
+                "SELECT ID_ORGANIZACION FROM PROPIEDADES WHERE ID_PROPIEDAD = :idPropiedad",
+                new MapSqlParameterSource("idPropiedad", idPropiedad),
+                Long.class);
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     @Override
@@ -326,12 +335,12 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     }
 
     @Override
-    public void retirarAsistencia(Long idAsamblea, Long idUnidad) {
+    public int retirarAsistencia(Long idAsamblea, Long idUnidad) {
         String sql = "UPDATE ASISTENCIAS_ASAMBLEA " +
                 "SET HORA_RETIRO = FROM_TZ(CAST(SYSTIMESTAMP AS TIMESTAMP), 'America/Bogota') " +
                 "WHERE ID_ASAMBLEA = :idAsamblea AND ID_UNIDAD = :idUnidad AND HORA_RETIRO IS NULL";
 
-        jdbcTemplate.update(sql, new MapSqlParameterSource()
+        return jdbcTemplate.update(sql, new MapSqlParameterSource()
                 .addValue("idAsamblea", idAsamblea)
                 .addValue("idUnidad", idUnidad));
     }
@@ -340,25 +349,7 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     public BigDecimal calcularQuorumAlcanzadoPct(Long idAsamblea, Long idPropiedad) {
         String sqlAsist = "SELECT COALESCE(SUM(COEFICIENTE_PONDERADO), 0) FROM ASISTENCIAS_ASAMBLEA WHERE ID_ASAMBLEA = :idAsamblea AND HORA_RETIRO IS NULL";
         BigDecimal sumaAsistentes = jdbcTemplate.queryForObject(sqlAsist, new MapSqlParameterSource("idAsamblea", idAsamblea), BigDecimal.class);
-        if (sumaAsistentes == null) sumaAsistentes = BigDecimal.ZERO;
-
-        BigDecimal pct;
-        if (sumaAsistentes.compareTo(BigDecimal.valueOf(1.0)) > 0) {
-            // Ya viene en escala porcentual (ej. 52.50)
-            pct = sumaAsistentes;
-        } else {
-            // Viene en escala decimal unitaria (ej. 0.525000 -> 52.50%)
-            pct = sumaAsistentes.multiply(BigDecimal.valueOf(100));
-        }
-
-        // Capping seguro para respetar la restricción de base de datos NUMBER(5,2) (máx 100.00)
-        if (pct.compareTo(BigDecimal.valueOf(100.00)) > 0) {
-            pct = BigDecimal.valueOf(100.00);
-        } else if (pct.compareTo(BigDecimal.ZERO) < 0) {
-            pct = BigDecimal.ZERO;
-        }
-
-        return pct.setScale(2, RoundingMode.HALF_UP);
+        return QuorumCalculator.toPercentage(sumaAsistentes);
     }
 
     @Override
@@ -410,21 +401,32 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     }
 
     @Override
-    public void decidirPoder(Long idPoder, String nuevoEstado, Long idUsuarioValidador) {
+    public int decidirPoder(Long idAsamblea, Long idPoder, String nuevoEstado, Long idUsuarioValidador) {
+        // Conditional update: only a pending power of THIS assembly can be decided, once.
         String sql = "UPDATE PODERES_REPRESENTACION " +
                 "SET ESTADO = :nuevoEstado, VALIDADO_POR = :idValidador " +
-                "WHERE ID_PODER = :idPoder";
+                "WHERE ID_PODER = :idPoder AND ID_ASAMBLEA = :idAsamblea AND ESTADO = 'PENDIENTE_REVISION'";
 
-        jdbcTemplate.update(sql, new MapSqlParameterSource()
+        return jdbcTemplate.update(sql, new MapSqlParameterSource()
                 .addValue("nuevoEstado", nuevoEstado)
                 .addValue("idValidador", idUsuarioValidador)
-                .addValue("idPoder", idPoder));
+                .addValue("idPoder", idPoder)
+                .addValue("idAsamblea", idAsamblea));
+    }
+
+    @Override
+    public boolean existePoder(Long idAsamblea, Long idPoder) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM PODERES_REPRESENTACION WHERE ID_PODER = :idPoder AND ID_ASAMBLEA = :idAsamblea",
+                new MapSqlParameterSource().addValue("idPoder", idPoder).addValue("idAsamblea", idAsamblea),
+                Integer.class);
+        return count != null && count > 0;
     }
 
     @Override
     public List<VotacionDTO> findVotaciones(Long idAsamblea) {
         String sql = "SELECT v.ID_VOTACION, v.ID_ASAMBLEA, v.PUNTO_ORDEN_DIA, v.TITULO, v.DESCRIPCION, " +
-                "v.TIPO_MAYORIA_REQUERIDA, v.HORA_APERTURA, v.HORA_CIERRE, v.ESTADO, " +
+                "v.TIPO_MAYORIA_REQUERIDA, v.HORA_APERTURA, v.HORA_CIERRE, v.ESTADO, " + RESULT_COLUMNS +
                 "COALESCE(SUM(CASE WHEN vt.OPCION_VOTO = 'SI' THEN vt.COEFICIENTE_VOTO ELSE 0 END), 0) as VOTOS_SI, " +
                 "COALESCE(SUM(CASE WHEN vt.OPCION_VOTO = 'NO' THEN vt.COEFICIENTE_VOTO ELSE 0 END), 0) as VOTOS_NO, " +
                 "COALESCE(SUM(CASE WHEN vt.OPCION_VOTO = 'BLANCO' THEN vt.COEFICIENTE_VOTO ELSE 0 END), 0) as VOTOS_BLANCO, " +
@@ -434,7 +436,7 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
                 "LEFT JOIN VOTOS vt ON v.ID_VOTACION = vt.ID_VOTACION " +
                 "WHERE v.ID_ASAMBLEA = :idAsamblea " +
                 "GROUP BY v.ID_VOTACION, v.ID_ASAMBLEA, v.PUNTO_ORDEN_DIA, v.TITULO, v.DESCRIPCION, " +
-                "         v.TIPO_MAYORIA_REQUERIDA, v.HORA_APERTURA, v.HORA_CIERRE, v.ESTADO " +
+                "         v.TIPO_MAYORIA_REQUERIDA, v.HORA_APERTURA, v.HORA_CIERRE, v.ESTADO, " + RESULT_COLUMNS_GROUP +
                 "ORDER BY v.PUNTO_ORDEN_DIA ASC";
 
         return jdbcTemplate.query(sql, new MapSqlParameterSource("idAsamblea", idAsamblea), votacionRowMapper);
@@ -443,7 +445,7 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     @Override
     public Optional<VotacionDTO> findVotacionById(Long idVotacion) {
         String sql = "SELECT v.ID_VOTACION, v.ID_ASAMBLEA, v.PUNTO_ORDEN_DIA, v.TITULO, v.DESCRIPCION, " +
-                "v.TIPO_MAYORIA_REQUERIDA, v.HORA_APERTURA, v.HORA_CIERRE, v.ESTADO, " +
+                "v.TIPO_MAYORIA_REQUERIDA, v.HORA_APERTURA, v.HORA_CIERRE, v.ESTADO, " + RESULT_COLUMNS +
                 "COALESCE(SUM(CASE WHEN vt.OPCION_VOTO = 'SI' THEN vt.COEFICIENTE_VOTO ELSE 0 END), 0) as VOTOS_SI, " +
                 "COALESCE(SUM(CASE WHEN vt.OPCION_VOTO = 'NO' THEN vt.COEFICIENTE_VOTO ELSE 0 END), 0) as VOTOS_NO, " +
                 "COALESCE(SUM(CASE WHEN vt.OPCION_VOTO = 'BLANCO' THEN vt.COEFICIENTE_VOTO ELSE 0 END), 0) as VOTOS_BLANCO, " +
@@ -453,7 +455,7 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
                 "LEFT JOIN VOTOS vt ON v.ID_VOTACION = vt.ID_VOTACION " +
                 "WHERE v.ID_VOTACION = :idVotacion " +
                 "GROUP BY v.ID_VOTACION, v.ID_ASAMBLEA, v.PUNTO_ORDEN_DIA, v.TITULO, v.DESCRIPCION, " +
-                "         v.TIPO_MAYORIA_REQUERIDA, v.HORA_APERTURA, v.HORA_CIERRE, v.ESTADO";
+                "         v.TIPO_MAYORIA_REQUERIDA, v.HORA_APERTURA, v.HORA_CIERRE, v.ESTADO, " + RESULT_COLUMNS_GROUP;
 
         try {
             VotacionDTO dto = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idVotacion", idVotacion), votacionRowMapper);
@@ -492,12 +494,42 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     }
 
     @Override
-    public void cerrarVotacion(Long idVotacion) {
+    public int cerrarVotacion(Long idVotacion, VotacionResultado resultado) {
         String sql = "UPDATE VOTACIONES " +
-                "SET ESTADO = 'CERRADA', HORA_CIERRE = FROM_TZ(CAST(SYSTIMESTAMP AS TIMESTAMP), 'America/Bogota') " +
-                "WHERE ID_VOTACION = :idVotacion";
+                "SET ESTADO = 'CERRADA', HORA_CIERRE = FROM_TZ(CAST(SYSTIMESTAMP AS TIMESTAMP), 'America/Bogota'), " +
+                "RESULTADO = :resultado, OPCION_GANADORA = :opcionGanadora, " +
+                "PESO_SI = :pesoSi, PESO_NO = :pesoNo, PESO_BLANCO = :pesoBlanco, PESO_ABSTENCION = :pesoAbstencion, " +
+                "PESO_TOTAL_EMITIDO = :pesoTotal, BASE_COEFICIENTES = :base, PESO_REPRESENTADO = :representado, PORCENTAJE_SI = :porcentajeSi " +
+                "WHERE ID_VOTACION = :idVotacion AND ESTADO = 'ABIERTA'";
 
-        jdbcTemplate.update(sql, new MapSqlParameterSource("idVotacion", idVotacion));
+        return jdbcTemplate.update(sql, new MapSqlParameterSource()
+                .addValue("idVotacion", idVotacion)
+                .addValue("resultado", resultado.resultado())
+                .addValue("opcionGanadora", resultado.opcionGanadora())
+                .addValue("pesoSi", resultado.pesoSi())
+                .addValue("pesoNo", resultado.pesoNo())
+                .addValue("pesoBlanco", resultado.pesoBlanco())
+                .addValue("pesoAbstencion", resultado.pesoAbstencion())
+                .addValue("pesoTotal", resultado.pesoTotalEmitido())
+                .addValue("base", resultado.baseCoeficientes())
+                .addValue("representado", resultado.pesoRepresentado())
+                .addValue("porcentajeSi", resultado.porcentajeSi()));
+    }
+
+    @Override
+    public BigDecimal sumCoeficientesPropiedad(Long idPropiedad) {
+        String sql = "SELECT COALESCE(SUM(COEFICIENTE_COPROPIEDAD), 0) FROM UNIDADES " +
+                "WHERE ID_PROPIEDAD = :idPropiedad AND ESTADO = 'ACTIVA'";
+        BigDecimal sum = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idPropiedad", idPropiedad), BigDecimal.class);
+        return sum != null ? sum : BigDecimal.ZERO;
+    }
+
+    @Override
+    public BigDecimal sumCoeficientesRepresentados(Long idAsamblea) {
+        String sql = "SELECT COALESCE(SUM(COEFICIENTE_PONDERADO), 0) FROM ASISTENCIAS_ASAMBLEA " +
+                "WHERE ID_ASAMBLEA = :idAsamblea AND HORA_RETIRO IS NULL";
+        BigDecimal sum = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idAsamblea", idAsamblea), BigDecimal.class);
+        return sum != null ? sum : BigDecimal.ZERO;
     }
 
     @Override
@@ -530,35 +562,27 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
 
     @Override
     public BigDecimal findCoeficienteUnidad(Long idUnidad) {
+        // DEC-03: no fabricated fallback weight and no context elevation; a missing or non-positive
+        // coefficient is reported as null so the caller rejects the operation.
         String sql = "SELECT COEFICIENTE_COPROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :idUnidad";
-        try {
-            BigDecimal coef = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idUnidad", idUnidad), BigDecimal.class);
-            if (coef != null && coef.compareTo(BigDecimal.ZERO) > 0) return coef;
-        } catch (EmptyResultDataAccessException ignored) {}
+        List<BigDecimal> rows = jdbcTemplate.queryForList(sql, new MapSqlParameterSource("idUnidad", idUnidad), BigDecimal.class);
+        if (rows.isEmpty()) return null;
+        BigDecimal coef = rows.get(0);
+        return (coef != null && coef.signum() > 0) ? coef : null;
+    }
 
-        try {
-            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
-            BigDecimal coef = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idUnidad", idUnidad), BigDecimal.class);
-            if (coef != null && coef.compareTo(BigDecimal.ZERO) > 0) return coef;
-        } catch (Exception ignored) {
-        } finally {
-            SaedContext ctx = SaedContextHolder.getContext();
-            if (ctx != null && ctx.getUserId() != null) {
-                try {
-                    String restoreSql = String.format(
-                            "BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(%d); PKG_SAED_SESSION.SET_CONTEXT(%d, %s, %s, '%s'); END;",
-                            ctx.getUserId(),
-                            ctx.getUserId(),
-                            ctx.getOrganizationId() != null ? String.valueOf(ctx.getOrganizationId()) : "NULL",
-                            ctx.getPropertyId() != null ? String.valueOf(ctx.getPropertyId()) : "NULL",
-                            ctx.getRoleCode() != null ? ctx.getRoleCode() : "RESIDENTE"
-                    );
-                    jdbcTemplate.getJdbcOperations().execute(restoreSql);
-                } catch (Exception ignored) {}
-            }
-        }
-
-        return BigDecimal.valueOf(0.010000);
+    @Override
+    public BigDecimal findCoeficienteAsistencia(Long idAsamblea, Long idUnidad) {
+        // Read under the caller's own context: ASISTENCIAS_ASAMBLEA is visible to the assembly's property
+        // participants, so this works for a proxy holder who cannot read the represented UNIDADES row.
+        String sql = "SELECT COEFICIENTE_PONDERADO FROM ASISTENCIAS_ASAMBLEA " +
+                "WHERE ID_ASAMBLEA = :idAsamblea AND ID_UNIDAD = :idUnidad AND HORA_RETIRO IS NULL";
+        List<BigDecimal> rows = jdbcTemplate.queryForList(sql, new MapSqlParameterSource()
+                .addValue("idAsamblea", idAsamblea)
+                .addValue("idUnidad", idUnidad), BigDecimal.class);
+        if (rows.isEmpty()) return null;
+        BigDecimal coef = rows.get(0);
+        return (coef != null && coef.signum() > 0) ? coef : null;
     }
 
     @Override
@@ -638,40 +662,10 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     @Override
     public Long findPropiedadUnidad(Long idUnidad) {
         if (idUnidad == null) return null;
-        try {
-            String sql = "SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :idUnidad";
-            Long prop = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idUnidad", idUnidad), Long.class);
-            if (prop != null) return prop;
-        } catch (EmptyResultDataAccessException ignored) {}
-
-        try {
-            String sqlAsig = "SELECT ID_PROPIEDAD FROM USUARIO_ASIGNACIONES WHERE ID_UNIDAD = :idUnidad AND ID_PROPIEDAD IS NOT NULL FETCH FIRST 1 ROWS ONLY";
-            Long prop = jdbcTemplate.queryForObject(sqlAsig, new MapSqlParameterSource("idUnidad", idUnidad), Long.class);
-            if (prop != null) return prop;
-        } catch (Exception ignored) {}
-
-        try {
-            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
-            String sql = "SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :idUnidad";
-            return jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idUnidad", idUnidad), Long.class);
-        } catch (Exception e) {
-            return null;
-        } finally {
-            SaedContext ctx = SaedContextHolder.getContext();
-            if (ctx != null && ctx.getUserId() != null) {
-                try {
-                    String restoreSql = String.format(
-                            "BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(%d); PKG_SAED_SESSION.SET_CONTEXT(%d, %s, %s, '%s'); END;",
-                            ctx.getUserId(),
-                            ctx.getUserId(),
-                            ctx.getOrganizationId() != null ? String.valueOf(ctx.getOrganizationId()) : "NULL",
-                            ctx.getPropertyId() != null ? String.valueOf(ctx.getPropertyId()) : "NULL",
-                            ctx.getRoleCode() != null ? ctx.getRoleCode() : "RESIDENTE"
-                    );
-                    jdbcTemplate.getJdbcOperations().execute(restoreSql);
-                } catch (Exception ignored) {}
-            }
-        }
+        // Read under the caller's own tenant context; a unit outside it is simply not found.
+        String sql = "SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :idUnidad";
+        List<Long> rows = jdbcTemplate.queryForList(sql, new MapSqlParameterSource("idUnidad", idUnidad), Long.class);
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     @Override
@@ -703,42 +697,6 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     }
 
     @Override
-    public boolean usuarioPerteneceAUnidad(Long idUsuario, Long idUnidad, Long idPersona) {
-        if (idUsuario != null) {
-            String sqlAsig = "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES " +
-                    "WHERE ID_USUARIO = :idUsuario AND ID_UNIDAD = :idUnidad AND ESTADO IN ('ACTIVA', 'ACTIVO')";
-            try {
-                Integer cnt = jdbcTemplate.queryForObject(sqlAsig, new MapSqlParameterSource()
-                        .addValue("idUsuario", idUsuario)
-                        .addValue("idUnidad", idUnidad), Integer.class);
-                if (cnt != null && cnt > 0) return true;
-            } catch (Exception ignored) {}
-        }
-
-        if (idPersona != null) {
-            try {
-                String sqlProp = "SELECT COUNT(1) FROM PROPIETARIOS_UNIDAD " +
-                        "WHERE ID_UNIDAD = :idUnidad AND ID_PERSONA = :idPersona AND NVL(ESTADO, 'ACTIVO') = 'ACTIVO'";
-                Integer cntProp = jdbcTemplate.queryForObject(sqlProp, new MapSqlParameterSource()
-                        .addValue("idUnidad", idUnidad)
-                        .addValue("idPersona", idPersona), Integer.class);
-                if (cntProp != null && cntProp > 0) return true;
-            } catch (Exception ignored) {}
-
-            try {
-                String sqlRes = "SELECT COUNT(1) FROM RESIDENTES_UNIDAD " +
-                        "WHERE ID_UNIDAD = :idUnidad AND ID_PERSONA = :idPersona AND NVL(ESTADO, 'ACTIVO') = 'ACTIVO'";
-                Integer cntRes = jdbcTemplate.queryForObject(sqlRes, new MapSqlParameterSource()
-                        .addValue("idUnidad", idUnidad)
-                        .addValue("idPersona", idPersona), Integer.class);
-                if (cntRes != null && cntRes > 0) return true;
-            } catch (Exception ignored) {}
-        }
-
-        return false;
-    }
-
-    @Override
     public Long findPersonaUsuario(Long idUsuario) {
         if (idUsuario == null) return null;
         String sql = "SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :idUsuario";
@@ -747,5 +705,51 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
         } catch (EmptyResultDataAccessException e) {
             return null;
         }
+    }
+
+    @Override
+    public boolean esPropietarioLegalActivo(Long idUnidad, Long idPersona) {
+        if (idUnidad == null || idPersona == null) return false;
+        String sql = "SELECT COUNT(1) FROM PROPIETARIOS_UNIDAD " +
+                "WHERE ID_UNIDAD = :idUnidad AND ID_PERSONA = :idPersona AND ESTADO = 'ACTIVO' " +
+                "AND (FECHA_FIN IS NULL OR FECHA_FIN >= TRUNC(SYSDATE))";
+        Integer count = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource()
+                .addValue("idUnidad", idUnidad)
+                .addValue("idPersona", idPersona), Integer.class);
+        return count != null && count > 0;
+    }
+
+    @Override
+    public boolean personaPerteneceAOrganizacion(Long idPersona, Long idOrganizacion) {
+        if (idPersona == null || idOrganizacion == null) return false;
+        String sql = "SELECT COUNT(1) FROM PERSONAS WHERE ID_PERSONA = :idPersona AND ID_ORGANIZACION = :idOrganizacion";
+        Integer count = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource()
+                .addValue("idPersona", idPersona)
+                .addValue("idOrganizacion", idOrganizacion), Integer.class);
+        return count != null && count > 0;
+    }
+
+    @Override
+    public boolean tieneAsistenciaVigente(Long idAsamblea, Long idUnidad) {
+        String sql = "SELECT COUNT(1) FROM ASISTENCIAS_ASAMBLEA " +
+                "WHERE ID_ASAMBLEA = :idAsamblea AND ID_UNIDAD = :idUnidad AND HORA_RETIRO IS NULL";
+        Integer count = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource()
+                .addValue("idAsamblea", idAsamblea)
+                .addValue("idUnidad", idUnidad), Integer.class);
+        return count != null && count > 0;
+    }
+
+    @Override
+    public boolean esPoderAprobadoDe(Long idPoder, Long idAsamblea, Long idUnidad, Long idPersonaApoderado) {
+        if (idPoder == null || idPersonaApoderado == null) return false;
+        String sql = "SELECT COUNT(1) FROM PODERES_REPRESENTACION " +
+                "WHERE ID_PODER = :idPoder AND ID_ASAMBLEA = :idAsamblea AND ID_UNIDAD = :idUnidad " +
+                "AND ID_PERSONA_APODERADO = :idPersona AND ESTADO = 'APROBADO'";
+        Integer count = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource()
+                .addValue("idPoder", idPoder)
+                .addValue("idAsamblea", idAsamblea)
+                .addValue("idUnidad", idUnidad)
+                .addValue("idPersona", idPersonaApoderado), Integer.class);
+        return count != null && count > 0;
     }
 }

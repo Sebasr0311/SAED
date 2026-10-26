@@ -19,4 +19,7 @@ public interface ActivoService {
     void actualizarEstado(Long idActivo, String nuevoEstado);
 
     void darDeBaja(Long idActivo);
+
+    /** Real maintenance history of the asset (F09-01). */
+    List<com.saed.backend.activos.dto.ActivoHistorialDTO> historial(Long idActivo);
 }

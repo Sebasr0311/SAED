@@ -5,7 +5,7 @@ Si por alguna razón la V4.1 produce comportamientos no deseados en producción 
 ## Procedimiento de Rollback
 1. Detener las instancias de Spring Boot (SAED_APP).
 2. Ejecutar como DBA o dueño de esquema el script:
-   `sqlplus -S SAED_V39_FINAL_TEST/saed2026 @database/migrations/V4.1__core_session_patch_ROLLBACK.sql`
+   `sqlplus -S SAED_V39_FINAL_TEST/<redacted> @database/migrations/V4.1__core_session_patch_ROLLBACK.sql`
 3. Esto restaurará el paquete `PKG_SAED_SESSION` para que dependa exclusivamente de `SET_CONTEXT` y restaurará `PKG_SAED_SECURITY_RLS` a su estructura plana sin verificación de STATE.
 4. Reiniciar Spring Boot habiendo revertido el commit de la rama `feature/db-v4.1-session-bootstrap`.
 

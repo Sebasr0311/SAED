@@ -26,6 +26,7 @@ import { Modal } from '../components/ui/Modal';
 import { useFetch } from '../lib/hooks';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
+import { useAuth } from '../lib/AuthContext.jsx';
 import { BASE_URL } from '../lib/api.js';
 import { TOKEN_KEY } from '../lib/storage.js';
 import { toast } from 'sonner';
@@ -48,12 +49,15 @@ const MODALIDADES = {
 export default function ResAsambleasPage() {
   const tenant = useTenant();
   const tenantApi = useTenantApi();
+  const { user } = useAuth();
   const [tabActiva, setTabActiva] = useState('proximas');
   const [asambleaSeleccionadaId, setAsambleaSeleccionadaId] = useState(null);
   const [modalPoderOpen, setModalPoderOpen] = useState(false);
   const [submittingPoder, setSubmittingPoder] = useState(false);
   const [votingId, setVotingId] = useState(null);
   const [votoExitosoMap, setVotoExitosoMap] = useState({});
+  // Unit the resident votes for (own unit or a unit represented through an approved proxy).
+  const [unidadVotoSel, setUnidadVotoSel] = useState('');
 
   // Formulario radicación de poder
   const [formPoder, setFormPoder] = useState({
@@ -155,6 +159,80 @@ export default function ResAsambleasPage() {
     }, [asambleaSeleccionadaId, tenant.activeAssignmentId])
   );
 
+  // The caller's own person (needed to recognise the proxies granted to them).
+  const { data: miPersona } = useFetch(
+    useCallback(() => tenantApi.get('/personas/me').catch(() => null), [tenant.activeAssignmentId])
+  );
+  const miPersonaId = miPersona?.id ?? user?.idPersona ?? null;
+  const ownUnitId = tenant.activeAssignment?.idUnidad ?? user?.idUnidad ?? null;
+  const ownUnitLabel = user?.identificadorUnidad || (ownUnitId ? `#${ownUnitId}` : '');
+  // Only an owner may grant a proxy (Ley 675); a cohabitant has no access to the unit's owners/residents either.
+  const canFileProxy = !(
+    user?.rol === 'RESIDENTE_CONVIVENCIA' ||
+    user?.rolCodigo === 'RESIDENTE_CONVIVENCIA' ||
+    user?.tipoResidente === 'CONVIVIENTE' ||
+    user?.tipoRelacion === 'CONVIVIENTE'
+  );
+
+  // People of the caller's own unit (units/{id}/owners and /residents are granted to owners/residents, not cohabitants).
+  const { data: ownersRaw } = useFetch(
+    useCallback(
+      () => (canFileProxy && ownUnitId ? tenantApi.get(`/units/${ownUnitId}/owners`).catch(() => []) : Promise.resolve([])),
+      [canFileProxy, ownUnitId, tenant.activeAssignmentId]
+    )
+  );
+  const { data: residentsRaw } = useFetch(
+    useCallback(
+      () => (canFileProxy && ownUnitId ? tenantApi.get(`/units/${ownUnitId}/residents`).catch(() => []) : Promise.resolve([])),
+      [canFileProxy, ownUnitId, tenant.activeAssignmentId]
+    )
+  );
+
+  const personaNombre = (p) =>
+    [p?.primerNombre, p?.segundoNombre, p?.primerApellido, p?.segundoApellido].filter(Boolean).join(' ') ||
+    `Persona ${p?.id}`;
+
+  const propietariosUnidad = useMemo(() => {
+    const list = Array.isArray(ownersRaw) ? ownersRaw : [];
+    return list
+      .filter((o) => o.persona?.id && (!o.estado || o.estado === 'ACTIVO'))
+      .map((o) => ({ id: o.persona.id, nombre: personaNombre(o.persona) }));
+  }, [ownersRaw]);
+
+  const personasUnidad = useMemo(() => {
+    const byId = new Map();
+    const add = (p) => {
+      if (p?.id && !byId.has(p.id)) byId.set(p.id, { id: p.id, nombre: personaNombre(p) });
+    };
+    (Array.isArray(ownersRaw) ? ownersRaw : []).forEach((o) => add(o.persona));
+    (Array.isArray(residentsRaw) ? residentsRaw : []).forEach((r) => add(r.persona));
+    return [...byId.values()];
+  }, [ownersRaw, residentsRaw]);
+
+  // Units this person may vote for in the selected assembly: own unit + units with an APROBADO proxy in their favour.
+  const unidadesVoto = useMemo(() => {
+    const list = [];
+    if (ownUnitId) list.push({ idUnidad: Number(ownUnitId), label: `Mi unidad ${ownUnitLabel}`, representada: false });
+    poderes.forEach((p) => {
+      if (
+        p.estado === 'APROBADO' &&
+        miPersonaId != null &&
+        Number(p.idPersonaApoderado) === Number(miPersonaId) &&
+        !list.some((u) => u.idUnidad === Number(p.idUnidad))
+      ) {
+        list.push({
+          idUnidad: Number(p.idUnidad),
+          label: `Unidad ${p.unidadIdentificador || `#${p.idUnidad}`} (por poder)`,
+          representada: true,
+        });
+      }
+    });
+    return list;
+  }, [ownUnitId, ownUnitLabel, poderes, miPersonaId]);
+
+  const unidadVoto =
+    unidadesVoto.find((u) => String(u.idUnidad) === String(unidadVotoSel)) || unidadesVoto[0] || null;
+
   const handleDescargarDocumentoActa = async (acta) => {
     if (!acta?.idActa) return;
     try {
@@ -186,7 +264,7 @@ export default function ResAsambleasPage() {
     e.preventDefault();
     if (!asambleaSeleccionadaId) return;
 
-    if (!formPoder.idUnidad || !formPoder.idPersonaPropietario || !formPoder.idPersonaApoderado) {
+    if (!ownUnitId || !formPoder.idPersonaPropietario || !formPoder.idPersonaApoderado) {
       toast.error('Complete los datos obligatorios de la unidad y los intervinientes.');
       return;
     }
@@ -199,7 +277,7 @@ export default function ResAsambleasPage() {
     setSubmittingPoder(true);
     try {
       await tenantApi.post(`/asambleas/${asambleaSeleccionadaId}/poderes`, {
-        idUnidad: Number(formPoder.idUnidad),
+        idUnidad: Number(ownUnitId),
         idPersonaPropietario: Number(formPoder.idPersonaPropietario),
         idPersonaApoderado: Number(formPoder.idPersonaApoderado),
         documentoPoderUrl: formPoder.documentoPoderUrl || null,
@@ -215,7 +293,7 @@ export default function ResAsambleasPage() {
       });
       refetchPoderes();
     } catch (err) {
-      const msg = err.response?.data?.message || 'Error al radicar el poder.';
+      const msg = err.response?.data?.message || err.message || 'Error al radicar el poder.';
       toast.error(msg);
     } finally {
       setSubmittingPoder(false);
@@ -225,7 +303,7 @@ export default function ResAsambleasPage() {
   // Emitir voto interactivo como residente / apoderado
   const handleVotar = async (idVotacion, opcion) => {
     if (!asambleaSeleccionadaId) return;
-    const unitId = tenant.activeAssignment?.idUnidad;
+    const unitId = unidadVoto?.idUnidad;
     if (!unitId) {
       toast.error('No tiene una unidad asignada activa para emitir su voto.');
       return;
@@ -237,8 +315,8 @@ export default function ResAsambleasPage() {
         idUnidad: Number(unitId),
         opcionVoto: opcion,
       });
-      toast.success(`Voto '${opcion}' registrado exitosamente para su unidad (ID ${unitId})`);
-      setVotoExitosoMap((prev) => ({ ...prev, [idVotacion]: opcion }));
+      toast.success(`Voto '${opcion}' registrado exitosamente para ${unidadVoto.label}`);
+      setVotoExitosoMap((prev) => ({ ...prev, [`${idVotacion}:${unitId}`]: opcion }));
       refetchVotaciones();
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Error al emitir el voto';
@@ -414,7 +492,7 @@ export default function ResAsambleasPage() {
                     </div>
 
                     {/* Botón Radicar Poder si no está finalizada */}
-                    {asambleaActiva.estado !== 'FINALIZADA' && asambleaActiva.estado !== 'CANCELADA' && (
+                    {canFileProxy && asambleaActiva.estado !== 'FINALIZADA' && asambleaActiva.estado !== 'CANCELADA' && (
                       <button
                         onClick={() => setModalPoderOpen(true)}
                         className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors shadow-sm"
@@ -730,18 +808,44 @@ export default function ResAsambleasPage() {
                             <div className="p-3 bg-neutral-50 dark:bg-neutral-800/40 rounded-lg space-y-2 border border-neutral-200 dark:border-neutral-800">
                               <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-                                  Emitir Voto (Unidad {tenant.activeAssignment?.idUnidad ? `#${tenant.activeAssignment.idUnidad}` : 'no asignada'}):
+                                  Emitir Voto
                                 </span>
-                                {votoExitosoMap[v.idVotacion] && (
+                                {unidadVoto && votoExitosoMap[`${v.idVotacion}:${unidadVoto.idUnidad}`] && (
                                   <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                                    <CheckCircle2 className="w-3.5 h-3.5" /> Voto registrado: {votoExitosoMap[v.idVotacion]}
+                                    <CheckCircle2 className="w-3.5 h-3.5" /> Voto registrado: {votoExitosoMap[`${v.idVotacion}:${unidadVoto.idUnidad}`]}
                                   </span>
                                 )}
                               </div>
+                              {unidadesVoto.length === 0 ? (
+                                <p className="text-xs text-amber-700 dark:text-amber-400">
+                                  No tiene una unidad propia ni poderes aprobados para votar.
+                                </p>
+                              ) : (
+                                <div>
+                                  <label
+                                    htmlFor={`unidad-voto-${v.idVotacion}`}
+                                    className="block text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-1"
+                                  >
+                                    Votar por la unidad
+                                  </label>
+                                  <select
+                                    id={`unidad-voto-${v.idVotacion}`}
+                                    value={unidadVoto ? String(unidadVoto.idUnidad) : ''}
+                                    onChange={(e) => setUnidadVotoSel(e.target.value)}
+                                    className="w-full px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900"
+                                  >
+                                    {unidadesVoto.map((u) => (
+                                      <option key={u.idUnidad} value={u.idUnidad}>
+                                        {u.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
                               <div className="grid grid-cols-4 gap-2 pt-1">
                                 <button
                                   type="button"
-                                  disabled={votingId === v.idVotacion || !!votoExitosoMap[v.idVotacion]}
+                                  disabled={votingId === v.idVotacion || !unidadVoto || !!votoExitosoMap[`${v.idVotacion}:${unidadVoto?.idUnidad}`]}
                                   onClick={() => handleVotar(v.idVotacion, 'SI')}
                                   className="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-1 shadow-sm"
                                 >
@@ -749,7 +853,7 @@ export default function ResAsambleasPage() {
                                 </button>
                                 <button
                                   type="button"
-                                  disabled={votingId === v.idVotacion || !!votoExitosoMap[v.idVotacion]}
+                                  disabled={votingId === v.idVotacion || !unidadVoto || !!votoExitosoMap[`${v.idVotacion}:${unidadVoto?.idUnidad}`]}
                                   onClick={() => handleVotar(v.idVotacion, 'NO')}
                                   className="px-3 py-2 text-xs font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-1 shadow-sm"
                                 >
@@ -757,7 +861,7 @@ export default function ResAsambleasPage() {
                                 </button>
                                 <button
                                   type="button"
-                                  disabled={votingId === v.idVotacion || !!votoExitosoMap[v.idVotacion]}
+                                  disabled={votingId === v.idVotacion || !unidadVoto || !!votoExitosoMap[`${v.idVotacion}:${unidadVoto?.idUnidad}`]}
                                   onClick={() => handleVotar(v.idVotacion, 'BLANCO')}
                                   className="px-3 py-2 text-xs font-semibold rounded-lg bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 text-neutral-800 dark:text-neutral-200 transition-colors disabled:opacity-50 shadow-sm"
                                 >
@@ -765,7 +869,7 @@ export default function ResAsambleasPage() {
                                 </button>
                                 <button
                                   type="button"
-                                  disabled={votingId === v.idVotacion || !!votoExitosoMap[v.idVotacion]}
+                                  disabled={votingId === v.idVotacion || !unidadVoto || !!votoExitosoMap[`${v.idVotacion}:${unidadVoto?.idUnidad}`]}
                                   onClick={() => handleVotar(v.idVotacion, 'ABSTENCION')}
                                   className="px-3 py-2 text-xs font-semibold rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-800 dark:text-amber-300 border border-amber-500/30 transition-colors disabled:opacity-50 shadow-sm"
                                 >
@@ -878,7 +982,7 @@ export default function ResAsambleasPage() {
       {/* Modal Radicar Poder */}
       {modalPoderOpen && (
         <Modal
-          isOpen={modalPoderOpen}
+          open={modalPoderOpen}
           onClose={() => setModalPoderOpen(false)}
           title="Radicar Poder de Representación (Ley 675)"
         >
@@ -890,48 +994,59 @@ export default function ResAsambleasPage() {
 
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">
-                ID de la Unidad / Inmueble *
+                Unidad / Inmueble
               </label>
-              <input
-                type="number"
-                required
-                value={formPoder.idUnidad}
-                onChange={(e) => setFormPoder({ ...formPoder, idUnidad: e.target.value })}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="Ej. 101"
-              />
+              <div className="px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/40">
+                {ownUnitId ? `Unidad ${ownUnitLabel}` : 'No tiene una unidad asignada activa.'}
+              </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">
-                ID Persona Propietario (Poderdante) *
+              <label
+                htmlFor="poder-propietario"
+                className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1"
+              >
+                Propietario (Poderdante) *
               </label>
-              <input
-                type="number"
+              <select
+                id="poder-propietario"
                 required
                 value={formPoder.idPersonaPropietario}
-                onChange={(e) =>
-                  setFormPoder({ ...formPoder, idPersonaPropietario: e.target.value })
-                }
+                onChange={(e) => setFormPoder({ ...formPoder, idPersonaPropietario: e.target.value })}
                 className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="ID de su persona registrada"
-              />
+              >
+                <option value="">Seleccione...</option>
+                {propietariosUnidad.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">
-                ID Persona Apoderado (Representante) *
+              <label
+                htmlFor="poder-apoderado"
+                className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1"
+              >
+                Apoderado (Representante) *
               </label>
-              <input
-                type="number"
+              <select
+                id="poder-apoderado"
                 required
                 value={formPoder.idPersonaApoderado}
-                onChange={(e) =>
-                  setFormPoder({ ...formPoder, idPersonaApoderado: e.target.value })
-                }
+                onChange={(e) => setFormPoder({ ...formPoder, idPersonaApoderado: e.target.value })}
                 className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="ID de la persona a quien delega"
-              />
+              >
+                <option value="">Seleccione...</option>
+                {personasUnidad
+                  .filter((p) => String(p.id) !== String(formPoder.idPersonaPropietario))
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre}
+                    </option>
+                  ))}
+              </select>
             </div>
 
             <div>

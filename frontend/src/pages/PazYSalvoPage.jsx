@@ -208,9 +208,6 @@ export default function PazYSalvoPage() {
               {resultadoVerificacion.FECHA_VENCIMIENTO && (
                 <p className="text-sm mt-1">Vencimiento: {resultadoVerificacion.FECHA_VENCIMIENTO}</p>
               )}
-              {resultadoVerificacion.SALDO_A_LA_FECHA != null && (
-                <p className="text-sm mt-1">Saldo: {fmtCOP.format(Number(resultadoVerificacion.SALDO_A_LA_FECHA))}</p>
-              )}
               {resultadoVerificacion.ESTADO && (
                 <p className="text-sm mt-1">Estado: {resultadoVerificacion.ESTADO}</p>
               )}
