@@ -1,32 +1,49 @@
 import { useState, useMemo } from 'react';
+import { Ban, Eye, Gavel, HandCoins } from 'lucide-react';
+import { toast } from 'sonner';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Pagination } from '../components/ui/Pagination.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
+import { Button as IconButton } from '../components/ui/button.tsx';
 import { Modal } from '../components/ui/Modal.jsx';
-import { Select } from '../components/ui/Form.jsx';
-import { toast } from 'sonner';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
+import { Badge } from '../components/ui/badge.tsx';
+import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog.tsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatCurrency, formatDate, imageSrc } from '../lib/utils.js';
 
-const ESTADO_BADGE = {
-  IMPUESTA: 'badge-pendiente-firma',
-  EN_DESCARGOS: 'badge-info',
-  RATIFICADA: 'badge-warn',
-  CONDONADA: 'badge-neutral',
-  PAGADA: 'badge-activo',
-  ANULADA: 'badge-cancelado',
-  PENDIENTE: 'badge-pendiente-firma',
+const SELECT_CLASS =
+  'h-10 rounded-md border border-input bg-surface px-3 text-sm text-on-surface shadow-xs transition-[border-color,box-shadow] duration-150 hover:border-keyline/70 focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 sm:h-9';
+
+const ESTADO_META = {
+  IMPUESTA: { variant: 'warning', label: 'Impuesta' },
+  PENDIENTE: { variant: 'warning', label: 'Pendiente' },
+  EN_DESCARGOS: { variant: 'info', label: 'En descargos' },
+  RATIFICADA: { variant: 'destructive', label: 'Ratificada' },
+  CONDONADA: { variant: 'secondary', label: 'Condonada' },
+  PAGADA: { variant: 'success', label: 'Pagada' },
+  ANULADA: { variant: 'outline', label: 'Anulada' },
 };
 
-const TIPO_BADGE = {
-  RUIDO: 'badge-warn',
-  PARQUEADERO: 'badge-info',
-  MULTA_SANCION: 'badge-danger',
-  MULTA_CONVIVENCIA: 'badge-warn',
+const TIPO_META = {
+  RUIDO: { variant: 'warning', label: 'Ruido' },
+  PARQUEADERO: { variant: 'info', label: 'Parqueadero' },
+  MULTA_SANCION: { variant: 'destructive', label: 'Sanción' },
+  MULTA_CONVIVENCIA: { variant: 'lavender', label: 'Convivencia' },
 };
+
+function EstadoBadge({ estado }) {
+  const m = ESTADO_META[estado] || { variant: 'secondary', label: estado };
+  return <Badge variant={m.variant}>{m.label}</Badge>;
+}
+
+function TipoBadge({ tipo }) {
+  const m = TIPO_META[tipo] || { variant: 'secondary', label: tipo };
+  return <Badge variant={m.variant}>{m.label}</Badge>;
+}
 
 const PAGE_SIZE = 10;
 
@@ -60,7 +77,7 @@ export default function MultasPage() {
     try {
       await api.put(`/multas/${row.idMulta}/pagar`, { metodoPago: 'EFECTIVO' });
       toast.success('Multa marcada como pagada');
-      refetch();
+      refetch().catch(() => {});
       if (detalle?.idMulta === row.idMulta) setDetalle(null);
     } catch (err) {
       toast.error(err.message);
@@ -74,7 +91,7 @@ export default function MultasPage() {
     try {
       await api.put(`/multas/${confirmAnular.idMulta}/anular`);
       toast.success('Multa anulada');
-      refetch();
+      refetch().catch(() => {});
       if (detalle?.idMulta === confirmAnular.idMulta) setDetalle(null);
     } catch (err) {
       toast.error(err.message);
@@ -83,203 +100,198 @@ export default function MultasPage() {
     }
   }
 
+  const puedePagar = (estado) => estado === 'IMPUESTA' || estado === 'RATIFICADA' || estado === 'PENDIENTE';
+  const puedeAnular = (estado) => estado !== 'ANULADA' && estado !== 'PAGADA' && estado !== 'CONDONADA';
+
   const columns = [
-    { key: 'idMulta', label: 'ID', width: 60 },
-    { key: 'numeroApartamento', label: 'Apartamento' },
+    { key: 'idMulta', label: 'ID', width: 60, cellClassName: 'tabular-nums text-text-muted' },
+    { key: 'numeroApartamento', label: 'Apartamento', cellClassName: 'font-semibold' },
     { key: 'nombreResidente', label: 'Residente' },
+    { key: 'tipo', label: 'Tipo', render: (r) => <TipoBadge tipo={r.tipo} /> },
     {
-      key: 'tipo',
-      label: 'Tipo',
-      render: (r) => <span className={`badge ${TIPO_BADGE[r.tipo] || 'badge-neutral'}`}>{r.tipo}</span>,
+      key: 'monto',
+      label: <span className="block text-right">Monto</span>,
+      cellClassName: 'text-right tabular-nums font-semibold whitespace-nowrap',
+      render: (r) => formatCurrency(r.monto),
     },
-    { key: 'monto', label: 'Monto', render: (r) => formatCurrency(r.monto) },
-    { key: 'fechaCreacion', label: 'Fecha', render: (r) => formatDate(r.fechaCreacion) },
     {
-      key: 'estado',
-      label: 'Estado',
-      render: (r) => <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>{r.estado}</span>,
+      key: 'fechaCreacion',
+      label: 'Fecha',
+      cellClassName: 'tabular-nums whitespace-nowrap',
+      render: (r) => formatDate(r.fechaCreacion),
     },
+    { key: 'estado', label: 'Estado', render: (r) => <EstadoBadge estado={r.estado} /> },
     {
       key: 'actions',
-      label: 'Acciones',
+      label: <span className="sr-only">Acciones</span>,
       width: 140,
       render: (row) => (
-        <div style={{ display: 'flex', gap: '4px' }}>
-          <button
+        <div className="flex justify-end gap-1">
+          <IconButton
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10"
             onClick={(e) => {
               e.stopPropagation();
               verDetalle(row);
             }}
-            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
-            aria-label="Ver detalle"
+            aria-label={`Ver detalle de la multa ${row.idMulta}`}
             title="Ver detalle"
           >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>visibility</span>
-          </button>
-          {(row.estado === 'IMPUESTA' || row.estado === 'RATIFICADA' || row.estado === 'PENDIENTE') && (
-            <button
+            <Eye aria-hidden="true" />
+          </IconButton>
+          {puedePagar(row.estado) && (
+            <IconButton
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 text-tint-green-fg hover:text-tint-green-fg"
               onClick={(e) => {
                 e.stopPropagation();
                 marcarPagada(row);
               }}
-              className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
-              aria-label="Marcar pagada"
+              aria-label={`Marcar pagada la multa ${row.idMulta}`}
               title="Marcar pagada"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--accent-green)' }}>
-                payments
-              </span>
-            </button>
+              <HandCoins aria-hidden="true" />
+            </IconButton>
           )}
-          {row.estado !== 'ANULADA' && row.estado !== 'PAGADA' && row.estado !== 'CONDONADA' && (
-            <button
+          {puedeAnular(row.estado) && (
+            <IconButton
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 text-destructive hover:text-destructive"
               onClick={(e) => {
                 e.stopPropagation();
                 setConfirmAnular(row);
               }}
-              className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
-              aria-label="Anular"
+              aria-label={`Anular la multa ${row.idMulta}`}
               title="Anular"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--error)' }}>
-                block
-              </span>
-            </button>
+              <Ban aria-hidden="true" />
+            </IconButton>
           )}
         </div>
       ),
     },
   ];
 
+  const detailRows = detalle
+    ? [
+        ['ID', <span key="id" className="tabular-nums">{detalle.idMulta}</span>],
+        ['Tipo', <TipoBadge key="tipo" tipo={detalle.tipo} />],
+        ['Apartamento', detalle.numeroApartamento],
+        ['Residente', detalle.nombreResidente],
+        ['Monto', <span key="monto" className="font-bold tabular-nums">{formatCurrency(detalle.monto)}</span>],
+        ['Estado', <EstadoBadge key="estado" estado={detalle.estado} />],
+        ['Fecha', <span key="fecha" className="tabular-nums">{formatDate(detalle.fechaCreacion)}</span>],
+        detalle.nombrePortero && ['Generada por', detalle.nombrePortero],
+        detalle.motivo && ['Motivo', detalle.motivo],
+        detalle.idSancionOrigen && ['Expediente de sanción', `#${detalle.idSancionOrigen}`],
+        detalle.fechaAvisoRuido && ['Aviso de ruido previo', formatDate(detalle.fechaAvisoRuido)],
+      ].filter(Boolean)
+    : [];
+
   return (
-    <div>
+    <div className="space-y-4">
       <PageHeader
         title="Multas"
-        subtitle="Registro de multas del edificio"
+        subtitle="Multas impuestas en la copropiedad, su estado de pago y anulaciones"
         action={
-          <Select
+          <select
             id="f-estado"
+            aria-label="Filtrar por estado"
             value={filtroEstado}
             onChange={(e) => {
               setFiltroEstado(e.target.value);
               setPage(0);
             }}
-            className="filter-select"
+            className={SELECT_CLASS}
           >
             <option value="">Todos los estados</option>
             <option value="IMPUESTA">Impuestas</option>
-            <option value="EN_DESCARGOS">En Descargos</option>
+            <option value="EN_DESCARGOS">En descargos</option>
             <option value="RATIFICADA">Ratificadas</option>
             <option value="CONDONADA">Condonadas</option>
             <option value="PAGADA">Pagadas</option>
             <option value="ANULADA">Anuladas</option>
-          </Select>
+          </select>
         }
       />
-      <DataTable
-        columns={columns}
-        rows={rows}
-        loading={loading}
-                empty={{ icon: 'gavel', title: 'No hay multas', subtitle: 'Las multas generadas aparecerán aquí.' }}
-            error={error?.message}
-        keyField="idMulta"
-        onRowClick={verDetalle}
-      />
-      <Pagination
-        page={safePage}
-        totalPages={totalPages}
-        totalItems={items.length}
-        pageSize={PAGE_SIZE}
-        onPageChange={setPage}
-      />
+      {error ? (
+        <ErrorState
+          title="No se pudieron cargar las multas"
+          message={error.message || 'Revise su conexión e intente de nuevo.'}
+          onRetry={() => refetch().catch(() => {})}
+        />
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            rows={rows}
+            loading={loading}
+            empty={{
+              icon: Gavel,
+              title: filtroEstado ? 'No hay multas en este estado' : 'No hay multas',
+              subtitle: filtroEstado ? 'Cambie el filtro de estado para ver otras multas.' : 'Las multas generadas aparecerán aquí.',
+            }}
+            keyField="idMulta"
+            onRowClick={verDetalle}
+          />
+          <Pagination
+            page={safePage}
+            totalPages={totalPages}
+            totalItems={items.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
+        </>
+      )}
+      {loadingDetalle && (
+        <p role="status" className="sr-only">
+          Cargando detalle de la multa…
+        </p>
+      )}
 
-      <Modal open={!!detalle} onClose={() => setDetalle(null)} title="Detalle de Multa" size="md">
-        {loadingDetalle && <p>Cargando...</p>}
+      <Modal open={!!detalle} onClose={() => setDetalle(null)} title="Detalle de multa" size="md">
         {detalle && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div className="detail-row">
-              <span>ID</span>
-              <span>{detalle.idMulta}</span>
-            </div>
-            <div className="detail-row">
-              <span>Tipo</span>
-              <span>
-                <span className={`badge ${TIPO_BADGE[detalle.tipo] || 'badge-neutral'}`}>{detalle.tipo}</span>
-              </span>
-            </div>
-            <div className="detail-row">
-              <span>Apartamento</span>
-              <span>{detalle.numeroApartamento}</span>
-            </div>
-            <div className="detail-row">
-              <span>Residente</span>
-              <span>{detalle.nombreResidente}</span>
-            </div>
-            <div className="detail-row">
-              <span>Monto</span>
-              <span style={{ fontWeight: 700 }}>{formatCurrency(detalle.monto)}</span>
-            </div>
-            <div className="detail-row">
-              <span>Estado</span>
-              <span>
-                <span className={`badge ${ESTADO_BADGE[detalle.estado] || 'badge-neutral'}`}>
-                  {detalle.estado}
-                </span>
-              </span>
-            </div>
-            <div className="detail-row">
-              <span>Fecha</span>
-              <span>{formatDate(detalle.fechaCreacion)}</span>
-            </div>
-            {detalle.nombrePortero && (
-              <div className="detail-row">
-                <span>Generada por</span>
-                <span>{detalle.nombrePortero}</span>
-              </div>
-            )}
-            {detalle.motivo && (
-              <div className="detail-row">
-                <span>Motivo</span>
-                <span>{detalle.motivo}</span>
-              </div>
-            )}
-            {detalle.idSancionOrigen && (
-              <div className="detail-row">
-                <span>Expediente Sanción</span>
-                <span>#{detalle.idSancionOrigen}</span>
-              </div>
-            )}
-            {detalle.fechaAvisoRuido && (
-              <div className="detail-row">
-                <span>Aviso de ruido previo</span>
-                <span>{formatDate(detalle.fechaAvisoRuido)}</span>
-              </div>
-            )}
+          <div className="space-y-4">
+            <dl className="divide-y divide-border-subtle rounded-md border border-border">
+              {detailRows.map(([label, value]) => (
+                <div key={label} className="flex items-start justify-between gap-4 px-3 py-2 text-sm">
+                  <dt className="shrink-0 text-text-secondary">{label}</dt>
+                  <dd className="text-right text-on-surface">{value}</dd>
+                </div>
+              ))}
+            </dl>
             {detalle.descripcion && (
               <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Descripción</div>
-                <div style={{ fontSize: '13px' }}>{detalle.descripcion}</div>
+                <p className="text-xs font-semibold text-text-secondary">Descripción</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-on-surface">{detalle.descripcion}</p>
               </div>
             )}
             {detalle.fotoEvidencia && (
-              <img
+              <button
+                type="button"
+                onClick={() => setFotoGrande(imageSrc(detalle.fotoEvidencia))}
+                className="block w-full cursor-zoom-in overflow-hidden rounded-md border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Ampliar foto de evidencia"
+              >
+                <img
                   src={imageSrc(detalle.fotoEvidencia)}
                   alt="Evidencia"
                   loading="lazy"
                   width="400"
                   height="300"
-                style={{ maxWidth: '100%', borderRadius: '8px', marginTop: '8px', cursor: 'zoom-in' }}
-                onClick={() => setFotoGrande(imageSrc(detalle.fotoEvidencia))}
-              />
+                  className="h-auto w-full object-cover"
+                />
+              </button>
             )}
-            {detalle.estado !== 'ANULADA' && detalle.estado !== 'PAGADA' && detalle.estado !== 'CONDONADA' && (
-              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                {(detalle.estado === 'IMPUESTA' || detalle.estado === 'RATIFICADA' || detalle.estado === 'PENDIENTE') && (
-                  <Button onClick={() => marcarPagada(detalle)} style={{ flex: 1 }}>
-                    Marcar Pagada
-                  </Button>
+            {puedeAnular(detalle.estado) && (
+              <div className="flex flex-col gap-2 border-t border-border-subtle pt-4 sm:flex-row sm:justify-end">
+                {puedePagar(detalle.estado) && (
+                  <Button onClick={() => marcarPagada(detalle)}>Marcar pagada</Button>
                 )}
-                <Button variant="danger" onClick={() => setConfirmAnular(detalle)} style={{ flex: 1 }}>
+                <Button variant="danger" onClick={() => setConfirmAnular(detalle)}>
                   Anular
                 </Button>
               </div>
@@ -288,40 +300,27 @@ export default function MultasPage() {
         )}
       </Modal>
 
-      {fotoGrande && (
-        <div
-          role="dialog"
-          aria-label="Foto de visita"
-          tabIndex={0}
-          onClick={() => setFotoGrande(null)}
-          onKeyDown={(e) => e.key === 'Escape' && setFotoGrande(null)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.85)',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'zoom-out',
-          }}
-        >
-          <img
-            src={fotoGrande}
-            alt="Evidencia"
-            width="800"
-            height="600"
-            style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: '8px' }}
-          />
-        </div>
-      )}
+      <Dialog open={!!fotoGrande} onOpenChange={(o) => !o && setFotoGrande(null)}>
+        <DialogContent className="max-w-4xl p-3">
+          <DialogTitle className="sr-only">Foto de evidencia</DialogTitle>
+          {fotoGrande && (
+            <img
+              src={fotoGrande}
+              alt="Evidencia"
+              width="800"
+              height="600"
+              className="mx-auto max-h-[80dvh] w-auto max-w-full rounded-md object-contain"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={!!confirmAnular}
         onClose={() => setConfirmAnular(null)}
         onConfirm={anular}
         title="Anular multa"
-        message={`¿Anular la multa #${confirmAnular?.idMulta}?`}
+        message={`¿Anular la multa #${confirmAnular?.idMulta}? La multa dejará de ser exigible.`}
         confirmLabel="Anular"
         danger
       />

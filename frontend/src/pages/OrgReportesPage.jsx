@@ -5,7 +5,11 @@ import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Button } from '../components/ui/Button.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
-import { FileText, Printer, RefreshCw, AlertTriangle, Building, Users, Wallet } from 'lucide-react';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+import { FileText, Printer, RefreshCw, Building, Users, Wallet } from 'lucide-react';
 
 export default function OrgReportesPage() {
   const [loading, setLoading] = useState(true);
@@ -33,33 +37,47 @@ export default function OrgReportesPage() {
   const formatCOP = (val) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val || 0);
 
+  const header = (
+    <PageHeader
+      title="Reportes gerenciales consolidados"
+      subtitle="Resumen consolidado de infraestructura, administración, licenciamiento y finanzas de la organización."
+      action={
+        <>
+          <Button variant="outline" size="sm" onClick={() => window.print()} disabled={loading || !!error}>
+            <Printer className="h-4 w-4" aria-hidden="true" />
+            Imprimir informe
+          </Button>
+          <Button variant="outline" size="sm" onClick={loadReport} loading={loading}>
+            {!loading && <RefreshCw className="h-4 w-4" aria-hidden="true" />}
+            Actualizar
+          </Button>
+        </>
+      }
+    />
+  );
+
   if (loading) {
     return (
-      <div className="p-6 space-y-6 animate-fadeIn">
-        <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-28 rounded-xl" />
-          ))}
+      <PageContainer>
+        {header}
+        <div role="status" aria-busy="true" aria-label="Cargando reporte" className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-28 rounded-lg" />
+            ))}
+          </div>
+          <Skeleton className="h-80 w-full rounded-lg" />
         </div>
-        <Skeleton className="h-80 w-full rounded-xl" />
-      </div>
+      </PageContainer>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6">
-        <div className="bg-destructive/15 border border-destructive text-destructive p-4 rounded-xl flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 shrink-0" />
-            <p className="text-sm font-medium">{error}</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={loadReport}>
-            Reintentar
-          </Button>
-        </div>
-      </div>
+      <PageContainer>
+        {header}
+        <ErrorState title="No se pudo cargar el reporte" message={error} onRetry={loadReport} />
+      </PageContainer>
     );
   }
 
@@ -71,91 +89,37 @@ export default function OrgReportesPage() {
   const sub = data?.suscripcion || {};
 
   return (
-    <div className="p-6 space-y-6 animate-fadeIn">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Reportes Gerenciales Consolidados
-            </h1>
-            <Badge variant="outline" className="text-xs">
-              INFORME EJECUTIVO
-            </Badge>
-          </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Resumen consolidado de infraestructura, administración, licenciamiento y finanzas agregadas.
-          </p>
-        </div>
+    <PageContainer>
+      {header}
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => window.print()} className="flex items-center gap-2">
-            <Printer className="h-4 w-4" />
-            <span>Imprimir Informe</span>
-          </Button>
-          <Button variant="outline" size="sm" onClick={loadReport} className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4" />
-            <span>Actualizar</span>
-          </Button>
-        </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <MetricCard
+          label="Infraestructura gestionada"
+          value={`${props.total} propiedades`}
+          context={`${props.activas} activas · ${units.total} unidades`}
+          icon={Building}
+        />
+        <MetricCard
+          label="Administradores y licencia"
+          value={`${admins.activos} administradores`}
+          context={`Plan: ${sub.planNombre || 'sin plan registrado'}`}
+          icon={Users}
+          variant="info"
+        />
+        <MetricCard
+          label="Recaudo agregado"
+          value={formatCOP(finanzas.totalRecaudado)}
+          context={`Cartera por cobrar: ${formatCOP(finanzas.carteraPendiente)}`}
+          icon={Wallet}
+          variant="success"
+        />
       </div>
 
-      {/* Resumen de Tres Pilares */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-border/80 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-              <span>Infraestructura Gestionada</span>
-              <Building className="h-4 w-4 text-primary" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            <div className="text-2xl font-bold tracking-tight text-foreground">{props.total} Propiedades</div>
-            <p className="text-xs text-muted-foreground">
-              {props.activas} activas · {units.total} unidades habitacionales
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/80 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-              <span>Talento y Licenciamiento</span>
-              <Users className="h-4 w-4 text-primary" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            <div className="text-2xl font-bold tracking-tight text-foreground">
-              {admins.activos} Administradores
-            </div>
-            <p className="text-xs text-muted-foreground">Plan: {sub.planNombre || 'SaaS Activo'}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/80 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-              <span>Volumen Financiero Agregado</span>
-              <Wallet className="h-4 w-4 text-primary" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            <div className="text-2xl font-bold tracking-tight text-foreground">
-              {formatCOP(finanzas.totalRecaudado)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Cartera por cobrar: {formatCOP(finanzas.carteraPendiente)}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tabla Resumen de Propiedades */}
-      <Card className="border-border/80 shadow-xs">
-        <CardHeader className="pb-3 border-b border-border/60">
-          <CardTitle className="text-base font-bold flex items-center gap-2">
-            <FileText className="h-4 w-4 text-primary" />
-            Padrón de Copropiedades de la Organización
+      <Card>
+        <CardHeader className="border-b border-border pb-3">
+          <CardTitle className="flex items-center gap-2 text-[15px]">
+            <FileText className="h-4 w-4 text-text-secondary" aria-hidden="true" />
+            Padrón de copropiedades de la organización
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
@@ -165,39 +129,35 @@ export default function OrgReportesPage() {
                 key: 'nombre',
                 label: 'Copropiedad',
                 render: (r) => (
-                  <div>
-                    <span className="font-semibold text-foreground text-sm">{r.NOMBRE || r.nombre}</span>
-                    <span className="block text-xs text-muted-foreground">{r.DIRECCION || r.direccion || ''}</span>
+                  <div className="min-w-[10rem]">
+                    <span className="text-sm font-semibold text-on-surface">{r.NOMBRE || r.nombre}</span>
+                    <span className="block text-xs text-text-muted">{r.DIRECCION || r.direccion || ''}</span>
                   </div>
                 ),
               },
               {
                 key: 'ciudad',
                 label: 'Ciudad',
-                render: (r) => <span className="text-xs text-foreground">{r.CIUDAD || r.ciudad || '—'}</span>,
+                render: (r) => <span className="text-xs text-on-surface">{r.CIUDAD || r.ciudad || '—'}</span>,
               },
               {
                 key: 'unidades',
                 label: 'Unidades',
                 render: (r) => (
-                  <Badge variant="outline" className="font-mono text-xs">
-                    {r.TOTAL_UNIDADES || r.total_unidades || 0}
-                  </Badge>
+                  <span className="app-numeral text-sm">{r.TOTAL_UNIDADES || r.total_unidades || 0}</span>
                 ),
               },
               {
                 key: 'admins',
-                label: 'Admins Asignados',
-                render: (r) => (
-                  <span className="text-xs font-mono">{r.TOTAL_ADMINS || r.total_admins || 0}</span>
-                ),
+                label: 'Administradores',
+                render: (r) => <span className="app-numeral text-sm">{r.TOTAL_ADMINS || r.total_admins || 0}</span>,
               },
               {
                 key: 'estado',
                 label: 'Estado',
                 render: (r) => (
-                  <Badge variant={(r.ESTADO || r.estado) === 'ACTIVA' ? 'success' : 'secondary'} className="text-[10px]">
-                    {r.ESTADO || r.estado || 'ACTIVA'}
+                  <Badge variant={(r.ESTADO || r.estado || 'ACTIVA') === 'ACTIVA' ? 'success' : 'secondary'}>
+                    {(r.ESTADO || r.estado || 'ACTIVA') === 'ACTIVA' ? 'Activa' : r.ESTADO || r.estado}
                   </Badge>
                 ),
               },
@@ -205,7 +165,7 @@ export default function OrgReportesPage() {
             rows={recientes}
             pageSize={10}
             empty={{
-              icon: 'domain',
+              icon: Building,
               title: 'No hay propiedades registradas',
               subtitle: 'Las propiedades dadas de alta en la organización se listarán aquí.',
             }}
@@ -213,6 +173,6 @@ export default function OrgReportesPage() {
           />
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

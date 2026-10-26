@@ -4,13 +4,15 @@ import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, formatCurrency, todayStr } from '../lib/utils.js';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import LoadingState from '../components/ui/LoadingState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Input, Textarea } from '../components/ui/Form.jsx';
-import { StatCard } from '../components/ui/StatCard.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
 import {
   HardHat,
   Hammer,
@@ -33,7 +35,7 @@ import {
 
 const ESTADOS_MAP = {
   SOLICITADA: {
-    label: 'En Revisión',
+    label: 'En revisión',
     badgeVariant: 'warning',
     icon: Clock,
   },
@@ -268,10 +270,10 @@ export default function ResObrasPage() {
   }
 
   return (
-    <div className="space-y-6 pb-12 animate-saed-fade">
+    <PageContainer className="pb-12">
       {/* Encabezado */}
       <PageHeader
-        title="Mis Obras & Reformas"
+        title="Mis obras & reformas"
         subtitle="Solicitud, seguimiento y permisos de remodelaciones locativas autorizadas en tu unidad"
         action={
           <Button
@@ -279,18 +281,18 @@ export default function ResObrasPage() {
             className="flex items-center gap-2 shadow-sm font-semibold"
           >
             <Plus className="h-4 w-4" />
-            <span>Solicitar Permiso de Obra</span>
+            <span>Solicitar permiso de obra</span>
           </Button>
         }
       />
 
       {/* Banner Preventivo de Mora Financiera */}
       {enMora && (
-        <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-200 shadow-xs">
-          <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-tint-amber-bg border border-tint-amber-fg/25 text-tint-amber-fg shadow-xs">
+          <AlertTriangle className="h-5 w-5 text-tint-amber-fg shrink-0 mt-0.5" />
           <div className="space-y-1 text-sm">
             <p className="font-semibold">Atención: Unidad con obligaciones financieras pendientes</p>
-            <p className="text-xs text-muted-foreground dark:text-amber-300/80 leading-relaxed">
+            <p className="text-xs text-muted-foreground leading-relaxed">
               {estadoFinanciero?.motivosBloqueo?.length
                 ? estadoFinanciero.motivosBloqueo.join(' • ')
                 : 'Tu unidad presenta saldo en mora o sanciones pendientes. Para solicitar permisos de obras o remodelaciones locativas es indispensable encontrarse a Paz y Salvo.'}
@@ -300,40 +302,20 @@ export default function ResObrasPage() {
       )}
 
       {/* Tarjetas de Métricas / KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          icon="construction"
-          value={stats.total}
-          label="Total Obras"
-          color="primary"
-        />
-        <StatCard
-          icon="schedule"
-          value={stats.solicitadas}
-          label="En Revisión"
-          color="amber"
-        />
-        <StatCard
-          icon="engineering"
-          value={stats.aprobadas}
-          label="Aprobadas / Activas"
-          color="green"
-        />
-        <StatCard
-          icon="verified"
-          value={stats.finalizadas}
-          label="Finalizadas"
-          color="blue"
-        />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard icon={Hammer} value={loading ? '…' : error ? '—' : stats.total} label="Total obras" variant="primary" />
+        <MetricCard icon={Clock} value={loading ? '…' : error ? '—' : stats.solicitadas} label="En revisión" variant="warning" />
+        <MetricCard icon={HardHat} value={loading ? '…' : error ? '—' : stats.aprobadas} label="Aprobadas / activas" variant="success" />
+        <MetricCard icon={CheckCircle2} value={loading ? '…' : error ? '—' : stats.finalizadas} label="Finalizadas" variant="info" />
       </div>
 
       {/* Barra de Filtros y Búsqueda */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-surface p-3 rounded-xl border border-border shadow-sm">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-surface p-3 rounded-lg border border-border shadow-sm">
         {/* Pestañas de Estado */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
           {[
             { key: 'TODAS', label: 'Todas' },
-            { key: 'SOLICITADA', label: 'En Revisión' },
+            { key: 'SOLICITADA', label: 'En revisión' },
             { key: 'APROBADA', label: 'Aprobadas' },
             { key: 'FINALIZADA', label: 'Finalizadas' },
             { key: 'RECHAZADA', label: 'Rechazadas' },
@@ -344,10 +326,11 @@ export default function ResObrasPage() {
                 key={tab.key}
                 type="button"
                 onClick={() => setFilterTab(tab.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+                aria-pressed={isActive}
+                className={`min-h-10 shrink-0 rounded-md px-3 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9 ${
                   isActive
-                    ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
-                    : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                    ? 'bg-btn-primary text-white shadow-sm'
+                    : 'text-text-secondary hover:bg-surface-container hover:text-on-surface'
                 }`}
               >
                 {tab.label}
@@ -357,30 +340,29 @@ export default function ResObrasPage() {
         </div>
 
         {/* Búsqueda */}
-        <div className="relative min-w-[220px]">
+        <div className="relative min-w-0 sm:min-w-[220px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar contratista o labor..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-10 w-full rounded-md border border-input bg-surface pl-8 pr-3 text-sm text-on-surface placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/25 sm:h-9"
           />
         </div>
       </div>
 
       {/* Contenido Principal */}
       {loading ? (
-        <LoadingState message="Cargando registro de obras..." />
-      ) : error ? (
-        <div className="rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 p-6 text-center">
-          <AlertTriangle className="mx-auto h-8 w-8 text-rose-500 mb-2" />
-          <h4 className="font-semibold text-rose-700 dark:text-rose-400">Error al cargar obras</h4>
-          <p className="text-xs text-muted-foreground mt-1">{error.message || 'Error de comunicación'}</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-4">
-            Reintentar
-          </Button>
+        <div className="rounded-lg border border-border bg-surface shadow-sm">
+          <LoadingState message="Cargando registro de obras…" />
         </div>
+      ) : error ? (
+        <ErrorState
+          title="No se pudieron cargar obras"
+          message="Revisa tu conexión e intenta de nuevo."
+          onRetry={() => refetch().catch(() => {})}
+        />
       ) : filteredItems.length === 0 ? (
         <EmptyState
           icon={<Hammer className="h-10 w-10 text-muted-foreground" />}
@@ -398,7 +380,7 @@ export default function ResObrasPage() {
           {!searchTerm && filterTab === 'TODAS' && (
             <Button onClick={handleOpenCreate} className="mt-2 flex items-center gap-2">
               <Plus className="h-4 w-4" />
-              <span>Registrar Primera Obra</span>
+              <span>Registrar primera obra</span>
             </Button>
           )}
         </EmptyState>
@@ -483,8 +465,8 @@ export default function ResObrasPage() {
                   <div className="text-xs">
                     {obra.depositoGarantia && Number(obra.depositoGarantia) > 0 ? (
                       <div>
-                        <span className="text-muted-foreground text-[10px] uppercase font-semibold block">Garantía</span>
-                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        <span className="text-muted-foreground text-[10px] font-semibold block">Garantía</span>
+                        <span className="font-semibold text-tint-green-fg">
                           {formatCurrency(obra.depositoGarantia)}
                         </span>
                       </div>
@@ -500,7 +482,7 @@ export default function ResObrasPage() {
                     className="h-8 text-xs flex items-center gap-1"
                   >
                     <Eye className="h-3.5 w-3.5" />
-                    <span>Ver Detalles</span>
+                    <span>Ver detalles</span>
                   </Button>
                 </div>
               </div>
@@ -513,7 +495,7 @@ export default function ResObrasPage() {
       <Modal
         open={modalOpen}
         onClose={() => !isSubmitting && setModalOpen(false)}
-        title="Solicitar Permiso de Obra o Remodelación"
+        title="Solicitar permiso de obra o remodelación"
         size="lg"
         footer={
           <div className="flex items-center justify-end gap-2 w-full">
@@ -539,7 +521,7 @@ export default function ResObrasPage() {
               ) : (
                 <>
                   <HardHat className="h-4 w-4" />
-                  <span>Radicar Solicitud</span>
+                  <span>Radicar solicitud</span>
                 </>
               )}
             </Button>
@@ -549,8 +531,8 @@ export default function ResObrasPage() {
         <form onSubmit={handleCreate} className="space-y-4 py-1">
           {/* Alerta si está en mora */}
           {enMora && (
-            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2.5">
-              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+            <div className="rounded-lg bg-tint-amber-bg border border-tint-amber-fg/25 p-3 text-xs text-tint-amber-fg flex items-start gap-2.5">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-tint-amber-fg mt-0.5" />
               <div>
                 <p className="font-semibold">Solicitud Inhabilitada por Mora</p>
                 <p className="mt-0.5 leading-relaxed">
@@ -563,18 +545,18 @@ export default function ResObrasPage() {
           )}
 
           {/* Banner Informativo */}
-          <div className="rounded-lg bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-800/40 p-3 text-xs text-blue-800 dark:text-blue-300 flex items-start gap-2.5">
-            <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
+          <div className="rounded-lg bg-tint-blue-bg border border-tint-blue-fg/25 p-3 text-xs text-tint-blue-fg flex items-start gap-2.5">
+            <Info className="h-4 w-4 shrink-0 text-tint-blue-fg mt-0.5" />
             <div>
               <p className="font-semibold">Reglamento de Propiedad Horizontal</p>
-              <p className="mt-0.5 text-blue-700 dark:text-blue-400/90 leading-relaxed">
-                Toda obra debe respetar los horarios permitidos: Lunes a Viernes de 8:00 AM a 5:00 PM y Sábados de 8:00 AM a 1:00 PM. El contratista debe contar con ARL vigente al ingresar.
+              <p className="mt-0.5 text-tint-blue-fg leading-relaxed">
+                Toda obra debe respetar los horarios permitidos: Lunes a viernes de 8:00 AM a 5:00 PM y sábados de 8:00 AM a 1:00 PM. El contratista debe contar con ARL vigente al ingresar.
               </p>
             </div>
           </div>
 
           <Textarea
-            label="Descripción y Alcance de la Obra"
+            label="Descripción y alcance de la obra"
             required
             id="obra-descripcion"
             rows={3}
@@ -587,7 +569,7 @@ export default function ResObrasPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               type="date"
-              label="Fecha de Inicio"
+              label="Fecha de inicio"
               required
               id="obra-fecha-inicio"
               value={form.fechaInicio}
@@ -597,7 +579,7 @@ export default function ResObrasPage() {
 
             <Input
               type="date"
-              label="Fecha Estimada de Finalización"
+              label="Fecha estimada de finalización"
               required
               id="obra-fecha-fin"
               min={form.fechaInicio || todayStr()}
@@ -609,7 +591,7 @@ export default function ResObrasPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
-              label="Contratista o Maestro Responsable"
+              label="Contratista o maestro responsable"
               required
               id="obra-contratista"
               placeholder="Ej: Construcciones López S.A.S o Pedro Gómez"
@@ -620,7 +602,7 @@ export default function ResObrasPage() {
 
             <Input
               type="tel"
-              label="Teléfono del Contratista"
+              label="Teléfono del contratista"
               required
               id="obra-telefono"
               placeholder="Ej: 3001234567"
@@ -635,7 +617,7 @@ export default function ResObrasPage() {
               type="number"
               min="0"
               step="50000"
-              label="Depósito de Garantía (COP, si aplica)"
+              label="Depósito de garantía (COP, si aplica)"
               id="obra-deposito"
               placeholder="0"
               value={form.depositoGarantia}
@@ -645,7 +627,7 @@ export default function ResObrasPage() {
 
             <Input
               type="url"
-              label="Enlace a Licencia o Planos (Opcional)"
+              label="Enlace a licencia o planos (opcional)"
               id="obra-licencia"
               placeholder="https://drive.google.com/..."
               value={form.licenciaUrbanisticaUrl}
@@ -672,7 +654,7 @@ export default function ResObrasPage() {
             {/* Estado y fechas */}
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
               <div>
-                <span className="text-xs text-muted-foreground font-medium block">Estado Actual</span>
+                <span className="text-xs text-muted-foreground font-medium block">Estado actual</span>
                 <span className="font-semibold text-foreground">
                   {ESTADOS_MAP[selectedObra.estado]?.label || selectedObra.estado}
                 </span>
@@ -683,7 +665,7 @@ export default function ResObrasPage() {
             </div>
 
             <div>
-              <span className="text-xs text-muted-foreground font-semibold uppercase block mb-1">Descripción</span>
+              <span className="text-xs text-muted-foreground font-semibold block mb-1">Descripción</span>
               <p className="text-foreground leading-relaxed bg-background p-3 rounded-lg border border-border">
                 {selectedObra.descripcion}
               </p>
@@ -691,23 +673,23 @@ export default function ResObrasPage() {
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="p-2.5 rounded-lg border border-border bg-card">
-                <span className="text-muted-foreground block">Fecha Inicio</span>
+                <span className="text-muted-foreground block">Fecha inicio</span>
                 <span className="font-medium text-foreground text-sm">{formatDate(selectedObra.fechaInicio)}</span>
               </div>
               <div className="p-2.5 rounded-lg border border-border bg-card">
-                <span className="text-muted-foreground block">Fecha Fin Estimada</span>
+                <span className="text-muted-foreground block">Fecha fin estimada</span>
                 <span className="font-medium text-foreground text-sm">{formatDate(selectedObra.fechaFinEstimada)}</span>
               </div>
             </div>
 
             <div className="p-3 rounded-lg border border-border space-y-2 text-xs">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Responsable / Contratista:</span>
+                <span className="text-muted-foreground">Responsable / contratista:</span>
                 <span className="font-semibold text-foreground">{selectedObra.responsableObra || 'No especificado'}</span>
               </div>
               {selectedObra.telefonoResponsable && (
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Teléfono Contacto:</span>
+                  <span className="text-muted-foreground">Teléfono contacto:</span>
                   <a
                     href={`tel:${selectedObra.telefonoResponsable}`}
                     className="font-medium text-primary hover:underline flex items-center gap-1"
@@ -718,14 +700,14 @@ export default function ResObrasPage() {
                 </div>
               )}
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Depósito de Garantía:</span>
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="text-muted-foreground">Depósito de garantía:</span>
+                <span className="font-semibold text-tint-green-fg">
                   {formatCurrency(selectedObra.depositoGarantia || 0)}
                 </span>
               </div>
               {selectedObra.licenciaUrbanisticaUrl && (
                 <div className="flex items-center justify-between pt-1 border-t border-border">
-                  <span className="text-muted-foreground">Documento / Licencia:</span>
+                  <span className="text-muted-foreground">Documento / licencia:</span>
                   <a
                     href={selectedObra.licenciaUrbanisticaUrl}
                     target="_blank"
@@ -741,7 +723,7 @@ export default function ResObrasPage() {
 
             {selectedObra.fechaAprobacion && (
               <div className="text-xs text-muted-foreground p-2.5 bg-muted/20 rounded-lg flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                <CheckCircle2 className="h-4 w-4 text-tint-green-fg shrink-0" />
                 <span>Autorizada formalmente por la administración el {formatDate(selectedObra.fechaAprobacion)}.</span>
               </div>
             )}
@@ -752,7 +734,7 @@ export default function ResObrasPage() {
                 <div>
                   <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
                     <Users className="w-4 h-4 text-primary" />
-                    Personal y Trabajadores de la Obra
+                    Personal y trabajadores de la obra
                   </h4>
                   <p className="text-xs text-muted-foreground">
                     Operarios registrados y validación obligatoria de ARL
@@ -766,7 +748,7 @@ export default function ResObrasPage() {
                     onClick={handleOpenAssignModal}
                     className="text-xs"
                   >
-                    Asignar Operario
+                    Asignar operario
                   </Button>
                 )}
               </div>
@@ -808,8 +790,8 @@ export default function ResObrasPage() {
                                 Revocado
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-amber-500/40 text-amber-600 bg-amber-500/10">
-                                Pendiente Autorización
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-tint-amber-fg/25 text-tint-amber-fg bg-tint-amber-bg">
+                                Pendiente autorización
                               </Badge>
                             )}
                             {!isActivo && (
@@ -824,7 +806,7 @@ export default function ResObrasPage() {
                           </div>
                           <div className="flex items-center gap-2 flex-wrap pt-0.5">
                             {isArlVigente ? (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-emerald-500/40 text-emerald-600 bg-emerald-500/10">
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-tint-green-fg/25 text-tint-green-fg bg-tint-green-bg">
                                 ARL vigente
                               </Badge>
                             ) : (
@@ -840,7 +822,7 @@ export default function ResObrasPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 w-7 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                              className="h-7 w-7 p-0 text-tint-red-fg hover:text-tint-red-fg hover:bg-tint-red-bg"
                               onClick={() => handleDesasignarTrabajador(ot.idTrabajador)}
                               title="Retirar operario de esta obra"
                             >
@@ -862,7 +844,7 @@ export default function ResObrasPage() {
       <Modal
         open={assignModalOpen}
         onClose={() => setAssignModalOpen(false)}
-        title="Asignar Operario a la Obra"
+        title="Asignar operario a la obra"
         size="sm"
         footer={
           <div className="flex items-center justify-end gap-2 w-full">
@@ -875,7 +857,7 @@ export default function ResObrasPage() {
               disabled={!selectedTrabajadorId}
               onClick={handleAssignTrabajador}
             >
-              Asignar a Obra
+              Asignar a obra
             </Button>
           </div>
         }
@@ -886,7 +868,7 @@ export default function ResObrasPage() {
           </p>
           <div>
             <label className="text-xs font-semibold text-foreground block mb-1">
-              Operario / Contratista
+              Operario / contratista
             </label>
             <select
               value={selectedTrabajadorId}
@@ -912,13 +894,13 @@ export default function ResObrasPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">ARL:</span>
-                  <span className={t.arlVigente ? 'font-medium text-emerald-600' : 'font-semibold text-rose-600'}>
+                  <span className={t.arlVigente ? 'font-medium text-tint-green-fg' : 'font-semibold text-tint-red-fg'}>
                     {t.arlVigente ? 'Vigente' : 'Vencida o no reportada'}
                   </span>
                 </div>
                 {!t.arlVigente && (
-                  <p className="text-[11px] text-rose-500 pt-1">
-                    ⚠️ Atención: Este operario tiene la ARL vencida o no reportada. La administración no podrá iniciar la obra en portería mientras existan trabajadores autorizados con ARL vencida.
+                  <p className="text-[11px] text-tint-red-fg pt-1">
+                    Atención: este operario tiene la ARL vencida o no reportada. La administración no podrá iniciar la obra en portería mientras existan trabajadores autorizados con ARL vencida.
                   </p>
                 )}
               </div>
@@ -926,6 +908,6 @@ export default function ResObrasPage() {
           })()}
         </div>
       </Modal>
-    </div>
+    </PageContainer>
   );
 }

@@ -2,6 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api.js';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import { toast } from 'sonner';
+import { FileText, UserPlus, Users } from 'lucide-react';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { Button } from '../components/ui/Button.jsx';
+import { Badge } from '../components/ui/badge.tsx';
+import { Modal } from '../components/ui/Modal.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
+import { LoadingState } from '../components/ui/LoadingState.jsx';
+
+const SELECT_CLS =
+  'h-10 w-full rounded-md border border-input bg-surface px-3 text-sm text-on-surface transition-[border-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25';
+
+const toList = (res) => {
+  if (Array.isArray(res)) return res;
+  const d = res?.data;
+  if (Array.isArray(d)) return d;
+  if (Array.isArray(d?.items)) return d.items;
+  if (Array.isArray(d?.data)) return d.data;
+  if (Array.isArray(res?.items)) return res.items;
+  return [];
+};
 
 export default function CoarrendatariosPage() {
   const [contratos, setContratos] = useState([]);
@@ -17,13 +39,18 @@ export default function CoarrendatariosPage() {
     sincronizarHabitabilidad: false,
   });
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [contratosError, setContratosError] = useState(null);
+  const [loadingCoar, setLoadingCoar] = useState(false);
+  const [coarError, setCoarError] = useState(null);
 
   const cargarContratos = async () => {
     try {
       setLoading(true);
+      setContratosError(null);
       const res = await api.get('/contratos');
-      setContratos(res.data || []);
+      setContratos(toList(res));
     } catch (e) {
+      setContratosError(e);
       toast.error('No se pudieron cargar los contratos');
     } finally {
       setLoading(false);
@@ -41,12 +68,17 @@ export default function CoarrendatariosPage() {
   };
 
   const cargarCoarrendatarios = async (idContrato) => {
+    setLoadingCoar(true);
+    setCoarError(null);
     try {
       const res = await api.get(`/contratos-admin/coarrendatarios/${idContrato}`);
       const raw = res?.data?.data || res?.data || res || [];
       setCoarrendatarios(Array.isArray(raw) ? raw : []);
     } catch (e) {
+      setCoarError(e);
       toast.error('No se pudieron cargar los coarrendatarios');
+    } finally {
+      setLoadingCoar(false);
     }
   };
 
@@ -105,222 +137,255 @@ export default function CoarrendatariosPage() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-muted-foreground">Cargando contratos...</div>;
+  const VINCULO_LABEL = { COARRENDATARIO: 'Coarrendatario', OCUPANTE_AUTORIZADO: 'Ocupante autorizado' };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Coarrendatarios y Ocupantes</h1>
-        <p className="text-sm text-muted-foreground">
-          Gestión de vínculos contractuales, garantes y ocupantes autorizados en contratos de arrendamiento.
-        </p>
+    <PageContainer maxWidth="max-w-6xl">
+      <PageHeader
+        title="Coarrendatarios y Ocupantes"
+        subtitle="Vínculos contractuales, garantes y ocupantes autorizados en contratos de arrendamiento."
+      />
+
+      {/* Contract selector */}
+      <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+        <label htmlFor="coar-contrato" className="mb-2 block text-sm font-semibold text-on-surface">
+          Seleccionar Contrato de Arriendo
+        </label>
+        {loading && contratos.length === 0 ? (
+          <LoadingState size="sm" message="Cargando contratos..." />
+        ) : contratosError && contratos.length === 0 ? (
+          <ErrorState
+            compact
+            title="No se pudieron cargar los contratos"
+            message={contratosError?.message || 'Verifique su conexión e intente nuevamente.'}
+            onRetry={cargarContratos}
+          />
+        ) : (
+          <select
+            id="coar-contrato"
+            value={selectedContrato || ''}
+            onChange={(e) => setSelectedContrato(e.target.value ? Number(e.target.value) : null)}
+            className={SELECT_CLS + ' md:w-96'}
+          >
+            <option value="">-- Seleccionar contrato --</option>
+            {contratos.map((c) => (
+              <option key={c.idContrato} value={c.idContrato}>
+                {c.numeroContrato} - {c.nombreArrendatario} ({c.estado})
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
-      {/* Selector de contrato */}
-      <div className="mb-6 bg-card border border-border p-4 rounded-xl shadow-sm">
-        <label className="block text-sm font-medium mb-2 text-foreground">Seleccionar Contrato de Arriendo</label>
-        <select
-          value={selectedContrato || ''}
-          onChange={(e) => setSelectedContrato(e.target.value ? Number(e.target.value) : null)}
-          className="w-full md:w-96 border border-border bg-background text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-        >
-          <option value="">-- Seleccionar contrato --</option>
-          {contratos.map((c) => (
-            <option key={c.idContrato} value={c.idContrato}>
-              {c.numeroContrato} - {c.nombreArrendatario} ({c.estado})
-            </option>
-          ))}
-        </select>
-      </div>
+      {!selectedContrato && !loading && !contratosError && (
+        <EmptyState
+          icon={FileText}
+          title={contratos.length === 0 ? 'No hay contratos de arrendamiento' : 'Seleccione un contrato'}
+          subtitle={
+            contratos.length === 0
+              ? 'Registre un contrato en el módulo de Contratos para vincular coarrendatarios.'
+              : 'Elija un contrato para ver y gestionar sus participantes.'
+          }
+        />
+      )}
 
       {selectedContrato && (
-        <>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-foreground">Participantes del Contrato</h2>
-            <button
-              onClick={() => setDialog(true)}
-              className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 text-sm font-medium transition-colors shadow-sm"
-            >
-              + Agregar Coarrendatario
-            </button>
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-base font-bold text-on-surface">Participantes del Contrato</h2>
+            <Button onClick={() => setDialog(true)}>
+              <UserPlus className="h-4 w-4 mr-1.5" aria-hidden="true" />
+              Agregar Coarrendatario
+            </Button>
           </div>
 
-          {coarrendatarios.length === 0 ? (
-            <div className="bg-card border border-border rounded-lg shadow-sm p-8 text-center text-muted-foreground">
-              No hay coarrendatarios registrados en este contrato.
+          {loadingCoar && coarrendatarios.length === 0 ? (
+            <div className="rounded-lg border border-border bg-card">
+              <LoadingState message="Cargando participantes..." />
             </div>
+          ) : coarError && coarrendatarios.length === 0 ? (
+            <ErrorState
+              title="No se pudieron cargar los coarrendatarios"
+              message={coarError?.message || 'Verifique su conexión e intente nuevamente.'}
+              onRetry={() => cargarCoarrendatarios(selectedContrato)}
+            />
+          ) : coarrendatarios.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="Sin coarrendatarios"
+              subtitle="No hay coarrendatarios registrados en este contrato."
+            >
+              <div className="mt-4">
+                <Button variant="outline" onClick={() => setDialog(true)}>
+                  Agregar Coarrendatario
+                </Button>
+              </div>
+            </EmptyState>
           ) : (
-            <div className="bg-card border border-border rounded-lg shadow-sm overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-muted/50 border-b border-border">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Persona</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vínculo</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Responsable Pago</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contacto</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Estado</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {coarrendatarios.map((c) => (
-                    <tr key={c.idContratoResidente} className="hover:bg-muted/50 transition-colors">
-                      <td className="px-4 py-3 text-sm text-foreground">
-                        <div className="font-medium">{c.nombrePersona || `ID #${c.idPersona}`}</div>
-                        {c.numeroDocumento && (
-                          <div className="text-xs text-muted-foreground">Doc: {c.numeroDocumento}</div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-foreground">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-secondary text-secondary-foreground">
-                          {c.tipoVinculo}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-foreground">
-                        {c.esResponsablePago === 'S' ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-medium">Sí (Solidario)</span>
-                        ) : (
-                          <span className="text-muted-foreground">No</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
-                        <div>{c.telefono || '-'}</div>
-                        <div>{c.email || '-'}</div>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          c.estado === 'ACTIVO'
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                            : 'bg-destructive/10 text-destructive border border-destructive/20'
-                        }`}>
-                          {c.estado}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right space-x-2">
-                        <button
-                          onClick={() => toggleEstado(c)}
-                          className="text-amber-600 dark:text-amber-400 hover:underline text-xs"
-                        >
-                          {c.estado === 'ACTIVO' ? 'Desactivar' : 'Activar'}
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(c)}
-                          className="text-destructive hover:underline text-xs font-medium"
-                        >
-                          Eliminar
-                        </button>
-                      </td>
+            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px]">
+                  <thead className="border-b border-border bg-surface-dim">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">Persona</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">Vínculo</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">Responsable de pago</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">Contacto</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">Estado</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary">Acciones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {coarrendatarios.map((c) => (
+                      <tr key={c.idContratoResidente} className="transition-colors duration-150 hover:bg-surface-dim/60">
+                        <td className="px-4 py-3 text-sm text-on-surface">
+                          <div className="font-semibold">{c.nombrePersona || `ID #${c.idPersona}`}</div>
+                          {c.numeroDocumento && (
+                            <div className="text-xs text-text-secondary tabular-nums">Doc: {c.numeroDocumento}</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <Badge variant="secondary">{VINCULO_LABEL[c.tipoVinculo] || c.tipoVinculo}</Badge>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {c.esResponsablePago === 'S' ? (
+                            <span className="font-semibold text-tint-green-fg">Sí (solidario)</span>
+                          ) : (
+                            <span className="text-text-secondary">No</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-text-secondary">
+                          <div className="tabular-nums">{c.telefono || '-'}</div>
+                          <div>{c.email || '-'}</div>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <Badge variant={c.estado === 'ACTIVO' ? 'success' : 'destructive'}>
+                            {c.estado === 'ACTIVO' ? 'Activo' : c.estado === 'INACTIVO' ? 'Inactivo' : c.estado}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => toggleEstado(c)}>
+                              {c.estado === 'ACTIVO' ? 'Desactivar' : 'Activar'}
+                            </Button>
+                            <Button variant="ghost" size="sm" className="text-destructive hover:bg-tint-red-bg hover:text-destructive" onClick={() => setDeleteTarget(c)}>
+                              Eliminar
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
-        </>
+        </section>
       )}
 
-      {/* Dialog Crear */}
-      {dialog && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-md shadow-xl text-foreground">
-            <h2 className="text-lg font-semibold mb-4 text-foreground">Agregar Coarrendatario / Ocupante</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 text-foreground">Persona *</label>
-                {personas.length > 0 ? (
-                  <select
-                    value={form.idPersona}
-                    onChange={(e) => setForm({ ...form, idPersona: e.target.value })}
-                    className="w-full border border-border bg-background text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="">-- Seleccionar persona del censo --</option>
-                    {personas.map((p) => {
-                      const pId = p.id || p.idPersona;
-                      const pNom = p.nombres || `${p.primerNombre || ''} ${p.primerApellido || ''}`.trim() || `Persona #${pId}`;
-                      const pDoc = p.numeroDocumento ? ` (Doc: ${p.numeroDocumento})` : '';
-                      return (
-                        <option key={pId} value={pId}>
-                          {pNom}{pDoc}
-                        </option>
-                      );
-                    })}
-                  </select>
-                ) : (
-                  <input
-                    type="number"
-                    value={form.idPersona}
-                    onChange={(e) => setForm({ ...form, idPersona: e.target.value })}
-                    className="w-full border border-border bg-background text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="ID de la persona"
-                  />
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1 text-foreground">Tipo de Vínculo</label>
-                <select
-                  value={form.tipoVinculo}
-                  onChange={(e) => setForm({ ...form, tipoVinculo: e.target.value })}
-                  className="w-full border border-border bg-background text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="COARRENDATARIO">Coarrendatario (Garante / Solidario)</option>
-                  <option value="OCUPANTE_AUTORIZADO">Ocupante Autorizado</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1 text-foreground">¿Es Responsable de Pago?</label>
-                <select
-                  value={form.esResponsablePago}
-                  onChange={(e) => setForm({ ...form, esResponsablePago: e.target.value })}
-                  className="w-full border border-border bg-background text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="N">No</option>
-                  <option value="S">Sí (Obligación solidaria)</option>
-                </select>
-              </div>
-
-              <div className="pt-2">
-                <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
-                  <input
-                    type="checkbox"
-                    checked={form.sincronizarHabitabilidad}
-                    onChange={(e) => setForm({ ...form, sincronizarHabitabilidad: e.target.checked })}
-                    className="rounded border-border text-primary focus:ring-primary h-4 w-4"
-                  />
-                  <span>Sincronizar habitabilidad física en la unidad (Conviviente)</span>
-                </label>
-                <p className="text-xs text-muted-foreground mt-1 ml-6">
-                  Registra al participante como habitante de la unidad, sujeto a validación de cupo de capacidad.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 mt-6">
-              <button
-                onClick={() => setDialog(false)}
-                className="px-4 py-2 border border-border rounded-lg hover:bg-muted text-sm font-medium transition-colors"
+      {/* Create dialog */}
+      <Modal
+        open={dialog}
+        onClose={() => setDialog(false)}
+        title="Agregar Coarrendatario / Ocupante"
+        size="md"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={crear}>Agregar</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="coar-persona" className="mb-1 block text-sm font-semibold text-on-surface">
+              Persona <span className="text-destructive" aria-hidden="true">*</span>
+            </label>
+            {personas.length > 0 ? (
+              <select
+                id="coar-persona"
+                value={form.idPersona}
+                onChange={(e) => setForm({ ...form, idPersona: e.target.value })}
+                className={SELECT_CLS}
               >
-                Cancelar
-              </button>
-              <button
-                onClick={crear}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 text-sm font-medium transition-colors shadow-sm"
-              >
-                Agregar
-              </button>
-            </div>
+                <option value="">-- Seleccionar persona del censo --</option>
+                {personas.map((p) => {
+                  const pId = p.id || p.idPersona;
+                  const pNom = p.nombres || `${p.primerNombre || ''} ${p.primerApellido || ''}`.trim() || `Persona #${pId}`;
+                  const pDoc = p.numeroDocumento ? ` (Doc: ${p.numeroDocumento})` : '';
+                  return (
+                    <option key={pId} value={pId}>
+                      {pNom}{pDoc}
+                    </option>
+                  );
+                })}
+              </select>
+            ) : (
+              <input
+                id="coar-persona"
+                type="number"
+                value={form.idPersona}
+                onChange={(e) => setForm({ ...form, idPersona: e.target.value })}
+                className={SELECT_CLS}
+                placeholder="ID de la persona"
+              />
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="coar-vinculo" className="mb-1 block text-sm font-semibold text-on-surface">Tipo de Vínculo</label>
+            <select
+              id="coar-vinculo"
+              value={form.tipoVinculo}
+              onChange={(e) => setForm({ ...form, tipoVinculo: e.target.value })}
+              className={SELECT_CLS}
+            >
+              <option value="COARRENDATARIO">Coarrendatario (Garante / Solidario)</option>
+              <option value="OCUPANTE_AUTORIZADO">Ocupante Autorizado</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="coar-pago" className="mb-1 block text-sm font-semibold text-on-surface">¿Es Responsable de Pago?</label>
+            <select
+              id="coar-pago"
+              value={form.esResponsablePago}
+              onChange={(e) => setForm({ ...form, esResponsablePago: e.target.value })}
+              className={SELECT_CLS}
+            >
+              <option value="N">No</option>
+              <option value="S">Sí (Obligación solidaria)</option>
+            </select>
+          </div>
+
+          <div className="pt-1">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-on-surface">
+              <input
+                type="checkbox"
+                checked={form.sincronizarHabitabilidad}
+                onChange={(e) => setForm({ ...form, sincronizarHabitabilidad: e.target.checked })}
+                className="h-4 w-4 rounded-[3px] border-input accent-[var(--primary)]"
+              />
+              <span>Sincronizar habitabilidad física en la unidad (Conviviente)</span>
+            </label>
+            <p className="ml-6 mt-1 text-xs text-text-secondary">
+              Registra al participante como habitante de la unidad, sujeto a validación de cupo de capacidad.
+            </p>
           </div>
         </div>
-      )}
+      </Modal>
 
       <ConfirmDialog
         open={!!deleteTarget}
         title="Eliminar coarrendatario"
         message="¿Eliminar este coarrendatario del contrato de arrendamiento?"
+        confirmLabel="Eliminar"
+        danger
         onConfirm={eliminar}
-        onCancel={() => setDeleteTarget(null)}
+        onClose={() => setDeleteTarget(null)}
       />
-    </div>
+    </PageContainer>
   );
 }

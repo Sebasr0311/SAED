@@ -5,11 +5,15 @@ import { Badge } from '../components/ui/badge.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+import { cn, formatDate } from '../lib/utils.js';
 import { toast } from 'sonner';
 import {
   CreditCard,
   Check,
-  Sparkles,
   HardDrive,
   Building,
   Users,
@@ -18,9 +22,40 @@ import {
   RefreshCw,
   ArrowUpCircle,
   ArrowDownCircle,
-  Info,
   Loader2
 } from 'lucide-react';
+
+// Annual billing factor (20 % discount), same computation used by the plan catalog elsewhere.
+const ANNUAL_FACTOR = 0.8;
+
+function QuotaMeter({ icon: Icon, label, used, limit, percent }) {
+  const pct = Math.max(0, Math.min(100, Number(percent) || 0));
+  const tone = pct >= 100 ? 'bg-btn-danger' : pct >= 80 ? 'bg-btn-warn' : 'bg-btn-primary';
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+        <span className="flex items-center gap-2 font-semibold text-on-surface">
+          <Icon className="h-4 w-4 text-text-secondary" aria-hidden="true" />
+          {label}
+        </span>
+        <span className="text-xs font-semibold tabular-nums text-on-surface">
+          {used || 0} / {limit || '∞'}{' '}
+          <span className={cn(pct >= 80 ? 'text-tint-amber-fg' : 'text-text-muted')}>({pct}%)</span>
+        </span>
+      </div>
+      <div
+        className="h-2.5 w-full overflow-hidden rounded-[2px] bg-surface-dim"
+        role="progressbar"
+        aria-label={`${label}: ${pct}% utilizado`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={pct}
+      >
+        <div className={cn('h-full transition-[width] duration-300 ease-out', tone)} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
 
 export default function OrgPlanPage() {
   const [sub, setSub] = useState(null);
@@ -30,14 +65,21 @@ export default function OrgPlanPage() {
   const [ciclo, setCiclo] = useState('MENSUAL');
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [procesandoPago, setProcesandoPago] = useState(false);
+  const [planesError, setPlanesError] = useState(false);
 
   async function load() {
     try {
       setLoading(true);
       setError(null);
+      setPlanesError(false);
       const [resSub, resPlanes] = await Promise.all([
         api.get('/org/subscription'),
-        api.get('/planes?solo_activos=true').catch(() => ({ data: [] }))
+        api.get('/planes?solo_activos=true').catch((err) => {
+          // Plan changes depend on the catalog; surface its failure instead of hiding the action silently.
+          console.error('Error loading plan catalog:', err);
+          setPlanesError(true);
+          return { data: [] };
+        })
       ]);
       setSub(resSub?.data || resSub || {});
       const catalog = resPlanes?.data?.items || resPlanes?.data || resPlanes || [];
@@ -109,7 +151,7 @@ export default function OrgPlanPage() {
           publicKey: intencion.publicKey,
           signature: { integrity: intencion.firmaIntegridad }
         });
-        checkout.open(async (result) => {
+        checkout.open(async (_result) => {
           toast.info('Transacción enviada. Actualizando estado de la suscripción...');
           await load();
           setUpgradeModalOpen(false);
@@ -126,26 +168,29 @@ export default function OrgPlanPage() {
     }
   }
 
+  const headerBase = {
+    title: 'Plan y suscripción',
+    subtitle: 'Plan contratado, límites de infraestructura y consumo de cuotas de su organización.',
+  };
+
   if (loading) {
     return (
-      <div className="p-6 space-y-6">
-        <Skeleton className="h-8 w-64 mb-2" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Skeleton className="h-80 md:col-span-1 rounded-xl" />
-          <Skeleton className="h-80 md:col-span-2 rounded-xl" />
+      <PageContainer>
+        <PageHeader {...headerBase} />
+        <div role="status" aria-busy="true" aria-label="Cargando suscripción" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <Skeleton className="h-80 rounded-lg" />
+          <Skeleton className="h-80 rounded-lg lg:col-span-2" />
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6">
-        <div className="bg-destructive/15 border border-destructive text-destructive px-4 py-3 rounded-lg flex items-center gap-3">
-          <AlertCircle className="w-5 h-5" />
-          <span>{error}</span>
-        </div>
-      </div>
+      <PageContainer>
+        <PageHeader {...headerBase} />
+        <ErrorState title="No se pudo cargar la suscripción" message={error} onRetry={load} />
+      </PageContainer>
     );
   }
 
@@ -156,354 +201,323 @@ export default function OrgPlanPage() {
   );
   // Keep planesUpgrade alias for button visibility
   const planesUpgrade = planesCambio;
+  const estado = sub?.membresiaEstado || 'ACTIVA';
 
   return (
-    <div className="p-6 space-y-8 animate-fadeIn">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              Plan y Suscripción SaaS
-            </h1>
-            <Badge
-              variant={sub?.membresiaEstado === 'ACTIVA' ? 'default' : 'secondary'}
-              className={
-                sub?.membresiaEstado === 'ACTIVA'
-                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-xs px-2.5 py-0.5'
-                  : 'text-xs px-2.5 py-0.5'
-              }
+    <PageContainer>
+      <PageHeader
+        {...headerBase}
+        badge={<Badge variant={estado === 'ACTIVA' ? 'success' : 'secondary'}>{estado}</Badge>}
+        action={
+          <>
+            <div
+              role="group"
+              aria-label="Ciclo de facturación"
+              className="inline-flex rounded-md border border-border bg-surface-dim p-1"
             >
-              {sub?.membresiaEstado || 'ACTIVA'}
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Detalles de su plan contratado, límites de infraestructura y consumo de cuotas.
-          </p>
-        </div>
-
-        {/* Ciclo Selector & Acciones Comerciales */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="inline-flex rounded-lg border border-border p-1 bg-muted/30">
-            <button
-              onClick={() => setCiclo('MENSUAL')}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                ciclo === 'MENSUAL'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Mensual
-            </button>
-            <button
-              onClick={() => setCiclo('ANUAL')}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors flex items-center gap-1 ${
-                ciclo === 'ANUAL'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <span>Anual</span>
-              <span className="text-[10px] bg-emerald-500/15 text-emerald-600 px-1 rounded font-semibold">-20%</span>
-            </button>
-          </div>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleIniciarPago('RENOVACION', null)}
-            disabled={procesandoPago}
-            className="flex items-center gap-1.5"
-          >
-            {procesandoPago ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4 text-primary" />
-            )}
-            <span>Renovar Plan</span>
-          </Button>
-
-          {planesUpgrade.length > 0 && (
-            <Button
-              size="sm"
-              onClick={() => setUpgradeModalOpen(true)}
-              disabled={procesandoPago}
-              className="flex items-center gap-1.5"
-            >
-              <CreditCard className="w-4 h-4" />
-              <span>Cambiar Plan</span>
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Active Plan Card */}
-        <Card className="border-primary/40 shadow-md bg-card flex flex-col justify-between">
-          <CardHeader className="border-b border-border/40 pb-4">
-            <div className="flex items-center justify-between">
-              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs font-semibold uppercase">
-                {sub?.planCodigo || 'PLAN_ACTIVO'}
-              </Badge>
-              <Sparkles className="w-5 h-5 text-primary" />
+              {[
+                { value: 'MENSUAL', label: 'Mensual' },
+                { value: 'ANUAL', label: 'Anual' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  aria-pressed={ciclo === opt.value}
+                  onClick={() => setCiclo(opt.value)}
+                  className={cn(
+                    'flex min-h-9 items-center gap-1.5 rounded px-3 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    ciclo === opt.value
+                      ? 'bg-surface text-primary-text shadow-sm'
+                      : 'text-text-secondary hover:text-on-surface'
+                  )}
+                >
+                  {opt.label}
+                  {opt.value === 'ANUAL' && (
+                    <span className="rounded-[2px] bg-tint-green-bg px-1 text-xs font-bold text-tint-green-fg">
+                      -{Math.round((1 - ANNUAL_FACTOR) * 100)}%
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
-            <CardTitle className="text-2xl font-extrabold text-foreground mt-2">
-              {sub?.planNombre || 'Plan Contratado'}
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">
-              {sub?.planDescripcion || 'Licencia corporativa para administración de propiedad horizontal.'}
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleIniciarPago('RENOVACION', null)}
+              disabled={procesandoPago}
+              className="min-h-10 sm:min-h-9"
+            >
+              {procesandoPago ? (
+                <Loader2 className="animate-spin" aria-hidden="true" />
+              ) : (
+                <RefreshCw aria-hidden="true" />
+              )}
+              Renovar plan
+            </Button>
+
+            {planesUpgrade.length > 0 && (
+              <Button
+                size="sm"
+                onClick={() => setUpgradeModalOpen(true)}
+                disabled={procesandoPago}
+                className="min-h-10 sm:min-h-9"
+              >
+                <CreditCard aria-hidden="true" />
+                Cambiar plan
+              </Button>
+            )}
+          </>
+        }
+      />
+
+      {planesError && (
+        <ErrorState
+          compact
+          title="No se pudo cargar el catálogo de planes"
+          message="Tu suscripción actual se muestra correctamente; el cambio de plan no está disponible hasta reintentar."
+          onRetry={load}
+        />
+      )}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Card className="flex flex-col justify-between border-primary/40">
+          <CardHeader className="border-b border-border pb-4">
+            <Badge variant="info" className="self-start font-mono">
+              {sub?.planCodigo || 'PLAN'}
+            </Badge>
+            <CardTitle className="app-display mt-2 text-[1.375rem]">{sub?.planNombre || 'Plan contratado'}</CardTitle>
+            <p className="mt-1 text-xs text-text-secondary">
+              {sub?.planDescripcion || 'Licencia para administración de propiedad horizontal.'}
             </p>
           </CardHeader>
 
-          <CardContent className="pt-6 space-y-6 flex-grow">
+          <CardContent className="flex-grow space-y-6 pt-6">
             <div>
-              <span className="text-xs text-muted-foreground uppercase font-semibold block">Tarifa Base</span>
-              <div className="text-3xl font-extrabold text-foreground mt-1">
+              <span className="block text-xs font-semibold text-text-muted">Tarifa base</span>
+              <div className="app-numeral mt-1 text-[1.75rem] text-on-surface">
                 {formatCOP(sub?.precioMensualCop)}
-                <span className="text-xs font-normal text-muted-foreground ml-1">/ mes</span>
+                <span className="ml-1 font-sans text-xs font-normal text-text-muted">/ mes</span>
               </div>
             </div>
 
-            <div className="space-y-2 border-t border-border/40 pt-4 text-xs">
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Inicio Vigencia</span>
-                <span className="font-medium text-foreground">
-                  {sub?.fechaInicio ? new Date(sub.fechaInicio).toLocaleDateString('es-CO') : 'N/A'}
-                </span>
+            <dl className="space-y-2.5 border-t border-border pt-4 text-xs">
+              <div className="flex items-center justify-between gap-3 text-text-secondary">
+                <dt className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" aria-hidden="true" /> Inicio de vigencia
+                </dt>
+                <dd className="font-semibold tabular-nums text-on-surface">
+                  {sub?.fechaInicio ? formatDate(sub.fechaInicio) : 'N/A'}
+                </dd>
               </div>
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Fin Vigencia</span>
-                <span className="font-medium text-foreground">
-                  {sub?.fechaFin ? new Date(sub.fechaFin).toLocaleDateString('es-CO') : 'Indefinida'}
-                </span>
+              <div className="flex items-center justify-between gap-3 text-text-secondary">
+                <dt className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" aria-hidden="true" /> Fin de vigencia
+                </dt>
+                <dd className="font-semibold tabular-nums text-on-surface">
+                  {sub?.fechaFin ? formatDate(sub.fechaFin) : 'Indefinida'}
+                </dd>
               </div>
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span className="flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5" /> Pasarela de Pago</span>
-                <span className="font-medium text-foreground">Wompi Segura (Bancolombia)</span>
+              <div className="flex items-center justify-between gap-3 text-text-secondary">
+                <dt className="flex items-center gap-1.5">
+                  <CreditCard className="h-3.5 w-3.5" aria-hidden="true" /> Medio de pago
+                </dt>
+                <dd className="text-right font-semibold text-on-surface">Wompi (PSE y tarjetas)</dd>
               </div>
-            </div>
+            </dl>
           </CardContent>
         </Card>
 
-        {/* Resource Limits & Metering */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="border border-border/80 shadow-sm">
-            <CardHeader className="border-b border-border/40 pb-4">
-              <CardTitle className="text-base font-semibold text-foreground">
-                Capacidad y Cuotas de Infraestructura
-              </CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Consumo en tiempo real de los recursos asignados a su organización.
-              </p>
+        <div className="space-y-6 lg:col-span-2">
+          <Card>
+            <CardHeader className="border-b border-border pb-4">
+              <CardTitle className="text-[15px]">Capacidad y cuotas</CardTitle>
+              <p className="mt-0.5 text-xs text-text-muted">Consumo actual de los recursos asignados a su organización.</p>
             </CardHeader>
-            <CardContent className="pt-6 space-y-6">
-              {/* Propiedades */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-foreground flex items-center gap-2">
-                    <Building className="w-4 h-4 text-primary" />
-                    <span>Límite de Propiedades</span>
-                  </span>
-                  <span className="text-xs font-semibold text-foreground">
-                    {sub?.propiedadesUsadas || 0} / {sub?.limitePropiedades || '∞'} ({sub?.porcentajePropiedades || 0}%)
-                  </span>
-                </div>
-                <div className="w-full bg-secondary h-3 rounded-full overflow-hidden">
-                  <div
-                    className="bg-primary h-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, sub?.porcentajePropiedades || 0)}%` }}
-                  />
-                </div>
-              </div>
+            <CardContent className="space-y-6 pt-6">
+              <QuotaMeter
+                icon={Building}
+                label="Propiedades"
+                used={sub?.propiedadesUsadas}
+                limit={sub?.limitePropiedades}
+                percent={sub?.porcentajePropiedades}
+              />
+              <QuotaMeter
+                icon={Building}
+                label="Unidades habitacionales"
+                used={sub?.unidadesUsadas}
+                limit={sub?.limiteUnidades}
+                percent={sub?.porcentajeUnidades}
+              />
+              <QuotaMeter
+                icon={Users}
+                label="Usuarios de plataforma"
+                used={sub?.usuariosUsados}
+                limit={sub?.limiteUsuarios}
+                percent={sub?.porcentajeUsuarios}
+              />
 
-              {/* Unidades */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-foreground flex items-center gap-2">
-                    <Building className="w-4 h-4 text-blue-600" />
-                    <span>Límite de Unidades Habitacionales</span>
-                  </span>
-                  <span className="text-xs font-semibold text-foreground">
-                    {sub?.unidadesUsadas || 0} / {sub?.limiteUnidades || '∞'} ({sub?.porcentajeUnidades || 0}%)
-                  </span>
-                </div>
-                <div className="w-full bg-secondary h-3 rounded-full overflow-hidden">
-                  <div
-                    className="bg-blue-600 h-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, sub?.porcentajeUnidades || 0)}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Usuarios */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-foreground flex items-center gap-2">
-                    <Users className="w-4 h-4 text-emerald-600" />
-                    <span>Límite de Usuarios de Plataforma</span>
-                  </span>
-                  <span className="text-xs font-semibold text-foreground">
-                    {sub?.usuariosUsados || 0} / {sub?.limiteUsuarios || '∞'} ({sub?.porcentajeUsuarios || 0}%)
-                  </span>
-                </div>
-                <div className="w-full bg-secondary h-3 rounded-full overflow-hidden">
-                  <div
-                    className="bg-emerald-600 h-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, sub?.porcentajeUsuarios || 0)}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Almacenamiento */}
-              <div className="pt-2 flex items-center justify-between text-xs text-muted-foreground border-t border-border/40">
+              <div className="flex items-center justify-between border-t border-border pt-3 text-xs text-text-secondary">
                 <span className="flex items-center gap-2">
-                  <HardDrive className="w-4 h-4 text-purple-600" />
-                  <span>Almacenamiento en la Nube Asignado</span>
+                  <HardDrive className="h-4 w-4" aria-hidden="true" />
+                  Almacenamiento asignado
                 </span>
-                <span className="font-semibold text-foreground">{sub?.limiteAlmacenamientoGb || 10} GB</span>
+                <span className="font-semibold tabular-nums text-on-surface">
+                  {sub?.limiteAlmacenamientoGb ? `${sub.limiteAlmacenamientoGb} GB` : '—'}
+                </span>
               </div>
             </CardContent>
           </Card>
 
-          {/* Plan Features Guarantee */}
-          <Card className="border border-border/80 shadow-sm bg-muted/10">
+          <Card className="bg-surface-container">
             <CardContent className="pt-6">
-              <h4 className="text-sm font-semibold text-foreground mb-3">
-                Garantías de Seguridad SAED Enterprise
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" />
-                  <span>Aislamiento de datos con Oracle RLS</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" />
-                  <span>Pista de auditoría inmutable</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" />
-                  <span>Facturación y firmas criptográficas Wompi</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600" />
-                  <span>Actualización automática de entitlements</span>
-                </div>
-              </div>
+              <h2 className="mb-3 text-sm font-bold text-on-surface">Seguridad de la plataforma</h2>
+              <ul className="grid grid-cols-1 gap-2.5 text-xs text-text-secondary sm:grid-cols-2">
+                {[
+                  'Aislamiento de datos por organización en la base de datos',
+                  'Pista de auditoría de acciones',
+                  'Pagos con firma de integridad de Wompi',
+                  'Límites del plan aplicados al confirmar el pago',
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-tint-green-fg" aria-hidden="true" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Modal de Cambio de Plan */}
       <Dialog open={upgradeModalOpen} onOpenChange={setUpgradeModalOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-primary" />
-              <span>Cambiar Plan de Suscripción</span>
-            </DialogTitle>
+            <DialogTitle>Cambiar plan de suscripción</DialogTitle>
             <DialogDescription>
-              Seleccione el plan al que desea migrar su organización. Los upgrades son inmediatos al confirmar el pago. Los downgrades requieren que su uso actual no exceda los límites del plan destino.
+              Seleccione el plan al que desea migrar su organización. Los upgrades se aplican al confirmar el pago. Los
+              downgrades requieren que su uso actual no exceda los límites del plan destino.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            {planesCambio.map((plan) => {
-              const idPlan = plan.idPlan || plan.ID_PLAN;
-              const precioMensual = plan.precioMensual || plan.PRECIO_MENSUAL || 0;
-              const precioCiclo = ciclo === 'ANUAL'
-                ? Math.round(precioMensual * 12 * 0.80)
-                : precioMensual;
-              const isUpgrade = precioMensual > currentPrice;
-              const isDowngrade = precioMensual < currentPrice;
+          {planesCambio.length === 0 ? (
+            <EmptyState icon={CreditCard} title="No hay otros planes disponibles" subtitle="El catálogo no tiene planes alternativos activos." />
+          ) : (
+            <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-2">
+              {planesCambio.map((plan) => {
+                const idPlan = plan.idPlan || plan.ID_PLAN;
+                const precioMensual = plan.precioMensual || plan.PRECIO_MENSUAL || 0;
+                const precioCiclo = ciclo === 'ANUAL'
+                  ? Math.round(precioMensual * 12 * ANNUAL_FACTOR)
+                  : precioMensual;
+                const isUpgrade = precioMensual > currentPrice;
+                const isDowngrade = precioMensual < currentPrice;
 
-              // Check if downgrade would be blocked by current usage
-              const propLimit = plan.limitePropiedades || plan.LIMITE_PROPIEDADES;
-              const unitLimit = plan.limiteUnidades || plan.LIMITE_UNIDADES;
-              const usrLimit = plan.limiteUsuarios || plan.LIMITE_USUARIOS;
-              const usedProp = sub?.propiedadesUsadas || 0;
-              const usedUnit = sub?.unidadesUsadas || 0;
-              const usedUsr = sub?.usuariosUsados || 0;
+                // Check if downgrade would be blocked by current usage
+                const propLimit = plan.limitePropiedades || plan.LIMITE_PROPIEDADES;
+                const unitLimit = plan.limiteUnidades || plan.LIMITE_UNIDADES;
+                const usrLimit = plan.limiteUsuarios || plan.LIMITE_USUARIOS;
+                const usedProp = sub?.propiedadesUsadas || 0;
+                const usedUnit = sub?.unidadesUsadas || 0;
+                const usedUsr = sub?.usuariosUsados || 0;
 
-              const blockedReasons = [];
-              if (isDowngrade) {
-                if (propLimit && propLimit > 0 && usedProp > propLimit)
-                  blockedReasons.push(`${usedProp} propiedades activas (máx. ${propLimit})`);
-                if (unitLimit && unitLimit > 0 && usedUnit > unitLimit)
-                  blockedReasons.push(`${usedUnit} unidades (máx. ${unitLimit})`);
-                if (usrLimit && usrLimit > 0 && usedUsr > usrLimit)
-                  blockedReasons.push(`${usedUsr} usuarios activos (máx. ${usrLimit})`);
-              }
-              const isBlocked = blockedReasons.length > 0;
+                const blockedReasons = [];
+                if (isDowngrade) {
+                  if (propLimit && propLimit > 0 && usedProp > propLimit)
+                    blockedReasons.push(`${usedProp} propiedades activas (máx. ${propLimit})`);
+                  if (unitLimit && unitLimit > 0 && usedUnit > unitLimit)
+                    blockedReasons.push(`${usedUnit} unidades (máx. ${unitLimit})`);
+                  if (usrLimit && usrLimit > 0 && usedUsr > usrLimit)
+                    blockedReasons.push(`${usedUsr} usuarios activos (máx. ${usrLimit})`);
+                }
+                const isBlocked = blockedReasons.length > 0;
 
-              return (
-                <Card key={idPlan} className={`border flex flex-col justify-between transition-colors ${
-                  isBlocked ? 'border-destructive/40 opacity-70' : 'border-border/80 hover:border-primary/60'
-                }`}>
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-center">
-                      <Badge variant="outline" className="text-xs uppercase">{plan.codigo || plan.CODIGO}</Badge>
-                      {isUpgrade ? (
-                        <span className="text-xs font-semibold text-emerald-600 flex items-center gap-0.5">
-                          <ArrowUpCircle className="w-3.5 h-3.5" /> Upgrade
-                        </span>
-                      ) : (
-                        <span className="text-xs font-semibold text-amber-600 flex items-center gap-0.5">
-                          <ArrowDownCircle className="w-3.5 h-3.5" /> Downgrade
-                        </span>
-                      )}
-                    </div>
-                    <CardTitle className="text-lg font-bold mt-1">{plan.nombre || plan.NOMBRE}</CardTitle>
-                    <p className="text-xs text-muted-foreground line-clamp-2">{plan.descripcion || plan.DESCRIPCION}</p>
-                  </CardHeader>
-                  <CardContent className="space-y-4 pt-0">
-                    <div>
-                      <div className="text-2xl font-black text-foreground">{formatCOP(precioCiclo)}</div>
-                      <span className="text-[11px] text-muted-foreground">
-                        {ciclo === 'ANUAL' ? 'Facturado anualmente (ahorro del 20%)' : 'Facturado mensualmente'}
-                      </span>
-                    </div>
-
-                    <div className="text-xs space-y-1.5 text-muted-foreground border-t pt-3">
-                      <div>• Límite Propiedades: <span className="font-semibold text-foreground">{propLimit || 'Ilimitadas'}</span></div>
-                      <div>• Límite Unidades: <span className="font-semibold text-foreground">{unitLimit || 'Ilimitadas'}</span></div>
-                      <div>• Límite Usuarios: <span className="font-semibold text-foreground">{usrLimit || 'Ilimitados'}</span></div>
-                    </div>
-
-                    {isBlocked && (
-                      <div className="rounded-md bg-destructive/10 border border-destructive/30 p-3 text-xs text-destructive space-y-1">
-                        <div className="font-semibold flex items-center gap-1.5">
-                          <AlertCircle className="w-3.5 h-3.5" /> Downgrade bloqueado
-                        </div>
-                        {blockedReasons.map((r, i) => (
-                          <div key={i} className="pl-5">• {r}</div>
-                        ))}
-                        <div className="pt-1 text-muted-foreground">Reduzca el uso antes de cambiar a este plan.</div>
-                      </div>
+                return (
+                  <Card
+                    key={idPlan}
+                    className={cn(
+                      'flex flex-col justify-between transition-colors duration-150',
+                      isBlocked ? 'border-tint-red-fg/40' : 'hover:border-primary/60'
                     )}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge variant="outline" className="font-mono">{plan.codigo || plan.CODIGO}</Badge>
+                        {isUpgrade ? (
+                          <Badge variant="success">
+                            <ArrowUpCircle className="h-3.5 w-3.5" aria-hidden="true" /> Upgrade
+                          </Badge>
+                        ) : (
+                          <Badge variant="warning">
+                            <ArrowDownCircle className="h-3.5 w-3.5" aria-hidden="true" /> Downgrade
+                          </Badge>
+                        )}
+                      </div>
+                      <CardTitle className="mt-1 text-base">{plan.nombre || plan.NOMBRE}</CardTitle>
+                      <p className="line-clamp-2 text-xs text-text-secondary">{plan.descripcion || plan.DESCRIPCION}</p>
+                    </CardHeader>
+                    <CardContent className="space-y-4 pt-0">
+                      <div>
+                        <div className="app-numeral text-[1.5rem] text-on-surface">{formatCOP(precioCiclo)}</div>
+                        <span className="text-xs text-text-muted">
+                          {ciclo === 'ANUAL'
+                            ? `Facturado anualmente (ahorro del ${Math.round((1 - ANNUAL_FACTOR) * 100)}%)`
+                            : 'Facturado mensualmente'}
+                        </span>
+                      </div>
 
-                    <Button
-                      className="w-full mt-2"
-                      variant={isDowngrade ? 'outline' : 'default'}
-                      onClick={() => handleIniciarPago('UPGRADE', idPlan)}
-                      disabled={procesandoPago || isBlocked}
-                    >
-                      {procesandoPago ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      ) : isUpgrade ? (
-                        <ArrowUpCircle className="w-4 h-4 mr-2" />
-                      ) : (
-                        <ArrowDownCircle className="w-4 h-4 mr-2" />
+                      <dl className="space-y-1.5 border-t border-border pt-3 text-xs text-text-secondary">
+                        <div className="flex justify-between gap-2">
+                          <dt>Propiedades</dt>
+                          <dd className="font-semibold tabular-nums text-on-surface">{propLimit || 'Ilimitadas'}</dd>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <dt>Unidades</dt>
+                          <dd className="font-semibold tabular-nums text-on-surface">{unitLimit || 'Ilimitadas'}</dd>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <dt>Usuarios</dt>
+                          <dd className="font-semibold tabular-nums text-on-surface">{usrLimit || 'Ilimitados'}</dd>
+                        </div>
+                      </dl>
+
+                      {isBlocked && (
+                        <div role="note" className="space-y-1 rounded-md border border-tint-red-fg/25 bg-tint-red-bg p-3 text-xs text-tint-red-fg">
+                          <div className="flex items-center gap-1.5 font-bold">
+                            <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" /> Downgrade bloqueado
+                          </div>
+                          <ul className="list-disc space-y-0.5 pl-5">
+                            {blockedReasons.map((r, i) => (
+                              <li key={i}>{r}</li>
+                            ))}
+                          </ul>
+                          <p className="pt-1 text-text-secondary">Reduzca el uso antes de cambiar a este plan.</p>
+                        </div>
                       )}
-                      <span>{isBlocked ? 'Uso excede límites' : isUpgrade ? 'Seleccionar y Pagar' : 'Confirmar Downgrade'}</span>
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+
+                      <Button
+                        className="mt-2 w-full"
+                        variant={isDowngrade ? 'outline' : 'default'}
+                        onClick={() => handleIniciarPago('UPGRADE', idPlan)}
+                        disabled={procesandoPago || isBlocked}
+                      >
+                        {procesandoPago ? (
+                          <Loader2 className="animate-spin" aria-hidden="true" />
+                        ) : isUpgrade ? (
+                          <ArrowUpCircle aria-hidden="true" />
+                        ) : (
+                          <ArrowDownCircle aria-hidden="true" />
+                        )}
+                        {isBlocked ? 'Uso excede límites' : isUpgrade ? 'Seleccionar y pagar' : 'Confirmar downgrade'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

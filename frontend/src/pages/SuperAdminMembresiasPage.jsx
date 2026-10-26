@@ -4,15 +4,23 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.
 import { Button } from '../components/ui/button.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
-import { Input } from '../components/ui/input.tsx';
-import { Label } from '../components/ui/label.tsx';
+import { Input as SearchInput } from '../components/ui/input.tsx';
+import { Input, Select } from '../components/ui/Form.jsx';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog.tsx';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+import { formatDate } from '../lib/utils.js';
+import { ArrowDown, ArrowLeftRight, ArrowUp, BadgeCheck, Link2, Minus, Search, User } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SuperAdminMembresiasPage() {
@@ -20,6 +28,8 @@ export default function SuperAdminMembresiasPage() {
   const [orgs, setOrgs] = useState([]);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [suspendTarget, setSuspendTarget] = useState(null);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -42,6 +52,7 @@ export default function SuperAdminMembresiasPage() {
   async function loadData() {
     try {
       setLoading(true);
+      setLoadError(null);
       const [resMem, resOrgs, resPlans] = await Promise.all([
         api.get('/platform/memberships'),
         api.get('/organizations'),
@@ -58,6 +69,7 @@ export default function SuperAdminMembresiasPage() {
     } catch (err) {
       console.error(err);
       toast.error('Error al cargar datos de membresías');
+      setLoadError(err?.message || 'No fue posible consultar las membresías.');
     } finally {
       setLoading(false);
     }
@@ -174,131 +186,154 @@ export default function SuperAdminMembresiasPage() {
     }).format(amount || 0);
   }
 
-  return (
-    <div className="p-6 space-y-6 animate-fadeIn">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-2xl">card_membership</span>
-            Membresías de Organizaciones
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Control de suscripciones, vigencias y cobros de las organizaciones cliente en SAED.
-          </p>
-        </div>
-        <Button onClick={() => setShowModal(true)} className="gap-2 shrink-0">
-          <span className="material-symbols-outlined text-sm">add_link</span>
-          Asignar Suscripción
-        </Button>
-      </div>
+  const changeBadge = {
+    UPGRADE: { variant: 'success', icon: ArrowUp, label: 'Upgrade' },
+    DOWNGRADE: { variant: 'warning', icon: ArrowDown, label: 'Downgrade' },
+    RENOVACION: { variant: 'secondary', icon: Minus, label: 'Mismo plan' },
+  }[changeType];
 
-      {/* Barra de Filtro */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-            search
-          </span>
-          <Input
+  return (
+    <PageContainer>
+      <PageHeader
+        title="Membresías de organizaciones"
+        subtitle="Suscripciones, vigencias y tarifas de las organizaciones cliente en SAED."
+        action={
+          <Button onClick={() => setShowModal(true)} className="min-h-10">
+            <Link2 aria-hidden="true" />
+            Asignar suscripción
+          </Button>
+        }
+      />
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative w-full sm:max-w-sm">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+            aria-hidden="true"
+          />
+          <SearchInput
             id="mem-search-input"
             type="search"
+            aria-label="Buscar membresías"
             placeholder="Buscar por organización o plan…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 text-sm"
+            className="h-10 pl-9 text-sm"
           />
         </div>
-        <div className="text-xs text-muted-foreground ml-auto font-medium">
-          {filteredMemberships.length} {filteredMemberships.length === 1 ? 'membresía' : 'membresías'}
+        <div className="text-xs font-semibold text-text-secondary sm:ml-auto">
+          <span className="app-numeral">{filteredMemberships.length}</span>{' '}
+          {filteredMemberships.length === 1 ? 'membresía' : 'membresías'}
         </div>
       </div>
 
-      {/* Tabla */}
-      <Card className="border-border/80 shadow-sm">
+      <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Suscripciones Registradas en Oracle</CardTitle>
+          <CardTitle className="text-[15px]">Suscripciones registradas</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-14 w-full rounded-lg" />
+            <div className="space-y-2" role="status" aria-busy="true" aria-label="Cargando membresías">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-12 w-full" />
               ))}
             </div>
+          ) : loadError ? (
+            <ErrorState title="No se pudo cargar la lista" message={loadError} onRetry={loadData} />
           ) : filteredMemberships.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground space-y-2">
-              <span className="material-symbols-outlined text-4xl text-muted-foreground/60">credit_card_off</span>
-              <p className="text-sm font-medium">
-                {search ? 'No se encontraron membresías con ese filtro.' : 'No hay membresías registradas actualmente.'}
-              </p>
-            </div>
+            <EmptyState
+              icon={BadgeCheck}
+              title={search ? 'Sin coincidencias' : 'No hay membresías registradas'}
+              subtitle={
+                search
+                  ? 'No se encontraron membresías con ese filtro.'
+                  : 'Asigna un plan a una organización para crear su primera suscripción.'
+              }
+            >
+              {search ? (
+                <Button variant="outline" size="sm" className="mt-3" onClick={() => setSearch('')}>
+                  Limpiar búsqueda
+                </Button>
+              ) : (
+                <Button size="sm" className="mt-3" onClick={() => setShowModal(true)}>
+                  <Link2 aria-hidden="true" />
+                  Asignar suscripción
+                </Button>
+              )}
+            </EmptyState>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse">
+            <div className="table-container max-h-[70vh] overflow-y-auto">
+              <table className="data-table">
                 <thead>
-                  <tr className="border-b border-border text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-                    <th className="py-3 px-4">ID</th>
-                    <th className="py-3 px-4">Organización</th>
-                    <th className="py-3 px-4">Plan SaaS</th>
-                    <th className="py-3 px-4">Tarifa</th>
-                    <th className="py-3 px-4">Vigencia</th>
-                    <th className="py-3 px-4 text-center">Estado</th>
-                    <th className="py-3 px-4 text-right">Acción</th>
+                  <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Organización</th>
+                    <th scope="col">Plan</th>
+                    <th scope="col" className="text-right">Tarifa mensual</th>
+                    <th scope="col">Vigencia</th>
+                    <th scope="col" className="text-center">Estado</th>
+                    <th scope="col" className="text-right">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody>
                   {filteredMemberships.map((m) => (
-                    <tr key={m.id} className="hover:bg-muted/40 transition-colors">
-                      <td className="py-3.5 px-4 font-mono text-xs text-muted-foreground">#{m.id}</td>
-                      <td className="py-3.5 px-4">
-                        <div className="font-semibold text-foreground">{m.organizacionNombre}</div>
+                    <tr key={m.id}>
+                      <td className="font-mono text-xs text-text-secondary tabular-nums">#{m.id}</td>
+                      <td className="min-w-[12rem]">
+                        <div className="font-semibold text-on-surface">{m.organizacionNombre}</div>
                         {(m.adminNombre || m.adminEmail) && (
-                          <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                            <span className="material-symbols-outlined text-[13px] text-muted-foreground/70">person</span>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-text-muted">
+                            <User className="h-3 w-3" aria-hidden="true" />
                             <span>{m.adminNombre || m.adminEmail}</span>
-                            {m.adminNombre && m.adminEmail && (
-                              <span className="text-[10px] text-muted-foreground/60">({m.adminEmail})</span>
-                            )}
+                            {m.adminNombre && m.adminEmail && <span>({m.adminEmail})</span>}
                           </div>
                         )}
                       </td>
-                      <td className="py-3.5 px-4">
-                        <Badge variant="outline" className="font-mono text-xs">
+                      <td>
+                        <Badge variant="outline" className="font-mono">
                           {m.planNombre || m.planCodigo}
                         </Badge>
                       </td>
-                      <td className="py-3.5 px-4 font-mono text-xs">{formatCurrency(m.precioMensual)}</td>
-                      <td className="py-3.5 px-4 text-xs text-muted-foreground">
-                        {m.fechaInicio || '—'} al {m.fechaFin || 'Indefinido'}
+                      <td className="whitespace-nowrap text-right text-sm font-semibold tabular-nums">
+                        {formatCurrency(m.precioMensual)}
                       </td>
-                      <td className="py-3.5 px-4 text-center">
+                      <td className="whitespace-nowrap text-xs tabular-nums text-text-secondary">
+                        {m.fechaInicio ? formatDate(m.fechaInicio) : '—'} al {m.fechaFin ? formatDate(m.fechaFin) : 'Indefinido'}
+                      </td>
+                      <td className="text-center">
                         <Badge
-                          variant={m.estado === 'ACTIVA' ? 'default' : 'secondary'}
-                          className={
-                            m.estado === 'ACTIVA'
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs'
-                              : 'text-xs'
+                          variant={
+                            (m.estado || 'ACTIVA') === 'ACTIVA'
+                              ? 'success'
+                              : m.estado === 'SUSPENDIDA'
+                              ? 'destructive'
+                              : m.estado === 'PRUEBA'
+                              ? 'info'
+                              : 'secondary'
                           }
                         >
                           {m.estado || 'ACTIVA'}
                         </Badge>
                       </td>
-                      <td className="py-3.5 px-4 text-right">
+                      <td className="text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-xs h-8 px-2.5 gap-1 border-primary/40 text-primary hover:bg-primary/10"
+                            className="h-10 gap-1 px-2.5 text-xs sm:h-8"
                             onClick={() => openPlanModal(m)}
-                            title="Cambiar o reasignar plan (Upgrade / Downgrade)"
+                            title="Cambiar o reasignar plan (upgrade / downgrade)"
                           >
-                            <span className="material-symbols-outlined text-sm">swap_horiz</span>
-                            Cambiar Plan
+                            <ArrowLeftRight aria-hidden="true" />
+                            Cambiar plan
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-xs h-8 px-2"
-                            onClick={() => handleToggleStatus(m.id, m.estado)}
+                            className="h-10 px-2.5 text-xs sm:h-8"
+                            onClick={() =>
+                              m.estado === 'ACTIVA' ? setSuspendTarget(m) : handleToggleStatus(m.id, m.estado)
+                            }
                           >
                             {m.estado === 'ACTIVA' ? 'Suspender' : 'Activar'}
                           </Button>
@@ -313,155 +348,121 @@ export default function SuperAdminMembresiasPage() {
         </CardContent>
       </Card>
 
-      {/* Modal Asignar Suscripción */}
+      <ConfirmDialog
+        open={!!suspendTarget}
+        onClose={() => setSuspendTarget(null)}
+        onConfirm={() => handleToggleStatus(suspendTarget.id, suspendTarget.estado)}
+        title="Suspender membresía"
+        message={`La organización ${suspendTarget?.organizacionNombre || ''} quedará con la suscripción suspendida hasta que se reactive.`}
+        confirmLabel="Suspender"
+        danger
+      />
+
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-h-[90dvh] max-w-md overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
-              <span className="material-symbols-outlined text-primary">add_link</span>
-              Asignar Plan a Organización
-            </DialogTitle>
+            <DialogTitle>Asignar plan a organización</DialogTitle>
+            <DialogDescription>La tarifa proviene del catálogo de planes vigente.</DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleCreate} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="mem-org" className="text-xs font-semibold uppercase text-muted-foreground">
-                Organización *
-              </Label>
-              <select
-                id="mem-org"
-                required
-                value={form.idOrganizacion}
-                onChange={(e) => setForm({ ...form, idOrganizacion: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">-- Selecciona una Organización --</option>
-                {orgs.map((o) => (
-                  <option key={o.id || o.idOrganizacion} value={o.id || o.idOrganizacion}>
-                    {o.nombre} ({o.identificacionFiscal || 'Sin NIT'})
-                  </option>
-                ))}
-              </select>
-            </div>
+          <form onSubmit={handleCreate} className="space-y-4 pt-1">
+            <Select
+              id="mem-org"
+              label="Organización"
+              required
+              value={form.idOrganizacion}
+              onChange={(e) => setForm({ ...form, idOrganizacion: e.target.value })}
+            >
+              <option value="">Selecciona una organización</option>
+              {orgs.map((o) => (
+                <option key={o.id || o.idOrganizacion} value={o.id || o.idOrganizacion}>
+                  {o.nombre} ({o.identificacionFiscal || 'Sin NIT'})
+                </option>
+              ))}
+            </Select>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="mem-plan" className="text-xs font-semibold uppercase text-muted-foreground">
-                Plan SaaS *
-              </Label>
-              <select
-                id="mem-plan"
-                required
-                value={form.idPlan}
-                onChange={(e) => setForm({ ...form, idPlan: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="">-- Selecciona un Plan --</option>
-                {plans.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre} — {formatCurrency(p.precioMensual)}/mes
-                  </option>
-                ))}
-              </select>
-            </div>
+            <Select
+              id="mem-plan"
+              label="Plan"
+              required
+              value={form.idPlan}
+              onChange={(e) => setForm({ ...form, idPlan: e.target.value })}
+            >
+              <option value="">Selecciona un plan</option>
+              {plans.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre} — {formatCurrency(p.precioMensual)}/mes
+                </option>
+              ))}
+            </Select>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="mem-estado" className="text-xs font-semibold uppercase text-muted-foreground">
-                Estado Inicial
-              </Label>
-              <select
-                id="mem-estado"
-                value={form.estado}
-                onChange={(e) => setForm({ ...form, estado: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                <option value="ACTIVA">ACTIVA</option>
-                <option value="PRUEBA">PRUEBA (Trial)</option>
-                <option value="SUSPENDIDA">SUSPENDIDA</option>
-              </select>
-            </div>
+            <Select
+              id="mem-estado"
+              label="Estado inicial"
+              value={form.estado}
+              onChange={(e) => setForm({ ...form, estado: e.target.value })}
+            >
+              <option value="ACTIVA">ACTIVA</option>
+              <option value="PRUEBA">PRUEBA (periodo de prueba)</option>
+              <option value="SUSPENDIDA">SUSPENDIDA</option>
+            </Select>
 
-            <DialogFooter className="pt-3 gap-2">
+            <DialogFooter className="gap-2 pt-3">
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={submitting} className="gap-2">
-                {submitting ? 'Guardando…' : 'Crear Membresía'}
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Guardando…' : 'Crear membresía'}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Modal Cambiar Plan (Upgrade / Downgrade / Asignación Directa por SuperAdmin) */}
       <Dialog open={showPlanModal} onOpenChange={setShowPlanModal}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
-              <span className="material-symbols-outlined text-primary">swap_horiz</span>
-              Cambiar Plan de Suscripción
-            </DialogTitle>
+            <DialogTitle>Cambiar plan de suscripción</DialogTitle>
+            <DialogDescription>El cambio queda registrado en la auditoría con el motivo indicado.</DialogDescription>
           </DialogHeader>
 
           {selectedMembership && (
-            <form onSubmit={handleCambiarPlan} className="space-y-4 pt-2">
-              {/* Resumen Actual */}
-              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5 text-xs">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground font-medium">Organización:</span>
-                  <span className="font-bold text-foreground">{selectedMembership.organizacionNombre}</span>
+            <form onSubmit={handleCambiarPlan} className="space-y-4 pt-1">
+              <dl className="space-y-1.5 rounded-lg border border-border bg-surface-container p-3 text-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="font-medium text-text-secondary">Organización</dt>
+                  <dd className="text-right font-bold text-on-surface">{selectedMembership.organizacionNombre}</dd>
                 </div>
                 {(selectedMembership.adminNombre || selectedMembership.adminEmail) && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground font-medium">Titular / Persona:</span>
-                    <span className="font-semibold text-foreground">
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="font-medium text-text-secondary">Titular</dt>
+                    <dd className="text-right font-semibold text-on-surface">
                       {selectedMembership.adminNombre || selectedMembership.adminEmail}
-                    </span>
+                    </dd>
                   </div>
                 )}
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground font-medium">Plan Actual:</span>
-                  <div className="flex items-center gap-1.5">
-                    <Badge variant="outline" className="font-mono text-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="font-medium text-text-secondary">Plan actual</dt>
+                  <dd className="flex flex-wrap items-center justify-end gap-1.5">
+                    <Badge variant="outline" className="font-mono">
                       {selectedMembership.planNombre || selectedMembership.planCodigo}
                     </Badge>
-                    <span className="font-mono text-muted-foreground">
+                    <span className="tabular-nums text-text-secondary">
                       ({formatCurrency(selectedMembership.precioMensual)}/mes)
                     </span>
-                  </div>
+                  </dd>
                 </div>
-              </div>
+              </dl>
 
-              {/* Selector Plan Destino */}
               <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <Label htmlFor="target-plan" className="text-xs font-semibold uppercase text-muted-foreground">
-                    Nuevo Plan Destino *
-                  </Label>
-                  {changeType && (
-                    <Badge
-                      variant="outline"
-                      className={`text-xs font-semibold ${
-                        changeType === 'UPGRADE'
-                          ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
-                          : changeType === 'DOWNGRADE'
-                          ? 'bg-amber-500/10 text-amber-600 border-amber-500/30'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {changeType === 'UPGRADE' && '▲ UPGRADE'}
-                      {changeType === 'DOWNGRADE' && '▼ DOWNGRADE'}
-                      {changeType === 'RENOVACION' && '— MISMO PLAN'}
-                    </Badge>
-                  )}
-                </div>
-                <select
+                <Select
                   id="target-plan"
+                  label="Nuevo plan"
                   required
                   value={targetPlanId}
                   onChange={(e) => setTargetPlanId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
-                  <option value="">-- Selecciona el Plan Destino --</option>
+                  <option value="">Selecciona el plan destino</option>
                   {plans.map((p) => {
                     const pid = p.id || p.idPlan || p.ID_PLAN;
                     const pnom = p.nombre || p.NOMBRE;
@@ -472,76 +473,71 @@ export default function SuperAdminMembresiasPage() {
                       </option>
                     );
                   })}
-                </select>
+                </Select>
+                {changeBadge && (
+                  <div aria-live="polite">
+                    <Badge variant={changeBadge.variant}>
+                      <changeBadge.icon className="h-3 w-3" aria-hidden="true" />
+                      {changeBadge.label}
+                    </Badge>
+                  </div>
+                )}
               </div>
 
-              {/* Detalles y Límites del Plan Destino */}
               {selectedTargetPlan && (
-                <div className="rounded-md border border-border/80 bg-background/60 p-2.5 text-xs text-muted-foreground grid grid-cols-3 gap-2 text-center">
-                  <div className="border-r border-border/60 pr-1">
-                    <span className="block text-[10px] uppercase font-semibold text-muted-foreground">Propiedades</span>
-                    <span className="font-bold text-foreground">
+                <dl className="grid grid-cols-3 divide-x divide-border rounded-md border border-border p-2.5 text-center text-xs">
+                  <div className="px-1">
+                    <dt className="text-text-muted">Propiedades</dt>
+                    <dd className="font-bold tabular-nums text-on-surface">
                       {selectedTargetPlan.limitePropiedades || selectedTargetPlan.LIMITE_PROPIEDADES || 'Ilimitadas'}
-                    </span>
+                    </dd>
                   </div>
-                  <div className="border-r border-border/60 pr-1">
-                    <span className="block text-[10px] uppercase font-semibold text-muted-foreground">Unidades</span>
-                    <span className="font-bold text-foreground">
+                  <div className="px-1">
+                    <dt className="text-text-muted">Unidades</dt>
+                    <dd className="font-bold tabular-nums text-on-surface">
                       {selectedTargetPlan.limiteUnidades || selectedTargetPlan.LIMITE_UNIDADES || 'Ilimitadas'}
-                    </span>
+                    </dd>
                   </div>
-                  <div>
-                    <span className="block text-[10px] uppercase font-semibold text-muted-foreground">Usuarios</span>
-                    <span className="font-bold text-foreground">
+                  <div className="px-1">
+                    <dt className="text-text-muted">Usuarios</dt>
+                    <dd className="font-bold tabular-nums text-on-surface">
                       {selectedTargetPlan.limiteUsuarios || selectedTargetPlan.LIMITE_USUARIOS || 'Ilimitados'}
-                    </span>
+                    </dd>
                   </div>
-                </div>
+                </dl>
               )}
 
-              {/* Estado de la suscripción */}
-              <div className="space-y-1.5">
-                <Label htmlFor="target-estado" className="text-xs font-semibold uppercase text-muted-foreground">
-                  Estado de la Membresía
-                </Label>
-                <select
-                  id="target-estado"
-                  value={targetEstado}
-                  onChange={(e) => setTargetEstado(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="ACTIVA">ACTIVA</option>
-                  <option value="PRUEBA">PRUEBA (Trial)</option>
-                  <option value="SUSPENDIDA">SUSPENDIDA</option>
-                </select>
-              </div>
+              <Select
+                id="target-estado"
+                label="Estado de la membresía"
+                value={targetEstado}
+                onChange={(e) => setTargetEstado(e.target.value)}
+              >
+                <option value="ACTIVA">ACTIVA</option>
+                <option value="PRUEBA">PRUEBA (periodo de prueba)</option>
+                <option value="SUSPENDIDA">SUSPENDIDA</option>
+              </Select>
 
-              {/* Motivo opcional */}
-              <div className="space-y-1.5">
-                <Label htmlFor="target-motivo" className="text-xs font-semibold uppercase text-muted-foreground">
-                  Motivo o Justificación (Auditoría)
-                </Label>
-                <Input
-                  id="target-motivo"
-                  placeholder="Ej: Solicitud comercial, ajuste de cuota, cortesía…"
-                  value={changeMotivo}
-                  onChange={(e) => setChangeMotivo(e.target.value)}
-                  className="text-sm"
-                />
-              </div>
+              <Input
+                id="target-motivo"
+                label="Motivo o justificación"
+                placeholder="Ej.: solicitud comercial, ajuste de cuota, cortesía…"
+                value={changeMotivo}
+                onChange={(e) => setChangeMotivo(e.target.value)}
+              />
 
-              <DialogFooter className="pt-3 gap-2">
+              <DialogFooter className="gap-2 pt-3">
                 <Button type="button" variant="outline" onClick={() => setShowPlanModal(false)} disabled={updatingPlan}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={updatingPlan || !targetPlanId} className="gap-2">
-                  {updatingPlan ? 'Aplicando…' : 'Confirmar Cambio de Plan'}
+                <Button type="submit" disabled={updatingPlan || !targetPlanId}>
+                  {updatingPlan ? 'Aplicando…' : 'Confirmar cambio de plan'}
                 </Button>
               </DialogFooter>
             </form>
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

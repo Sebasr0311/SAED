@@ -5,13 +5,15 @@ import api from '../lib/api.js';
 import { formatDateTime } from '../lib/utils.js';
 import { safeHttpUrls } from '../lib/safeUrl.js';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import LoadingState from '../components/ui/LoadingState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Input, Select, Textarea } from '../components/ui/Form.jsx';
-import { StatCard } from '../components/ui/StatCard.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -30,37 +32,37 @@ const SEVERIDAD_CONFIG = {
   LEVE: {
     label: 'Leve',
     badgeVariant: 'secondary',
-    borderClass: 'border-slate-300 dark:border-slate-700',
-    colorClass: 'text-slate-600 dark:text-slate-400',
-    bgClass: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300',
+    borderClass: 'border-border',
+    colorClass: 'text-text-secondary',
+    bgClass: 'bg-surface-dim text-text-secondary',
   },
   MODERADA: {
     label: 'Moderada',
     badgeVariant: 'info',
-    borderClass: 'border-blue-300 dark:border-blue-700',
-    colorClass: 'text-blue-600 dark:text-blue-400',
-    bgClass: 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300',
+    borderClass: 'border-tint-blue-fg/25',
+    colorClass: 'text-tint-blue-fg',
+    bgClass: 'bg-tint-blue-bg text-tint-blue-fg',
   },
   ALTA: {
     label: 'Alta',
     badgeVariant: 'warning',
-    borderClass: 'border-amber-300 dark:border-amber-700',
-    colorClass: 'text-amber-600 dark:text-amber-400',
-    bgClass: 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300',
+    borderClass: 'border-tint-amber-fg/25',
+    colorClass: 'text-tint-amber-fg',
+    bgClass: 'bg-tint-amber-bg text-tint-amber-fg',
   },
   GRAVE: {
     label: 'Grave',
     badgeVariant: 'warning',
-    borderClass: 'border-amber-400 dark:border-amber-600',
-    colorClass: 'text-amber-600 dark:text-amber-400',
-    bgClass: 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200',
+    borderClass: 'border-tint-amber-fg',
+    colorClass: 'text-tint-amber-fg',
+    bgClass: 'bg-tint-amber-bg text-tint-amber-fg',
   },
   CRITICA: {
     label: 'Crítica',
     badgeVariant: 'destructive',
-    borderClass: 'border-rose-400 dark:border-rose-600',
-    colorClass: 'text-rose-600 dark:text-rose-400',
-    bgClass: 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300',
+    borderClass: 'border-tint-red-fg',
+    colorClass: 'text-tint-red-fg',
+    bgClass: 'bg-tint-red-bg text-tint-red-fg',
   },
 };
 
@@ -210,10 +212,10 @@ export default function ResIncidentesPage() {
   }
 
   return (
-    <div className="space-y-6 pb-12 animate-saed-fade">
+    <PageContainer className="pb-12">
       {/* Encabezado */}
       <PageHeader
-        title="Mis Incidentes & Novedades"
+        title="Mis incidentes & novedades"
         subtitle="Registro y seguimiento en tiempo real de novedades locativas, emergencias o contingencias en tu unidad"
         action={
           <Button
@@ -221,46 +223,26 @@ export default function ResIncidentesPage() {
             className="flex items-center gap-2 shadow-sm font-semibold"
           >
             <Plus className="h-4 w-4" />
-            <span>Reportar Nuevo Incidente</span>
+            <span>Reportar nuevo incidente</span>
           </Button>
         }
       />
 
       {/* Tarjetas de Métricas / KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          icon="report_problem"
-          value={stats.total}
-          label="Total Incidentes"
-          color="primary"
-        />
-        <StatCard
-          icon="pending_actions"
-          value={stats.abiertos}
-          label="En Atención"
-          color="amber"
-        />
-        <StatCard
-          icon="task_alt"
-          value={stats.cerrados}
-          label="Casos Resueltos"
-          color="green"
-        />
-        <StatCard
-          icon="crisis_alert"
-          value={stats.criticos}
-          label="Alta Prioridad"
-          color="red"
-        />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard icon={AlertTriangle} value={loading ? '…' : error ? '—' : stats.total} label="Total incidentes" variant="primary" />
+        <MetricCard icon={Clock} value={loading ? '…' : error ? '—' : stats.abiertos} label="En atención" variant="warning" />
+        <MetricCard icon={CheckCircle2} value={loading ? '…' : error ? '—' : stats.cerrados} label="Casos resueltos" variant="success" />
+        <MetricCard icon={Siren} value={loading ? '…' : error ? '—' : stats.criticos} label="Alta prioridad" variant="danger" />
       </div>
 
       {/* Barra de Filtros y Búsqueda */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-surface p-3 rounded-xl border border-border shadow-sm">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-surface p-3 rounded-lg border border-border shadow-sm">
         {/* Pestañas de Estado */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
           {[
             { key: 'TODOS', label: 'Todos' },
-            { key: 'REPORTADO', label: 'En Atención' },
+            { key: 'REPORTADO', label: 'En atención' },
             { key: 'CERRADO', label: 'Resueltos' },
           ].map((tab) => {
             const isActive = statusFilter === tab.key;
@@ -269,10 +251,11 @@ export default function ResIncidentesPage() {
                 key={tab.key}
                 type="button"
                 onClick={() => setStatusFilter(tab.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+                aria-pressed={isActive}
+                className={`min-h-10 shrink-0 rounded-md px-3 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9 ${
                   isActive
-                    ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
-                    : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
+                    ? 'bg-btn-primary text-white shadow-sm'
+                    : 'text-text-secondary hover:bg-surface-container hover:text-on-surface'
                 }`}
               >
                 {tab.label}
@@ -282,11 +265,11 @@ export default function ResIncidentesPage() {
         </div>
 
         {/* Filtros Secundarios y Búsqueda */}
-        <div className="flex items-center gap-2 flex-1 md:justify-end">
+        <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center md:justify-end">
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="text-xs px-2.5 py-1.5 rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-10 rounded-md border border-input bg-surface px-2.5 text-sm text-on-surface focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/25 sm:h-9"
             aria-label="Filtrar por categoría"
           >
             <option value="TODAS">Todas las categorías</option>
@@ -297,14 +280,14 @@ export default function ResIncidentesPage() {
             ))}
           </select>
 
-          <div className="relative min-w-[180px] sm:min-w-[220px]">
+          <div className="relative min-w-0 sm:min-w-[220px]">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar título o detalle..."
-              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              className="h-10 w-full rounded-md border border-input bg-surface pl-8 pr-3 text-sm text-on-surface placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/25 sm:h-9"
             />
           </div>
         </div>
@@ -312,16 +295,15 @@ export default function ResIncidentesPage() {
 
       {/* Contenido Principal */}
       {loading ? (
-        <LoadingState message="Cargando bitácora de incidentes..." />
-      ) : error ? (
-        <div className="rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 p-6 text-center">
-          <AlertTriangle className="mx-auto h-8 w-8 text-rose-500 mb-2" />
-          <h4 className="font-semibold text-rose-700 dark:text-rose-400">Error al cargar incidentes</h4>
-          <p className="text-xs text-muted-foreground mt-1">{error.message || 'Error de comunicación'}</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-4">
-            Reintentar
-          </Button>
+        <div className="rounded-lg border border-border bg-surface shadow-sm">
+          <LoadingState message="Cargando bitácora de incidentes…" />
         </div>
+      ) : error ? (
+        <ErrorState
+          title="No se pudieron cargar incidentes"
+          message="Revisa tu conexión e intenta de nuevo."
+          onRetry={() => refetch().catch(() => {})}
+        />
       ) : filteredItems.length === 0 ? (
         <EmptyState
           icon={<ShieldCheck className="h-10 w-10 text-muted-foreground" />}
@@ -339,7 +321,7 @@ export default function ResIncidentesPage() {
           {!searchTerm && statusFilter === 'TODOS' && categoryFilter === 'TODAS' && (
             <Button onClick={handleOpenCreate} className="mt-2 flex items-center gap-2">
               <Plus className="h-4 w-4" />
-              <span>Registrar Primer Incidente</span>
+              <span>Registrar primer incidente</span>
             </Button>
           )}
         </EmptyState>
@@ -352,7 +334,7 @@ export default function ResIncidentesPage() {
             return (
               <div
                 key={incidente.idIncidente}
-                className="group relative flex flex-col justify-between rounded-xl border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:shadow-md hover:border-border/80"
+                className="group relative flex flex-col justify-between rounded-lg border border-border bg-surface p-5 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary/50"
               >
                 <div>
                   {/* Encabezado de la Tarjeta */}
@@ -396,12 +378,12 @@ export default function ResIncidentesPage() {
 
                   {/* Alerta de Autoridades si aplica */}
                   {incidente.requirioAutoridades === 'S' && (
-                    <div className="rounded-lg bg-rose-500/10 border border-rose-200 dark:border-rose-900/60 p-2 mb-3 text-[11px] text-rose-700 dark:text-rose-300 flex items-center gap-2">
-                      <Siren className="h-3.5 w-3.5 shrink-0 text-rose-600 dark:text-rose-400" />
+                    <div className="rounded-lg bg-tint-red-bg border border-tint-red-fg/25 p-2 mb-3 text-[11px] text-tint-red-fg flex items-center gap-2">
+                      <Siren className="h-3.5 w-3.5 shrink-0 text-tint-red-fg" />
                       <div className="truncate">
-                        <span className="font-semibold">Intervención de Autoridad:</span> {incidente.entidadAutoridad || 'Asistida'}
+                        <span className="font-semibold">Intervención de autoridad:</span> {incidente.entidadAutoridad || 'Asistida'}
                         {incidente.numeroDenunciaPolicia && (
-                          <span className="block text-[10px] text-rose-600 dark:text-rose-400/90 truncate">
+                          <span className="block text-[10px] text-tint-red-fg truncate">
                             Radicado: {incidente.numeroDenunciaPolicia}
                           </span>
                         )}
@@ -411,12 +393,12 @@ export default function ResIncidentesPage() {
 
                   {/* Conclusión de Cierre si está cerrado */}
                   {isCerrado && incidente.conclusionesCierre && (
-                    <div className="rounded-lg bg-emerald-500/10 border border-emerald-200 dark:border-emerald-900/60 p-2.5 mb-3 text-xs text-emerald-800 dark:text-emerald-300">
+                    <div className="rounded-lg bg-tint-green-bg border border-tint-green-fg/25 p-2.5 mb-3 text-xs text-tint-green-fg">
                       <div className="flex items-center gap-1.5 font-semibold text-[11px] mb-1">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                        <span>Resolución de Administración:</span>
+                        <CheckCircle2 className="h-3.5 w-3.5 text-tint-green-fg" />
+                        <span>Resolución de administración:</span>
                       </div>
-                      <p className="text-[11px] leading-relaxed line-clamp-2 text-emerald-700 dark:text-emerald-400/90">
+                      <p className="text-[11px] leading-relaxed line-clamp-2 text-tint-green-fg">
                         {incidente.conclusionesCierre}
                       </p>
                     </div>
@@ -436,7 +418,7 @@ export default function ResIncidentesPage() {
                     className="h-8 text-xs flex items-center gap-1"
                   >
                     <Eye className="h-3.5 w-3.5" />
-                    <span>Ver Detalle</span>
+                    <span>Ver detalle</span>
                   </Button>
                 </div>
               </div>
@@ -449,7 +431,7 @@ export default function ResIncidentesPage() {
       <Modal
         open={modalOpen}
         onClose={() => !isSubmitting && setModalOpen(false)}
-        title="Reportar Incidente o Novedad"
+        title="Reportar incidente o novedad"
         size="lg"
         footer={
           <div className="flex items-center justify-end gap-2 w-full">
@@ -475,7 +457,7 @@ export default function ResIncidentesPage() {
               ) : (
                 <>
                   <ShieldAlert className="h-4 w-4" />
-                  <span>Enviar Reporte</span>
+                  <span>Enviar reporte</span>
                 </>
               )}
             </Button>
@@ -484,7 +466,7 @@ export default function ResIncidentesPage() {
       >
         <form onSubmit={handleCreate} className="space-y-4 py-1">
           <Input
-            label="Título Breve del Incidente"
+            label="Título breve del incidente"
             required
             id="incidente-titulo"
             placeholder="Ej: Fuga de agua en tubería principal, Ruido excesivo después de medianoche..."
@@ -495,7 +477,7 @@ export default function ResIncidentesPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Select
-              label="Tipo de Novedad / Problema"
+              label="Tipo de novedad / problema"
               required
               id="incidente-tipo"
               value={form.tipoIncidente}
@@ -511,7 +493,7 @@ export default function ResIncidentesPage() {
 
             <Input
               type="datetime-local"
-              label="Fecha y Hora de Ocurrencia"
+              label="Fecha y hora de ocurrencia"
               required
               id="incidente-fecha-hora"
               value={form.fechaHoraIncidente}
@@ -522,14 +504,14 @@ export default function ResIncidentesPage() {
           {/* Selector Visual de Nivel de Severidad */}
           <div>
             <label className="text-sm font-medium text-foreground block mb-1.5">
-              Nivel de Severidad / Urgencia
+              Nivel de severidad / urgencia
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
-                { key: 'LEVE', label: 'Leve', desc: 'Molestia o arreglo menor', color: 'border-slate-300 dark:border-slate-700' },
-                { key: 'MODERADA', label: 'Moderada', desc: 'Afecta rutina normal', color: 'border-blue-400' },
-                { key: 'GRAVE', label: 'Grave', desc: 'Daño o riesgo material', color: 'border-amber-500' },
-                { key: 'CRITICA', label: 'Crítica', desc: 'Amenaza a seguridad o vida', color: 'border-rose-500' },
+                { key: 'LEVE', label: 'Leve', desc: 'Molestia o arreglo menor', color: 'border-border' },
+                { key: 'MODERADA', label: 'Moderada', desc: 'Afecta rutina normal', color: 'border-tint-blue-fg' },
+                { key: 'GRAVE', label: 'Grave', desc: 'Daño o riesgo material', color: 'border-tint-amber-fg' },
+                { key: 'CRITICA', label: 'Crítica', desc: 'Amenaza a seguridad o vida', color: 'border-tint-red-fg' },
               ].map((sev) => {
                 const isSelected = form.nivelSeveridad === sev.key;
                 return (
@@ -555,7 +537,7 @@ export default function ResIncidentesPage() {
           </div>
 
           <Textarea
-            label="Descripción Detallada de los Hechos"
+            label="Descripción detallada de los hechos"
             required
             id="incidente-descripcion"
             rows={4}
@@ -573,7 +555,7 @@ export default function ResIncidentesPage() {
                 id="incidente-autoridades"
                 checked={form.requirioAutoridades === 'S'}
                 onChange={(e) => setForm({ ...form, requirioAutoridades: e.target.checked ? 'S' : 'N' })}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
               />
               <span className="text-xs font-semibold text-foreground">
                 ¿Se requirió presencia o llamada a Autoridades (Policía, Bomberos, Cuadrante)?
@@ -581,9 +563,9 @@ export default function ResIncidentesPage() {
             </label>
 
             {form.requirioAutoridades === 'S' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border/70 animate-saed-fade">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border/70">
                 <Input
-                  label="Entidad u Organismo Asistente"
+                  label="Entidad u organismo asistente"
                   required
                   id="incidente-entidad"
                   placeholder="Ej: Policía Nacional Cuadrante 14, Bomberos Estación Central"
@@ -593,7 +575,7 @@ export default function ResIncidentesPage() {
                 />
 
                 <Input
-                  label="Número de Denuncia / Radicado POLNAL (Opcional)"
+                  label="Número de denuncia / radicado POLNAL (opcional)"
                   id="incidente-radicado"
                   placeholder="Ej: POL-2026-98124"
                   value={form.numeroDenunciaPolicia}
@@ -605,7 +587,7 @@ export default function ResIncidentesPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
-              label="Medidas Inmediatas Tomadas (Opcional)"
+              label="Medidas inmediatas tomadas (opcional)"
               id="incidente-acciones"
               placeholder="Ej: Se cerró la llave de paso general del apartamento..."
               value={form.accionesInmediatas}
@@ -614,7 +596,7 @@ export default function ResIncidentesPage() {
 
             <Input
               type="url"
-              label="Enlace a Fotos / Evidencias (Opcional)"
+              label="Enlace a fotos / evidencias (opcional)"
               id="incidente-evidencias"
               placeholder="https://drive.google.com/... o enlace de imagen"
               value={form.evidenciasUrls}
@@ -668,11 +650,11 @@ export default function ResIncidentesPage() {
             {/* Cronograma de Fechas */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="p-2.5 rounded-lg border border-border bg-card">
-                <span className="text-muted-foreground block text-[11px]">Fecha y Hora del Incidente</span>
+                <span className="text-muted-foreground block text-[11px]">Fecha y hora del incidente</span>
                 <span className="font-medium text-foreground">{formatDateTime(selectedIncidente.fechaHoraIncidente)}</span>
               </div>
               <div className="p-2.5 rounded-lg border border-border bg-card">
-                <span className="text-muted-foreground block text-[11px]">Fecha de Radicación en Plataforma</span>
+                <span className="text-muted-foreground block text-[11px]">Fecha de radicación en plataforma</span>
                 <span className="font-medium text-foreground">{formatDateTime(selectedIncidente.fechaRegistro || selectedIncidente.fechaHoraIncidente)}</span>
               </div>
             </div>
@@ -687,10 +669,10 @@ export default function ResIncidentesPage() {
 
             {/* Información de Autoridades */}
             {selectedIncidente.requirioAutoridades === 'S' && (
-              <div className="p-3 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 text-xs text-rose-800 dark:text-rose-300 space-y-1">
+              <div className="p-3 rounded-lg border border-tint-red-fg/25 bg-tint-red-bg text-xs text-tint-red-fg space-y-1">
                 <div className="flex items-center gap-1.5 font-semibold">
-                  <Siren className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-                  <span>Intervención de Autoridades Asistida</span>
+                  <Siren className="h-4 w-4 text-tint-red-fg" />
+                  <span>Intervención de autoridades asistida</span>
                 </div>
                 <p><strong>Entidad:</strong> {selectedIncidente.entidadAutoridad || 'No especificada'}</p>
                 {selectedIncidente.numeroDenunciaPolicia && (
@@ -702,7 +684,7 @@ export default function ResIncidentesPage() {
             {/* Evidencias URL */}
             {selectedIncidente.evidenciasUrls && (
               <div className="p-3 rounded-lg border border-border bg-card text-xs flex items-center justify-between">
-                <span className="text-muted-foreground">Evidencia o Anexos:</span>
+                <span className="text-muted-foreground">Evidencia o anexos:</span>
                 {safeHttpUrls(selectedIncidente.evidenciasUrls).length > 0 ? (
                   <span className="flex flex-col items-end gap-1">
                     {safeHttpUrls(selectedIncidente.evidenciasUrls).map((href, i) => (
@@ -726,17 +708,17 @@ export default function ResIncidentesPage() {
 
             {/* Conclusiones de Cierre */}
             {selectedIncidente.estado === 'CERRADO' && (
-              <div className="p-3.5 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/30 text-xs text-emerald-900 dark:text-emerald-200 space-y-1.5">
-                <div className="flex items-center gap-1.5 font-semibold text-emerald-800 dark:text-emerald-300">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>Caso Cerrado y Dictamen de la Administración</span>
+              <div className="p-3.5 rounded-lg border border-tint-green-fg/25 bg-tint-green-bg text-xs text-tint-green-fg space-y-1.5">
+                <div className="flex items-center gap-1.5 font-semibold text-tint-green-fg">
+                  <CheckCircle2 className="h-4 w-4 text-tint-green-fg" />
+                  <span>Caso cerrado y dictamen de la administración</span>
                 </div>
                 {selectedIncidente.fechaCierre && (
-                  <span className="text-[11px] text-emerald-700 dark:text-emerald-400/90 block">
+                  <span className="text-[11px] text-tint-green-fg block">
                     Cerrado el: {formatDateTime(selectedIncidente.fechaCierre)}
                   </span>
                 )}
-                <p className="leading-relaxed bg-background/80 p-2.5 rounded border border-emerald-200 dark:border-emerald-900/60">
+                <p className="leading-relaxed bg-background/80 p-2.5 rounded border border-tint-green-fg/25">
                   {selectedIncidente.conclusionesCierre || 'El caso fue atendido y resuelto de conformidad.'}
                 </p>
               </div>
@@ -744,6 +726,6 @@ export default function ResIncidentesPage() {
           </div>
         </Modal>
       )}
-    </div>
+    </PageContainer>
   );
 }

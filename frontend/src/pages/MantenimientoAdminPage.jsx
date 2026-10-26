@@ -25,6 +25,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { Badge } from '../components/ui/badge.tsx';
@@ -32,31 +33,32 @@ import { Button } from '../components/ui/Button.jsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import LoadingState from '../components/ui/LoadingState.jsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
 import { api } from '../lib/api.js';
 import { formatCurrency, formatDate } from '../lib/utils.js';
 import { toast } from 'sonner';
 
 const TIPOS_MANTENIMIENTO = [
-  { id: 'PREVENTIVO', label: 'Preventivo', badge: 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20' },
-  { id: 'CORRECTIVO', label: 'Correctivo', badge: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20' },
-  { id: 'PREDICTIVO', label: 'Predictivo', badge: 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20' },
-  { id: 'EMERGENCIA', label: 'Emergencia', badge: 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20' },
-  { id: 'LOCATIVO', label: 'Locativo', badge: 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20' },
+  { id: 'PREVENTIVO', label: 'Preventivo', badge: 'bg-tint-blue-bg text-tint-blue-fg border-tint-blue-fg/25' },
+  { id: 'CORRECTIVO', label: 'Correctivo', badge: 'bg-tint-amber-bg text-tint-amber-fg border-tint-amber-fg/25' },
+  { id: 'PREDICTIVO', label: 'Predictivo', badge: 'bg-tint-purple-bg text-tint-purple-fg border-tint-purple-fg/25' },
+  { id: 'EMERGENCIA', label: 'Emergencia', badge: 'bg-tint-red-bg text-tint-red-fg border-tint-red-fg/25' },
+  { id: 'LOCATIVO', label: 'Locativo', badge: 'bg-tint-neutral-bg text-on-surface border-border' },
 ];
 
 const PRIORIDADES = [
-  { id: 'BAJA', label: 'Baja', badge: 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20' },
-  { id: 'MEDIA', label: 'Media', badge: 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20' },
-  { id: 'ALTA', label: 'Alta', badge: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20' },
-  { id: 'URGENTE', label: 'Urgente', badge: 'bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/20' },
+  { id: 'BAJA', label: 'Baja', badge: 'bg-tint-neutral-bg text-on-surface border-border' },
+  { id: 'MEDIA', label: 'Media', badge: 'bg-tint-blue-bg text-tint-blue-fg border-tint-blue-fg/25' },
+  { id: 'ALTA', label: 'Alta', badge: 'bg-tint-amber-bg text-tint-amber-fg border-tint-amber-fg/25' },
+  { id: 'URGENTE', label: 'Urgente', badge: 'bg-tint-red-bg text-tint-red-fg border-tint-red-fg/25' },
 ];
 
 const ESTADOS = [
-  { id: 'PROGRAMADO', label: 'Programado', badge: 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20' },
-  { id: 'EN_PROCESO', label: 'En Proceso', badge: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20' },
-  { id: 'COMPLETADO', label: 'Completado', badge: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20' },
-  { id: 'REPROGRAMADO', label: 'Reprogramado', badge: 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/20' },
-  { id: 'CANCELADO', label: 'Cancelado', badge: 'bg-zinc-500/10 text-zinc-700 dark:text-zinc-400 border-zinc-500/20' },
+  { id: 'PROGRAMADO', label: 'Programado', badge: 'bg-tint-blue-bg text-tint-blue-fg border-tint-blue-fg/25' },
+  { id: 'EN_PROCESO', label: 'En Proceso', badge: 'bg-tint-amber-bg text-tint-amber-fg border-tint-amber-fg/25' },
+  { id: 'COMPLETADO', label: 'Completado', badge: 'bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25' },
+  { id: 'REPROGRAMADO', label: 'Reprogramado', badge: 'bg-tint-primary-bg text-primary-text border-tint-primary-fg/25' },
+  { id: 'CANCELADO', label: 'Cancelado', badge: 'bg-tint-neutral-bg text-on-surface border-border' },
 ];
 
 export default function MantenimientoAdminPage() {
@@ -67,6 +69,7 @@ export default function MantenimientoAdminPage() {
   const [kpis, setKpis] = useState(null);
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState('TODOS');
   const [filterTipo, setFilterTipo] = useState('TODOS');
@@ -145,6 +148,9 @@ export default function MantenimientoAdminPage() {
       if (mantsRes.status === 'fulfilled') {
         const data = mantsRes.value?.data || mantsRes.value || [];
         setMantenimientos(Array.isArray(data) ? data : []);
+        setLoadError(null);
+      } else {
+        setLoadError(mantsRes.reason || new Error('No se pudieron cargar las órdenes de mantenimiento'));
       }
       if (kpisRes.status === 'fulfilled') {
         setKpis(kpisRes.value?.data || kpisRes.value || null);
@@ -163,6 +169,7 @@ export default function MantenimientoAdminPage() {
       }
     } catch (err) {
       console.error('Error cargando módulo de mantenimientos:', err);
+      setLoadError(err);
       toast.error('No se pudo cargar la información de mantenimientos');
     } finally {
       setLoading(false);
@@ -215,17 +222,17 @@ export default function MantenimientoAdminPage() {
 
   const getTipoBadge = (tipo) => {
     const item = TIPOS_MANTENIMIENTO.find((t) => t.id === tipo);
-    return item ? item.badge : 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
+    return item ? item.badge : 'bg-tint-neutral-bg text-on-surface border-border';
   };
 
   const getPrioridadBadge = (prio) => {
     const item = PRIORIDADES.find((p) => p.id === prio);
-    return item ? item.badge : 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
+    return item ? item.badge : 'bg-tint-neutral-bg text-on-surface border-border';
   };
 
   const getEstadoBadge = (est) => {
     const item = ESTADOS.find((e) => e.id === est);
-    return item ? item.badge : 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
+    return item ? item.badge : 'bg-tint-neutral-bg text-on-surface border-border';
   };
 
   // Handlers
@@ -468,34 +475,37 @@ export default function MantenimientoAdminPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <PageContainer className="pb-12">
       {/* Header */}
       <PageHeader
         title="Órdenes de Mantenimiento y Control de Zonas"
         subtitle="Gestión del ciclo integral de mantenimiento preventivo, correctivo, predictivo y bloqueos de áreas comunes."
-      >
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={cargarDatos}
-            disabled={loading}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Actualizar
-          </Button>
-          <Button
-            onClick={() => {
-              setCreateForm(initialCreateForm);
-              setShowCreateModal(true);
-            }}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Nueva Orden
-          </Button>
-        </div>
-      </PageHeader>
+      action={
+        <>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={cargarDatos}
+                disabled={loading}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Actualizar
+              </Button>
+              <Button
+                onClick={() => {
+                  setCreateForm(initialCreateForm);
+                  setShowCreateModal(true);
+                }}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Nueva Orden
+              </Button>
+            </div>
+        </>
+      }
+      />
 
       {/* KPIs Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -510,25 +520,25 @@ export default function MantenimientoAdminPage() {
           title="Programadas"
           value={stats.programados}
           icon={Calendar}
-          className="border-sky-500/20"
+          className="border-tint-blue-fg/25"
         />
         <MetricCard
           title="En Proceso"
           value={stats.enProceso}
           icon={Wrench}
-          className="border-amber-500/20"
+          className="border-tint-amber-fg/25"
         />
         <MetricCard
           title="Completadas"
           value={stats.completados}
           icon={CheckCircle2}
-          className="border-emerald-500/20"
+          className="border-tint-green-fg/25"
         />
         <MetricCard
           title="Urgentes Activas"
           value={stats.urgentes}
           icon={AlertTriangle}
-          className={stats.urgentes > 0 ? 'border-red-500/30 text-red-600' : ''}
+          className={stats.urgentes > 0 ? 'border-tint-red-fg/25 text-tint-red-fg' : ''}
         />
       </div>
 
@@ -598,33 +608,37 @@ export default function MantenimientoAdminPage() {
       </div>
 
       {/* Main Table Content */}
-      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="p-8">
-            <LoadingState text="Cargando órdenes de mantenimiento..." />
-          </div>
+      <div className="rounded-lg border border-border bg-card shadow-sm overflow-hidden">
+        {loading && mantenimientos.length === 0 ? (
+          <LoadingState message="Cargando órdenes de mantenimiento..." />
+        ) : loadError && mantenimientos.length === 0 ? (
+          <ErrorState
+            className="m-4"
+            title="No se pudieron cargar las órdenes de mantenimiento"
+            message={loadError?.message || 'Verifique su conexión e intente nuevamente.'}
+            onRetry={cargarDatos}
+          />
         ) : mantenimientosFiltrados.length === 0 ? (
           <EmptyState
             icon={Wrench}
             title="No se encontraron órdenes de mantenimiento"
-            description={
+            subtitle={
               searchTerm || filterEstado !== 'TODOS' || filterTipo !== 'TODOS'
                 ? 'Prueba modificando los criterios de búsqueda o filtros.'
                 : 'Comienza programando tu primer mantenimiento preventivo o correctivo.'
             }
-            action={
-              searchTerm || filterEstado !== 'TODOS' ? null : (
+          >
+            <div className="mt-4 flex justify-center empty:hidden">{searchTerm || filterEstado !== 'TODOS' ? null : (
                 <Button onClick={() => setShowCreateModal(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Programar Primer Mantenimiento
                 </Button>
-              )
-            }
-          />
+              )}</div>
+          </EmptyState>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-muted/50 text-xs font-semibold uppercase text-muted-foreground">
+              <thead className="border-b border-border bg-muted/50 text-xs font-semibold text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">Orden & Tipo</th>
                   <th className="px-4 py-3">Activo / Zona Común</th>
@@ -656,7 +670,7 @@ export default function MantenimientoAdminPage() {
                             {m.tipoMantenimiento}
                           </span>
                           {m.idBloqueoZona && (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                            <span className="inline-flex items-center gap-1 text-[11.5px] text-tint-amber-fg font-medium">
                               <ShieldAlert className="h-3 w-3" />
                               Zona Bloqueada
                             </span>
@@ -677,7 +691,7 @@ export default function MantenimientoAdminPage() {
                             </span>
                           </div>
                         ) : m.nombreZonaBloqueada ? (
-                          <div className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-300 font-medium">
+                          <div className="flex items-center gap-1 text-xs text-tint-amber-fg font-medium">
                             <MapPin className="h-3.5 w-3.5" />
                             <span>{m.nombreZonaBloqueada}</span>
                           </div>
@@ -735,8 +749,8 @@ export default function MantenimientoAdminPage() {
                         </div>
                         {m.costoReal != null && m.costoReal > 0 && (
                           <div className="text-xs mt-0.5">
-                            <span className="text-emerald-600 font-medium">Real: </span>
-                            <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                            <span className="text-tint-green-fg font-medium">Real: </span>
+                            <span className="font-semibold text-tint-green-fg">
                               {formatCurrency(m.costoReal)}
                             </span>
                           </div>
@@ -768,7 +782,7 @@ export default function MantenimientoAdminPage() {
                                 variant="ghost"
                                 size="icon"
                                 title="Iniciar mantenimiento"
-                                className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                                className="text-tint-amber-fg hover:text-tint-amber-fg hover:bg-tint-amber-bg"
                                 onClick={() => setStartTarget(m)}
                               >
                                 <Play className="h-4 w-4" />
@@ -797,7 +811,7 @@ export default function MantenimientoAdminPage() {
                               variant="ghost"
                               size="icon"
                               title="Completar y certificar"
-                              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                              className="text-tint-green-fg hover:text-tint-green-fg hover:bg-tint-green-bg"
                               onClick={() => openCompleteModal(m)}
                             >
                               <CheckCircle2 className="h-4 w-4" />
@@ -809,7 +823,7 @@ export default function MantenimientoAdminPage() {
                               variant="ghost"
                               size="icon"
                               title="Cancelar orden"
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                              className="text-tint-red-fg hover:text-tint-red-fg hover:bg-tint-red-bg"
                               onClick={() => setCancelTarget(m)}
                             >
                               <Ban className="h-4 w-4" />
@@ -992,17 +1006,17 @@ export default function MantenimientoAdminPage() {
             </div>
 
             {/* Sección de Bloqueo de Zona Común */}
-            <div className="sm:col-span-2 rounded-lg border border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20 p-4 space-y-3">
+            <div className="sm:col-span-2 rounded-lg border border-tint-amber-fg/25 bg-tint-amber-bg p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   id="chkBloqueo"
                   checked={createForm.requiereBloqueoZona}
                   onChange={(e) => setCreateForm({ ...createForm, requiereBloqueoZona: e.target.checked })}
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                 />
                 <label htmlFor="chkBloqueo" className="text-sm font-semibold text-foreground flex items-center gap-1.5 cursor-pointer">
-                  <ShieldAlert className="h-4 w-4 text-amber-600" />
+                  <ShieldAlert className="h-4 w-4 text-tint-amber-fg" />
                   ¿Requiere Bloqueo Temporal de Zona Común?
                 </label>
               </div>
@@ -1239,7 +1253,7 @@ export default function MantenimientoAdminPage() {
         maxWidth="max-w-xl"
       >
         <form onSubmit={handleComplete} className="space-y-4">
-          <div className="rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-500/20 p-3 text-xs text-emerald-800 dark:text-emerald-300">
+          <div className="rounded-lg bg-tint-green-bg border border-tint-green-fg/25 p-3 text-xs text-tint-green-fg">
             Al completar esta orden, el activo vinculado regresará a estado <strong>OPERATIVO</strong> y cualquier bloqueo de área común será liberado.
           </div>
 
@@ -1322,7 +1336,7 @@ export default function MantenimientoAdminPage() {
             >
               Volver
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button type="submit" disabled={isSubmitting} className="bg-btn-success hover:bg-btn-success/90">
               {isSubmitting ? 'Completando...' : 'Certificar y Finalizar'}
             </Button>
           </div>
@@ -1352,13 +1366,13 @@ export default function MantenimientoAdminPage() {
           </div>
 
           {selectedMantenimiento?.idBloqueoZona && (
-            <div className="space-y-3 rounded-lg border border-amber-500/20 bg-amber-50/40 p-3">
-              <span className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1">
+            <div className="space-y-3 rounded-lg border border-tint-amber-fg/25 bg-tint-amber-bg p-3">
+              <span className="text-xs font-semibold text-tint-amber-fg flex items-center gap-1">
                 <ShieldAlert className="h-3.5 w-3.5" />
                 Actualización de Bloqueo de Zona Común
               </span>
               <div>
-                <label className="block text-[11px] font-medium text-foreground mb-1">
+                <label className="block text-[11.5px] font-medium text-foreground mb-1">
                   Nueva Fecha/Hora Inicio Bloqueo
                 </label>
                 <input
@@ -1369,7 +1383,7 @@ export default function MantenimientoAdminPage() {
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-medium text-foreground mb-1">
+                <label className="block text-[11.5px] font-medium text-foreground mb-1">
                   Nueva Fecha/Hora Fin Bloqueo
                 </label>
                 <input
@@ -1492,8 +1506,8 @@ export default function MantenimientoAdminPage() {
 
             {/* Bloqueo de Zona Común si aplica */}
             {selectedMantenimiento.idBloqueoZona && (
-              <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-50/50 dark:bg-amber-950/20 text-sm">
-                <span className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1 mb-1">
+              <div className="p-3 rounded-lg border border-tint-amber-fg/25 bg-tint-amber-bg text-sm">
+                <span className="text-xs font-semibold text-tint-amber-fg flex items-center gap-1 mb-1">
                   <ShieldAlert className="h-3.5 w-3.5" /> Bloqueo de Zona Común Activo
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs mt-2">
@@ -1539,7 +1553,7 @@ export default function MantenimientoAdminPage() {
               </div>
               <div className="p-3 rounded-lg border border-border bg-card">
                 <span className="text-xs text-muted-foreground block mb-1">Costo Real Liquidado</span>
-                <span className="font-semibold text-emerald-600">
+                <span className="font-semibold text-tint-green-fg">
                   {formatCurrency(selectedMantenimiento.costoReal || 0)}
                 </span>
               </div>
@@ -1570,7 +1584,7 @@ export default function MantenimientoAdminPage() {
                   href={selectedMantenimiento.evidenciaDespuesUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:underline"
+                  className="inline-flex items-center gap-1 text-xs text-tint-green-fg hover:underline"
                 >
                   <ExternalLink className="h-3.5 w-3.5" /> Evidencia Posterior
                 </a>
@@ -1580,7 +1594,7 @@ export default function MantenimientoAdminPage() {
                   href={selectedMantenimiento.informeTecnicoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                  className="inline-flex items-center gap-1 text-xs text-tint-blue-fg hover:underline"
                 >
                   <FileText className="h-3.5 w-3.5" /> Informe Técnico
                 </a>
@@ -1617,6 +1631,6 @@ export default function MantenimientoAdminPage() {
         onConfirm={handleCancel}
         onCancel={() => setCancelTarget(null)}
       />
-    </div>
+    </PageContainer>
   );
 }

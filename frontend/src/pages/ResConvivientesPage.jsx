@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Building2, Shield, ArrowLeft, Home } from 'lucide-react';
+import { Building2, Shield, ArrowLeft, Home } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useFetch, useTiposDocumento } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import { Card, CardContent } from '../components/ui/card.tsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Button } from '../components/ui/button.tsx';
 import ConvivientesSection from '../components/residents/ConvivientesSection.jsx';
@@ -71,8 +71,8 @@ export default function ResConvivientesPage() {
   );
 
   const handleRefreshHabitantes = () => {
-    if (refetchResidents) refetchResidents();
-    if (refetchQuota) refetchQuota();
+    if (refetchResidents) refetchResidents().catch(() => {});
+    if (refetchQuota) refetchQuota().catch(() => {});
   };
 
   const nombreCompleto = useMemo(() => {
@@ -84,56 +84,52 @@ export default function ResConvivientesPage() {
     return fullName || user?.nombreCompleto || user?.username || 'Residente';
   }, [perfil, user]);
 
+  const unitLabel = u.identificador || aptoInfo.numeroApartamento || aptoInfo.identificador || 'Apto';
+  const towerLabel = aptoInfo.torre ? `Torre ${aptoInfo.torre}` : u.tipo || 'Residencial';
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* Boton de regreso y encabezado */}
-      <div className="flex items-center justify-between gap-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate('/residente-dashboard')}
-          className="gap-2 text-muted-foreground hover:text-foreground -ml-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver a Mi Panel
-        </Button>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="gap-1.5 py-1 px-3 border-primary/30 text-primary bg-primary/5">
-            <Home className="w-3.5 h-3.5" />
-            Unidad: <strong className="font-semibold text-foreground ml-0.5">{u.identificador || aptoInfo.numeroApartamento || aptoInfo.identificador || 'Apto'}</strong>
-          </Badge>
-          <Badge variant="secondary" className="gap-1.5 py-1 px-3">
-            <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
-            {aptoInfo.torre ? `Torre ${aptoInfo.torre}` : u.tipo || 'Residencial'}
-          </Badge>
-        </div>
-      </div>
+    <PageContainer className="pb-12">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate('/residente-dashboard')}
+        className="-ml-2 min-h-10 gap-2"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        Volver a mi panel
+      </Button>
 
       <PageHeader
-        title="Convivientes y Habitantes de la Unidad"
-        description="Como Residente Principal, podés registrar a los integrantes de tu hogar, administrar su estado y otorgarles acceso independiente al portal de SAED."
+        title="Convivientes y habitantes de la unidad"
+        description="Como residente principal, puedes registrar a los integrantes de tu hogar, administrar su estado y otorgarles acceso independiente al portal de SAED."
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="gap-1.5 px-2.5 py-1">
+              <Home className="h-3.5 w-3.5 text-text-muted" aria-hidden="true" />
+              Unidad <strong className="font-bold tabular-nums">{unitLabel}</strong>
+            </Badge>
+            <Badge variant="secondary" className="gap-1.5 px-2.5 py-1">
+              <Building2 className="h-3.5 w-3.5 text-text-muted" aria-hidden="true" />
+              {towerLabel}
+            </Badge>
+          </div>
+        }
       />
 
-      {/* Banner Informativo de Reglas de Convivencia */}
-      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 via-background to-background">
-        <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="p-3 rounded-xl bg-primary/10 text-primary shrink-0">
-            <Shield className="w-6 h-6" />
-          </div>
-          <div className="space-y-1 flex-1">
-            <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              Autonomía y Seguridad para tu Hogar
-              <Badge variant="outline" className="text-[10px] uppercase font-bold text-emerald-600 border-emerald-500/30 bg-emerald-500/10">
-                Rol Conviviente
-              </Badge>
-            </h4>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Cada habitante que registres recibe automáticamente su propia cuenta de usuario (<code className="text-xs font-mono font-bold text-primary">RESIDENTE_CONVIVENCIA</code>). 
-              Podrá gestionar sus propias visitas, generar códigos QR de acceso, recibir correspondencia y consultar comunicados sin depender de tus credenciales personales.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-start gap-3 rounded-lg border border-border bg-surface p-4 shadow-sm">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-tint-primary-bg text-tint-primary-fg">
+          <Shield className="h-[18px] w-[18px]" aria-hidden="true" />
+        </div>
+        <div className="min-w-0 flex-1 space-y-1">
+          <h2 className="text-sm font-bold text-on-surface">Cada conviviente tiene su propia cuenta</h2>
+          <p className="max-w-[72ch] text-[13px] leading-relaxed text-text-secondary">
+            Cada habitante que registres recibe su propia cuenta de usuario con el rol{' '}
+            <span className="font-semibold text-on-surface">Residente conviviente</span>. Podrá gestionar sus visitas,
+            generar códigos QR de acceso, recibir correspondencia y consultar comunicados sin depender de tus
+            credenciales.
+          </p>
+        </div>
+      </div>
 
       {/* Seccion Operativa de Convivientes con Quota y Formulario */}
       <ConvivientesSection
@@ -154,6 +150,6 @@ export default function ResConvivientesPage() {
         residentsLoading={residentsLoading}
         onRefresh={handleRefreshHabitantes}
       />
-    </div>
+    </PageContainer>
   );
 }

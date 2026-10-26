@@ -9,7 +9,8 @@ web
 ## Users
 
 - **Primary buyer:** the property administrator of a residential complex under Colombian "propiedad horizontal" (ADMIN_PROPIEDAD), and administration companies that run several complexes (ADMIN_ORGANIZACION). They evaluate SAED on desktop, during office hours, comparing it with spreadsheets, WhatsApp groups and paper logbooks.
-- **Daily users inside a complex:** doormen at the gatehouse (PORTERO), residents and owners on their phones (RESIDENTE, RESIDENTE_CONVIVENCIA, PROPIETARIO).
+- **Daily users inside a complex:** doormen at the gatehouse (PORTERO) and, on their phones, residents (RESIDENTE: dues and payments, visits, bookings, PQRS), cohabiting residents without financial access (RESIDENTE_CONVIVENCIA) and non-resident owners (PROPIETARIO: dues, assemblies, documents).
+- **Roles in the product (excluding the platform-only SUPERADMIN):** ADMIN_ORGANIZACION, ADMIN_PROPIEDAD, PORTERO, RESIDENTE, RESIDENTE_CONVIVENCIA, PROPIETARIO. Source of truth: `src/lib/access.js` (role definitions and route access) and `src/components/layout/AppShell.jsx` (per-role navigation).
 
 ## Product Purpose
 

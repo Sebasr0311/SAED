@@ -6,6 +6,11 @@ import { Pagination } from '../components/ui/Pagination.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
+import { LoadingState } from '../components/ui/LoadingState.jsx';
+import { Badge } from '../components/ui/badge.tsx';
+import { CheckCircle2, Download, Eye, Hourglass, Plus, ShieldCheck, Users, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api, { BASE_URL } from '../lib/api.js';
@@ -38,18 +43,33 @@ const emptyForm = {
 };
 
 const ESTADO_BADGE = {
-  BORRADOR: 'badge-neutral',
-  PENDIENTE_FIRMA: 'badge-pendiente-firma',
-  ACTIVO: 'badge-activo',
-  VENCIDO: 'badge-danger',
-  TERMINADO_ANTICIPADO: 'badge-warn',
-  CANCELADO: 'badge-cancelado',
+  BORRADOR: 'secondary',
+  PENDIENTE_FIRMA: 'warning',
+  ACTIVO: 'success',
+  VENCIDO: 'destructive',
+  TERMINADO_ANTICIPADO: 'warning',
+  CANCELADO: 'secondary',
+};
+const ESTADO_LABEL = {
+  BORRADOR: 'Borrador',
+  PENDIENTE_FIRMA: 'Pendiente de firma',
+  ACTIVO: 'Activo',
+  VENCIDO: 'Vencido',
+  TERMINADO_ANTICIPADO: 'Terminado anticipadamente',
+  CANCELADO: 'Cancelado',
 };
 const TIPO_BADGE = {
-  INICIAL: 'badge-info',
-  RENOVACION: 'badge-success',
-  PERMANENCIA: 'badge-navy',
+  INICIAL: 'info',
+  RENOVACION: 'success',
+  PERMANENCIA: 'lavender',
 };
+const TIPO_LABEL = {
+  INICIAL: 'Inicial',
+  RENOVACION: 'Renovación',
+  PERMANENCIA: 'Permanencia',
+};
+const ICON_BTN =
+  'inline-flex h-9 w-9 items-center justify-center rounded-md text-text-secondary transition-colors duration-150 hover:bg-surface-dim hover:text-on-surface disabled:opacity-50';
 
 function calcularFechaFin(fechaInicio, tipo) {
   const meses = MESES_POR_TIPO[tipo];
@@ -75,7 +95,7 @@ export default function ContratosPage() {
   const [detalleContrato, setDetalleContrato] = useState(null);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
 
-  const { data: contratosRaw, loading, refetch } = useFetch(() => api.get('/contratos'), []);
+  const { data: contratosRaw, loading, error: errorContratos, refetch } = useFetch(() => api.get('/contratos'), []);
   const { data: apartamentos } = useFetch(() => api.get('/units'), []);
   const { data: residentes } = useFetch(() => api.get('/personas'), []);
   const { data: plantillasRaw } = useFetch(() => api.get('/contratos/plantillas/activas'), []);
@@ -254,37 +274,36 @@ export default function ContratosPage() {
     { key: 'idContrato', label: 'ID', width: 60 },
     { key: 'numeroApartamento', label: 'Apartamento' },
     { key: 'nombreResidente', label: 'Arrendatario' },
-    { key: 'fechaInicio', label: 'Inicio', render: (r) => formatDate(r.fechaInicio) },
-    { key: 'fechaFin', label: 'Fin', render: (r) => (r.fechaFin ? formatDate(r.fechaFin) : 'Indefinido') },
+    { key: 'fechaInicio', label: 'Inicio', cellClassName: 'tabular-nums whitespace-nowrap', render: (r) => formatDate(r.fechaInicio) },
+    { key: 'fechaFin', label: 'Fin', cellClassName: 'tabular-nums whitespace-nowrap', render: (r) => (r.fechaFin ? formatDate(r.fechaFin) : 'Indefinido') },
     {
       key: 'tipoContrato',
       label: 'Tipo',
-      render: (r) => <span className={`badge ${TIPO_BADGE[r.tipoContrato] || 'badge-neutral'}`}>{r.tipoContrato}</span>,
+      render: (r) => <Badge variant={TIPO_BADGE[r.tipoContrato] || 'secondary'}>{TIPO_LABEL[r.tipoContrato] || r.tipoContrato}</Badge>,
     },
-    { key: 'valorMensual', label: 'Valor Mensual', render: (r) => formatCurrency(r.valorMensual) },
+    { key: 'valorMensual', label: 'Valor mensual', cellClassName: 'tabular-nums whitespace-nowrap text-right', render: (r) => formatCurrency(r.valorMensual) },
     {
       key: 'estado',
       label: 'Estado',
-      render: (r) => <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>{r.estado}</span>,
+      render: (r) => <Badge variant={ESTADO_BADGE[r.estado] || 'secondary'}>{ESTADO_LABEL[r.estado] || r.estado}</Badge>,
     },
     {
       key: 'actions',
       label: 'Acciones',
       width: 220,
       render: (row) => (
-        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+        <div className="flex flex-wrap gap-1">
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               verDetalle(row.idContrato);
             }}
-            className="p-1 rounded-md text-muted-foreground hover:bg-muted transition-colors"
-            title="Ver Participantes y Detalle"
+            className={ICON_BTN}
+            title="Ver participantes y detalle"
             aria-label="Ver detalle del contrato"
           >
-            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
-              visibility
-            </span>
+            <Eye className="h-4 w-4" aria-hidden="true" />
           </button>
           {(row.estado === 'ACTIVO' || row.estado === 'PENDIENTE_FIRMA') && (
             <button
@@ -292,14 +311,17 @@ export default function ContratosPage() {
                 e.stopPropagation();
                 descargarPDF(row.idContrato);
               }}
-              className="p-1 rounded-md text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              type="button"
+              className={ICON_BTN}
               title="Descargar PDF"
               aria-label="Descargar PDF"
               disabled={descargando === row.idContrato}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
-                {descargando === row.idContrato ? 'hourglass_empty' : 'download'}
-              </span>
+              {descargando === row.idContrato ? (
+                <Hourglass className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Download className="h-4 w-4" aria-hidden="true" />
+              )}
             </button>
           )}
           {row.estado === 'PENDIENTE_FIRMA' && (
@@ -308,13 +330,12 @@ export default function ContratosPage() {
                 e.stopPropagation();
                 activar(row.idContrato);
               }}
-              className="p-1 rounded-md text-muted-foreground hover:bg-muted transition-colors"
+              type="button"
+              className={`${ICON_BTN} text-tint-green-fg hover:bg-tint-green-bg hover:text-tint-green-fg`}
               title="Activar"
               aria-label="Activar contrato"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--success-strong)' }}>
-                check_circle
-              </span>
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
           {row.estado === 'ACTIVO' && (
@@ -323,13 +344,12 @@ export default function ContratosPage() {
                 e.stopPropagation();
                 setConfirmCancelar(row);
               }}
-              className="p-1 rounded-md text-muted-foreground hover:bg-muted transition-colors"
+              type="button"
+              className={`${ICON_BTN} text-destructive hover:bg-tint-red-bg hover:text-destructive`}
               title="Cancelar"
               aria-label="Cancelar contrato"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--error)' }}>
-                cancel
-              </span>
+              <XCircle className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
         </div>
@@ -338,19 +358,11 @@ export default function ContratosPage() {
   ];
 
   return (
-    <div>
-      <PageHeader title="Contratos" subtitle="Contratos de arrendamiento" />
-      <div className="table-toolbar" style={{ marginBottom: '12px' }}>
-        <div className="filters">
-          <Select id="filtroEstado" aria-label="Filtrar por estado" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="filter-select">
-            {ESTADOS.map((e) => (
-              <option key={e || 'all'} value={e}>
-                {e || 'Todos los estados'}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="actions">
+    <PageContainer>
+      <PageHeader
+        title="Contratos"
+        subtitle="Contratos de arrendamiento de las unidades de la copropiedad."
+        action={
           <Button
             onClick={() => {
               setForm(emptyForm);
@@ -358,11 +370,46 @@ export default function ContratosPage() {
               setModalOpen(true);
             }}
           >
-            + Nuevo Contrato
+            <Plus className="h-4 w-4 mr-1.5" aria-hidden="true" />
+            Nuevo Contrato
           </Button>
+        }
+      />
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="w-full sm:w-64">
+          <Select id="filtroEstado" aria-label="Filtrar por estado" value={filtroEstado} onChange={(e) => { setFiltroEstado(e.target.value); setPage(0); }}>
+            {ESTADOS.map((e) => (
+              <option key={e || 'all'} value={e}>
+                {e ? ESTADO_LABEL[e] || e : 'Todos los estados'}
+              </option>
+            ))}
+          </Select>
         </div>
+        {!loading && !errorContratos && (
+          <p className="text-xs text-text-secondary">
+            <span className="tabular-nums font-semibold text-on-surface">{contratos.length}</span> contrato(s)
+          </p>
+        )}
       </div>
-      <DataTable columns={columns} rows={rows} loading={loading} empty={{ icon: 'description', title: 'No hay contratos', subtitle: 'Crea el primer contrato desde el botón "Nuevo Contrato".' }} keyField="idContrato" />
+      {errorContratos && !contratosRaw ? (
+        <ErrorState
+          title="No se pudieron cargar los contratos"
+          message={errorContratos?.message || 'Verifique su conexión e intente nuevamente.'}
+          onRetry={() => refetch().catch(() => {})}
+        />
+      ) : (
+        <DataTable
+          columns={columns}
+          rows={rows}
+          loading={loading && !contratosRaw}
+          empty={
+            filtroEstado
+              ? { icon: 'filter_alt_off', title: 'Sin contratos en este estado', subtitle: 'Cambie el filtro para ver otros contratos.' }
+              : { icon: 'description', title: 'No hay contratos', subtitle: 'Cree el primer contrato desde el botón "Nuevo Contrato".' }
+          }
+          keyField="idContrato"
+        />
+      )}
       <Pagination
         page={safePage}
         totalPages={totalPages}
@@ -387,7 +434,7 @@ export default function ContratosPage() {
           </>
         }
       >
-        <div className="form-group" style={{ marginBottom: '12px' }}>
+        <div className="form-group mb-3">
           <Select
             id="idPlantilla"
             label="Plantilla de Contrato (Configurada por Organización)"
@@ -525,84 +572,84 @@ export default function ContratosPage() {
         }
       >
         {cargandoDetalle ? (
-          <div style={{ padding: '24px', textAlign: 'center' }}>Cargando participantes...</div>
+          <LoadingState message="Cargando participantes..." />
         ) : detalleContrato ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Resumen Contrato */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', background: 'var(--muted, #f8fafc)', padding: '12px', borderRadius: '8px' }}>
+          <div className="flex flex-col gap-4">
+            {/* Contract summary */}
+            <dl className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-surface-dim p-3 sm:grid-cols-2">
               <div>
-                <span style={{ fontSize: '11px', color: 'var(--muted-foreground)' }}>Apartamento</span>
-                <div style={{ fontWeight: '600' }}>Apto {detalleContrato.numeroApartamento || detalleContrato.idUnidad}</div>
+                <dt className="text-xs text-text-secondary">Apartamento</dt>
+                <dd className="font-semibold text-on-surface">Apto {detalleContrato.numeroApartamento || detalleContrato.idUnidad}</dd>
               </div>
               <div>
-                <span style={{ fontSize: '11px', color: 'var(--muted-foreground)' }}>Arrendatario Principal</span>
-                <div style={{ fontWeight: '600' }}>{detalleContrato.nombreCompletoResidente || detalleContrato.nombresResidente}</div>
-                <div style={{ fontSize: '12px', color: 'var(--muted-foreground)' }}>Doc: {detalleContrato.numeroDocumentoResidente || '-'}</div>
+                <dt className="text-xs text-text-secondary">Arrendatario principal</dt>
+                <dd className="font-semibold text-on-surface">{detalleContrato.nombreCompletoResidente || detalleContrato.nombresResidente}</dd>
+                <dd className="text-xs text-text-secondary tabular-nums">Doc: {detalleContrato.numeroDocumentoResidente || '-'}</dd>
               </div>
               <div>
-                <span style={{ fontSize: '11px', color: 'var(--muted-foreground)' }}>Canon Mensual</span>
-                <div style={{ fontWeight: '600', color: 'var(--primary)' }}>{formatCurrency(detalleContrato.valorCanon)}</div>
+                <dt className="text-xs text-text-secondary">Canon mensual</dt>
+                <dd className="app-numeral text-lg text-primary-text">{formatCurrency(detalleContrato.valorCanon)}</dd>
               </div>
               <div>
-                <span style={{ fontSize: '11px', color: 'var(--muted-foreground)' }}>Vigencia</span>
-                <div style={{ fontWeight: '500' }}>{formatDate(detalleContrato.fechaInicio)} - {detalleContrato.fechaFin ? formatDate(detalleContrato.fechaFin) : 'Indefinido'}</div>
+                <dt className="text-xs text-text-secondary">Vigencia</dt>
+                <dd className="font-medium text-on-surface tabular-nums">{formatDate(detalleContrato.fechaInicio)} - {detalleContrato.fechaFin ? formatDate(detalleContrato.fechaFin) : 'Indefinido'}</dd>
               </div>
-            </div>
+            </dl>
 
-            {/* Tutor Legal */}
+            {/* Legal guardian */}
             {(detalleContrato.idTutor || detalleContrato.nombreTutor) && (
-              <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--primary)' }}>shield_person</span>
-                  <strong style={{ fontSize: '14px' }}>Tutor Legal / Representante</strong>
+              <section className="rounded-lg border border-border p-3">
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-on-surface">
+                  <ShieldCheck className="h-4 w-4 text-primary-text" aria-hidden="true" />
+                  Tutor legal / representante
+                </h3>
+                <div className="grid grid-cols-1 gap-2 text-[13px] sm:grid-cols-2">
+                  <div><span className="text-text-secondary">Nombre:</span> {detalleContrato.nombreTutor || 'No registrado'}</div>
+                  <div><span className="text-text-secondary">Cédula/Doc:</span> <span className="tabular-nums">{detalleContrato.cedulaTutor || '-'}</span></div>
+                  <div><span className="text-text-secondary">Parentesco:</span> {detalleContrato.parentescoTutor || detalleContrato.relacionTutor || 'Tutor Legal'}</div>
+                  <div><span className="text-text-secondary">Teléfono:</span> <span className="tabular-nums">{detalleContrato.telefonoTutor || '-'}</span></div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px', fontSize: '13px' }}>
-                  <div><span style={{ color: 'var(--muted-foreground)' }}>Nombre:</span> {detalleContrato.nombreTutor || 'No registrado'}</div>
-                  <div><span style={{ color: 'var(--muted-foreground)' }}>Cédula/Doc:</span> {detalleContrato.cedulaTutor || '-'}</div>
-                  <div><span style={{ color: 'var(--muted-foreground)' }}>Parentesco:</span> {detalleContrato.parentescoTutor || detalleContrato.relacionTutor || 'Tutor Legal'}</div>
-                  <div><span style={{ color: 'var(--muted-foreground)' }}>Teléfono:</span> {detalleContrato.telefonoTutor || '-'}</div>
-                </div>
-              </div>
+              </section>
             )}
 
-            {/* Coarrendatarios */}
-            <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--primary)' }}>group</span>
-                  <strong style={{ fontSize: '14px' }}>Coarrendatarios y Ocupantes Autorizados ({detalleContrato.coarrendatarios?.length || 0})</strong>
-                </div>
-              </div>
+            {/* Co-tenants */}
+            <section className="rounded-lg border border-border p-3">
+              <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-on-surface">
+                <Users className="h-4 w-4 text-primary-text" aria-hidden="true" />
+                Coarrendatarios y ocupantes autorizados (<span className="tabular-nums">{detalleContrato.coarrendatarios?.length || 0}</span>)
+              </h3>
 
               {(!detalleContrato.coarrendatarios || detalleContrato.coarrendatarios.length === 0) ? (
-                <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', padding: '8px 0' }}>
+                <p className="py-2 text-[13px] text-text-secondary">
                   No hay coarrendatarios vinculados a este contrato.
-                </div>
+                </p>
               ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left', color: 'var(--muted-foreground)', fontSize: '11px' }}>
-                      <th style={{ padding: '6px' }}>Nombre</th>
-                      <th style={{ padding: '6px' }}>Documento</th>
-                      <th style={{ padding: '6px' }}>Vínculo</th>
-                      <th style={{ padding: '6px' }}>Responsable Pago</th>
-                      <th style={{ padding: '6px' }}>Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detalleContrato.coarrendatarios.map((c) => (
-                      <tr key={c.idContratoResidente || c.idPersona} style={{ borderBottom: '1px solid var(--border, #eee)' }}>
-                        <td style={{ padding: '6px' }}>{c.nombrePersona || `Persona #${c.idPersona}`}</td>
-                        <td style={{ padding: '6px' }}>{c.numeroDocumento || '-'}</td>
-                        <td style={{ padding: '6px' }}><span className="badge badge-neutral">{c.tipoVinculo}</span></td>
-                        <td style={{ padding: '6px' }}>{c.esResponsablePago === 'S' ? 'Sí' : 'No'}</td>
-                        <td style={{ padding: '6px' }}><span className={`badge ${c.estado === 'ACTIVO' ? 'badge-activo' : 'badge-neutral'}`}>{c.estado}</span></td>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[520px] border-collapse text-[13px]">
+                    <thead>
+                      <tr className="border-b border-border text-left text-xs text-text-secondary">
+                        <th className="p-1.5 font-semibold">Nombre</th>
+                        <th className="p-1.5 font-semibold">Documento</th>
+                        <th className="p-1.5 font-semibold">Vínculo</th>
+                        <th className="p-1.5 font-semibold">Responsable de pago</th>
+                        <th className="p-1.5 font-semibold">Estado</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {detalleContrato.coarrendatarios.map((c) => (
+                        <tr key={c.idContratoResidente || c.idPersona} className="border-b border-border/60 last:border-0">
+                          <td className="p-1.5">{c.nombrePersona || `Persona #${c.idPersona}`}</td>
+                          <td className="p-1.5 tabular-nums">{c.numeroDocumento || '-'}</td>
+                          <td className="p-1.5"><Badge variant="secondary">{c.tipoVinculo}</Badge></td>
+                          <td className="p-1.5">{c.esResponsablePago === 'S' ? 'Sí' : 'No'}</td>
+                          <td className="p-1.5"><Badge variant={c.estado === 'ACTIVO' ? 'success' : 'secondary'}>{c.estado}</Badge></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
-            </div>
+            </section>
           </div>
         ) : null}
       </Modal>
@@ -616,6 +663,6 @@ export default function ContratosPage() {
         confirmLabel="Cancelar contrato"
         danger
       />
-    </div>
+    </PageContainer>
   );
 }

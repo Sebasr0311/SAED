@@ -6,6 +6,9 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import { toast } from 'sonner';
+import { Ban, Copy, Eye, LogOut, Mail, Plus, Send, X } from 'lucide-react';
+import { Badge } from '../components/ui/badge.tsx';
+import LoadingState from '../components/ui/LoadingState.jsx';
 import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { formatDate, formatApto, imageSrc } from '../lib/utils.js';
@@ -26,12 +29,21 @@ import {
 
 const ESTADOS = ['', 'PROGRAMADA', 'EN_CURSO', 'ACTIVA', 'FINALIZADA', 'CANCELADA'];
 const ESTADO_BADGE = {
-  PROGRAMADA: 'badge-pendiente-firma',
-  PENDIENTE: 'badge-pendiente-firma',
-  EN_CURSO: 'badge-activo',
-  ACTIVA: 'badge-activo',
-  FINALIZADA: 'badge-finalizada',
-  CANCELADA: 'badge-cancelado',
+  PROGRAMADA: 'info',
+  PENDIENTE: 'warning',
+  EN_CURSO: 'success',
+  ACTIVA: 'success',
+  FINALIZADA: 'secondary',
+  CANCELADA: 'destructive',
+};
+
+const ESTADO_LABEL = {
+  PROGRAMADA: 'Programada',
+  PENDIENTE: 'Pendiente',
+  EN_CURSO: 'En curso',
+  ACTIVA: 'Activa',
+  FINALIZADA: 'Finalizada',
+  CANCELADA: 'Cancelada',
 };
 
 const TIPOS_VEHICULO = ['VEHICULO', 'MOTO', 'BICICLETA', 'OTRO'];
@@ -77,7 +89,7 @@ export default function VisitasPage() {
   const [confirmCancelar, setConfirmCancelar] = useState(null);
   const savingRef = useRef(false);
 
-  const { data: dataRaw, loading, refetch } = useFetch(() => api.get('/porteria/visitas-resumen'), []);
+  const { data: dataRaw, loading, error: loadError, refetch } = useFetch(() => api.get('/porteria/visitas-resumen'), []);
   // Residentes y unidades para el selector del formulario: se cargan al abrir el modal
   const [residentesCargados, setResidentesCargados] = useState(false);
   const { data: residentesRaw } = useFetch(
@@ -295,37 +307,38 @@ export default function VisitasPage() {
   }
 
   const columns = [
-    { key: 'idVisita', label: 'ID', width: 60 },
+    { key: 'idVisita', label: 'ID', width: 60, render: (r) => <span className="tabular-nums">{r.idVisita}</span> },
     { key: 'nombreVisitante', label: 'Visitante' },
-    { key: 'documentoVisitante', label: 'Documento' },
+    { key: 'documentoVisitante', label: 'Documento', render: (r) => <span className="tabular-nums">{r.documentoVisitante}</span> },
     { key: 'numeroApartamento', label: 'Apartamento', render: (r) => formatApto(r.numeroApartamento) },
     {
       key: 'fechaIngreso',
       label: 'Ingreso',
-      render: (r) => formatDate(r.fechaIngreso || r.fechaVisita),
+      render: (r) => <span className="tabular-nums">{formatDate(r.fechaIngreso || r.fechaVisita)}</span>,
     },
-    { key: 'fechaSalida', label: 'Salida', render: (r) => formatDate(r.fechaSalida) },
+    { key: 'fechaSalida', label: 'Salida', render: (r) => <span className="tabular-nums">{formatDate(r.fechaSalida)}</span> },
     {
       key: 'estado',
       label: 'Estado',
-      render: (r) => <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>{r.estado}</span>,
+      render: (r) => <Badge variant={ESTADO_BADGE[r.estado] || 'secondary'}>{ESTADO_LABEL[r.estado] || r.estado}</Badge>,
     },
     {
       key: 'actions',
       label: 'Acciones',
       width: 160,
       render: (row) => (
-        <div style={{ display: 'flex', gap: '4px' }}>
+        <div className="flex items-center gap-1">
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               verDetalle(row);
             }}
-            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-surface-container hover:text-on-surface"
             aria-label="Ver detalle"
             title="Ver detalle"
           >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>visibility</span>
+            <Eye className="h-4 w-4" aria-hidden="true" />
           </button>
           {(row.estado === 'EN_CURSO' || row.estado === 'ACTIVA' || row.estado === 'PENDIENTE') && (
             <Button
@@ -333,7 +346,9 @@ export default function VisitasPage() {
                 e.stopPropagation();
                 registrarSalida(row);
               }}
-              style={{ padding: '4px 10px', fontSize: '11px' }}
+              size="sm"
+              variant="outline"
+              icon={<LogOut className="h-3.5 w-3.5" />}
             >
               Salida
             </Button>
@@ -344,11 +359,11 @@ export default function VisitasPage() {
                 e.stopPropagation();
                 setConfirmCancelar(row);
               }}
-              className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
-              aria-label="Cancelar"
-              title="Cancelar"
+              className="flex h-10 w-10 items-center justify-center rounded-md text-destructive transition-colors hover:bg-tint-red-bg"
+              aria-label="Cancelar visita"
+              title="Cancelar visita"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--error)' }}>cancel</span>
+              <Ban className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
         </div>
@@ -360,22 +375,19 @@ export default function VisitasPage() {
     <div>
       <PageHeader
         title="Visitas"
-        subtitle="Registro de visitas al edificio"
+        subtitle="Registro de visitas al edificio: programadas, en curso y finalizadas."
         action={
-          <div className="filters">
-            <Button icon="add" onClick={() => { setResidentesCargados(true); setModalRegistro(true); }}>
-              Nueva visita
-            </Button>
+          <div className="flex w-full flex-wrap items-end gap-2 sm:w-auto">
             <Select
               id="f-estado"
               aria-label="Filtrar por estado"
               value={filtroEstado}
               onChange={(e) => setFiltroEstado(e.target.value)}
-              className="filter-select"
+              className="h-10 min-w-[10rem]"
             >
               {ESTADOS.map((e) => (
                 <option key={e || 'all'} value={e}>
-                  {e || 'Todos'}
+                  {e ? ESTADO_LABEL[e] || e : 'Todos los estados'}
                 </option>
               ))}
             </Select>
@@ -385,9 +397,11 @@ export default function VisitasPage() {
               aria-label="Filtrar por fecha"
               value={filtroFecha}
               onChange={(e) => setFiltroFecha(e.target.value)}
-              className="form-control"
-              style={{ width: '100%', maxWidth: '160px' }}
+              className="h-10 rounded-md border border-input bg-surface px-3 text-sm text-on-surface tabular-nums focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
             />
+            <Button icon={<Plus className="h-4 w-4" />} onClick={() => { setResidentesCargados(true); setModalRegistro(true); }}>
+              Nueva visita
+            </Button>
           </div>
         }
       />
@@ -395,42 +409,35 @@ export default function VisitasPage() {
         columns={columns}
         rows={filtradas}
         loading={loading}
-        empty={{ icon: 'how_to_reg', title: 'No hay visitas', subtitle: 'Las visitas registradas aparecerán aquí.' }}
+        error={loadError ? `No se pudieron cargar las visitas: ${loadError.message || 'error de conexión'}` : null}
+        onRetry={refetch}
+        empty={{
+          icon: 'how_to_reg',
+          title: 'No hay visitas',
+          subtitle: filtroEstado || filtroFecha ? 'Ninguna visita coincide con los filtros.' : 'Las visitas registradas aparecerán aquí.',
+        }}
         keyField="idVisita"
         onRowClick={verDetalle}
         pageSize={10}
       />
 
-      <Modal open={modalRegistro} onClose={cerrarRegistro} title="Registrar Nueva Visita" size="lg">
+      <Modal open={modalRegistro} onClose={cerrarRegistro} title="Registrar nueva visita" size="lg">
         {qrGenerado ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '16px 0' }}>
-            <p style={{ fontWeight: 600 }}>QR generado</p>
-            <div
-              style={{
-                fontSize: '20px',
-                fontWeight: 800,
-                fontFamily: 'monospace',
-                wordBreak: 'break-all',
-                textAlign: 'center',
-                background: 'var(--primary)',
-                color: 'white',
-                padding: '16px',
-                borderRadius: '12px',
-                maxWidth: '100%',
-              }}
-            >
+          <div className="flex flex-col items-center gap-3 py-4" role="status">
+            <p className="text-sm font-semibold text-on-surface">Código QR generado</p>
+            <div className="max-w-full break-all rounded-lg border border-border bg-tint-primary-bg px-4 py-4 text-center text-xl font-extrabold text-tint-primary-fg tabular-nums">
               {qrGenerado.codigoQr}
             </div>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
-              <Button size="sm" onClick={copiarQR}>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button size="sm" onClick={copiarQR} icon={<Copy className="h-3.5 w-3.5" />}>
                 Copiar QR
               </Button>
               {qrGenerado.emailVisitante && (
-                <Button size="sm" variant="outline" onClick={compartirCorreo}>
+                <Button size="sm" variant="outline" onClick={compartirCorreo} icon={<Mail className="h-3.5 w-3.5" />}>
                   Correo
                 </Button>
               )}
-              <Button size="sm" variant="outline" onClick={compartirTelegram}>
+              <Button size="sm" variant="outline" onClick={compartirTelegram} icon={<Send className="h-3.5 w-3.5" />}>
                 Telegram
               </Button>
             </div>
@@ -439,7 +446,7 @@ export default function VisitasPage() {
             </Button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="flex flex-col gap-3">
             <div className="form-row">
               <Select
                 id="vis-unidad"
@@ -629,7 +636,7 @@ export default function VisitasPage() {
                 onChange={(e) => update('notas', e.target.value)}
               />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+            <div className="mt-2 flex flex-wrap justify-end gap-2">
               <Button variant="outline" onClick={cerrarRegistro} disabled={sending}>
                 Cancelar
               </Button>
@@ -641,10 +648,10 @@ export default function VisitasPage() {
         )}
       </Modal>
 
-      <Modal open={!!detalle} onClose={() => setDetalle(null)} title="Detalle de Visita" size="md">
-        {loadingDetalle && <p>Cargando...</p>}
+      <Modal open={!!detalle} onClose={() => setDetalle(null)} title="Detalle de la visita" size="md">
+        {loadingDetalle && <LoadingState size="sm" message="Cargando detalle..." />}
         {detalle && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="flex flex-col gap-2">
             <div className="detail-row">
               <span>Visitante</span>
               <span>
@@ -686,9 +693,9 @@ export default function VisitasPage() {
               </div>
             )}
             {detalle.esFrecuente && (
-              <span className="badge badge-info" style={{ alignSelf: 'flex-start' }}>
-                Visitante Frecuente
-              </span>
+              <Badge variant="info" className="self-start">
+                Visitante frecuente
+              </Badge>
             )}
             {detalle.fotoCaptura && (
               <img
@@ -697,7 +704,7 @@ export default function VisitasPage() {
                   loading="lazy"
                   width="400"
                   height="300"
-                style={{ maxWidth: '100%', borderRadius: '8px', marginTop: '8px', cursor: 'zoom-in' }}
+                className="mt-2 h-auto max-w-full cursor-zoom-in rounded-md border border-border"
                 onClick={() => setFotoGrande(imageSrc(detalle.fotoCaptura))}
               />
             )}
@@ -712,23 +719,22 @@ export default function VisitasPage() {
           tabIndex={0}
           onClick={() => setFotoGrande(null)}
           onKeyDown={(e) => e.key === 'Escape' && setFotoGrande(null)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.85)',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'zoom-out',
-          }}
+          className="app-overlay fixed inset-0 z-[1000] flex cursor-zoom-out items-center justify-center bg-black/85 p-4"
         >
+          <button
+            type="button"
+            onClick={() => setFotoGrande(null)}
+            aria-label="Cerrar foto"
+            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-md border border-white/40 bg-black/40 text-white"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
           <img
             src={fotoGrande}
-            alt="Foto"
+            alt="Foto de la visita"
             width="800"
             height="600"
-            style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: '8px' }}
+            className="h-auto max-h-[90%] max-w-[90%] rounded-md"
           />
         </div>
       )}

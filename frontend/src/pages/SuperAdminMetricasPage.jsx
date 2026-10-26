@@ -34,6 +34,69 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select.tsx';
+import {
+  AlertTriangle,
+  BadgeCheck,
+  Building,
+  Building2,
+  CalendarDays,
+  CreditCard,
+  DoorOpen,
+  HardHat,
+  Info,
+  Landmark,
+  LayoutGrid,
+  Megaphone,
+  MessageSquare,
+  Package,
+  Puzzle,
+  RefreshCw,
+  Shield,
+  ShieldCheck,
+  User,
+  UserCheck,
+  Users,
+  Wrench,
+  Zap,
+} from 'lucide-react';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+import { cn } from '../lib/utils.js';
+
+// Lucide equivalents of the symbol names this page used before (one icon system).
+const SYM = {
+  apartment: Building2,
+  badge: UserCheck,
+  bolt: Zap,
+  card_membership: BadgeCheck,
+  credit_card: CreditCard,
+  domain: Building,
+  door_front: DoorOpen,
+  extension: Puzzle,
+  group: Users,
+  info: Info,
+  location_city: Landmark,
+  meeting_room: LayoutGrid,
+  person: User,
+  shield: Shield,
+  sync: RefreshCw,
+  verified_user: ShieldCheck,
+  warning: AlertTriangle,
+  inventory_2: Package,
+  contact_support: MessageSquare,
+  build: Wrench,
+  event: CalendarDays,
+  campaign: Megaphone,
+  engineering: HardHat,
+};
+
+function Sym({ name, className }) {
+  const Icon = SYM[name] || Info;
+  return <Icon className={cn('h-4 w-4 shrink-0', className)} aria-hidden="true" />;
+}
+
+const AXIS_TICK = { fontSize: 11, fill: 'var(--text-secondary)' };
 
 const PERIODOS = [
   { value: 'hoy', label: 'Hoy' },
@@ -122,8 +185,8 @@ export default function SuperAdminMetricasPage() {
   const trabStats = resumen.trabajadores || { total: 0, activos: 0, inactivos: 0 };
 
   const retencion = analytics?.tasaRetencionOrganizacionesPct != null
-    ? analytics.tasaRetencionOrganizacionesPct
-    : 100.0;
+    ? Number(analytics.tasaRetencionOrganizacionesPct)
+    : null;
 
   const propTipos = Array.isArray(analytics?.distribucionPropiedadesPorTipo)
     ? analytics.distribucionPropiedadesPorTipo
@@ -192,34 +255,23 @@ export default function SuperAdminMetricasPage() {
   }, [roles]);
 
   return (
-    <div className="p-6 space-y-8 animate-fadeIn">
-      {/* 1. Header con Filtros de Periodo y Organización */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              Métricas Globales SAED
-            </h1>
-            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-semibold px-2.5 py-0.5">
-              ANALÍTICA ECOSISTEMA
-            </Badge>
-          </div>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Distribución dimensional, tendencias de crecimiento, adopción de catálogo y transaccionalidad.
-          </p>
-        </div>
-
+    <PageContainer>
+      <PageHeader
+        title="Métricas globales SAED"
+        subtitle="Distribución, tendencias de crecimiento, adopción del catálogo y transacciones de la plataforma."
+        action={
+      <>
         {/* Filtros */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           {/* Selector de Organización */}
-          <div className="w-56">
+          <div className="w-full sm:w-56">
             <Select value={selectedOrg} onValueChange={setSelectedOrg}>
-              <SelectTrigger className="h-9 text-xs">
+              <SelectTrigger aria-label="Organización" className="h-10 text-xs sm:h-9">
                 <SelectValue placeholder="Todas las organizaciones" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="GLOBAL" className="text-xs">
-                  🌍 Global (Todas las Orgs)
+                  Todas las organizaciones
                 </SelectItem>
                 {organizaciones.map((org) => {
                   const orgId = String(org.id || org.idOrganizacion || org.ID_ORGANIZACION);
@@ -234,9 +286,9 @@ export default function SuperAdminMetricasPage() {
           </div>
 
           {/* Selector de Periodo */}
-          <div className="w-44">
+          <div className="w-full sm:w-44">
             <Select value={periodo} onValueChange={setPeriodo}>
-              <SelectTrigger className="h-9 text-xs">
+              <SelectTrigger aria-label="Periodo" className="h-10 text-xs sm:h-9">
                 <SelectValue placeholder="Periodo" />
               </SelectTrigger>
               <SelectContent>
@@ -253,33 +305,28 @@ export default function SuperAdminMetricasPage() {
             variant="outline"
             size="sm"
             onClick={loadAnalytics}
-            className="h-9 px-3 text-xs gap-1.5"
+            className="h-10 gap-1.5 px-3 text-xs sm:h-9"
             disabled={loading}
           >
-            <span className="material-symbols-outlined text-sm">sync</span>
+            <Sym name="sync" />
             Refrescar
           </Button>
         </div>
-      </div>
-
-      {error && (
-        <div className="p-4 rounded-lg bg-destructive/10 text-destructive border border-destructive/20 text-sm flex items-center justify-between">
-          <span>{error}</span>
-          <Button variant="ghost" size="sm" onClick={loadAnalytics} className="h-7 text-xs">
-            Reintentar
-          </Button>
-        </div>
-      )}
+      </>
+        }
+      />
 
       {loading ? (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div role="status" aria-busy="true" aria-label="Cargando métricas" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <Skeleton key={i} className="h-24 rounded-xl" />
             ))}
           </div>
           <Skeleton className="h-96 rounded-xl" />
         </div>
+      ) : error ? (
+        <ErrorState title="No se pudieron cargar las métricas" message={error} onRetry={loadAnalytics} />
       ) : (
         <>
           {/* 2. Resumen Dimensional de Tamaño Global (6 Indicadores) */}
@@ -289,11 +336,11 @@ export default function SuperAdminMetricasPage() {
               <CardContent className="pt-4 pb-3">
                 <div className="flex items-center justify-between text-muted-foreground text-xs font-medium mb-1">
                   <span>Organizaciones</span>
-                  <span className="material-symbols-outlined text-primary text-base">domain</span>
+                  <Sym name="domain" className="text-primary" />
                 </div>
-                <div className="text-2xl font-bold text-foreground">{orgStats.total}</div>
-                <div className="text-[11px] text-muted-foreground mt-1">
-                  <span className="text-emerald-600 font-semibold">{orgStats.activas} activas</span> · {orgStats.inactivas} inact.
+                <div className="app-numeral text-2xl text-on-surface">{orgStats.total}</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  <span className="text-tint-green-fg font-semibold">{orgStats.activas} activas</span> · {orgStats.inactivas} inact.
                 </div>
               </CardContent>
             </Card>
@@ -303,11 +350,11 @@ export default function SuperAdminMetricasPage() {
               <CardContent className="pt-4 pb-3">
                 <div className="flex items-center justify-between text-muted-foreground text-xs font-medium mb-1">
                   <span>Propiedades</span>
-                  <span className="material-symbols-outlined text-indigo-500 text-base">apartment</span>
+                  <Sym name="apartment" className="text-primary-text" />
                 </div>
-                <div className="text-2xl font-bold text-foreground">{propStats.total}</div>
-                <div className="text-[11px] text-muted-foreground mt-1">
-                  <span className="text-emerald-600 font-semibold">{propStats.activas} activas</span> · {propStats.inactivas} inact.
+                <div className="app-numeral text-2xl text-on-surface">{propStats.total}</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  <span className="text-tint-green-fg font-semibold">{propStats.activas} activas</span> · {propStats.inactivas} inact.
                 </div>
               </CardContent>
             </Card>
@@ -317,10 +364,10 @@ export default function SuperAdminMetricasPage() {
               <CardContent className="pt-4 pb-3">
                 <div className="flex items-center justify-between text-muted-foreground text-xs font-medium mb-1">
                   <span>Unidades Totales</span>
-                  <span className="material-symbols-outlined text-blue-500 text-base">meeting_room</span>
+                  <Sym name="meeting_room" className="text-tint-blue-fg" />
                 </div>
-                <div className="text-2xl font-bold text-foreground">{unitStats.total}</div>
-                <div className="text-[11px] text-muted-foreground mt-1">
+                <div className="app-numeral text-2xl text-on-surface">{unitStats.total}</div>
+                <div className="text-xs text-muted-foreground mt-1">
                   Inmuebles en catálogo
                 </div>
               </CardContent>
@@ -331,11 +378,11 @@ export default function SuperAdminMetricasPage() {
               <CardContent className="pt-4 pb-3">
                 <div className="flex items-center justify-between text-muted-foreground text-xs font-medium mb-1">
                   <span>Usuarios</span>
-                  <span className="material-symbols-outlined text-amber-500 text-base">group</span>
+                  <Sym name="group" className="text-tint-amber-fg" />
                 </div>
-                <div className="text-2xl font-bold text-foreground">{userStats.total}</div>
-                <div className="text-[11px] text-muted-foreground mt-1">
-                  <span className="text-emerald-600 font-semibold">{userStats.activos} activos</span> · {userStats.inactivos} inact.
+                <div className="app-numeral text-2xl text-on-surface">{userStats.total}</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  <span className="text-tint-green-fg font-semibold">{userStats.activos} activos</span> · {userStats.inactivos} inact.
                 </div>
               </CardContent>
             </Card>
@@ -345,11 +392,11 @@ export default function SuperAdminMetricasPage() {
               <CardContent className="pt-4 pb-3">
                 <div className="flex items-center justify-between text-muted-foreground text-xs font-medium mb-1">
                   <span>Residentes</span>
-                  <span className="material-symbols-outlined text-emerald-500 text-base">person</span>
+                  <Sym name="person" className="text-tint-green-fg" />
                 </div>
-                <div className="text-2xl font-bold text-foreground">{resStats.total}</div>
-                <div className="text-[11px] text-muted-foreground mt-1">
-                  <span className="text-emerald-600 font-semibold">{resStats.activos} activos</span> · {resStats.inactivos} inact.
+                <div className="app-numeral text-2xl text-on-surface">{resStats.total}</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  <span className="text-tint-green-fg font-semibold">{resStats.activos} activos</span> · {resStats.inactivos} inact.
                 </div>
               </CardContent>
             </Card>
@@ -359,11 +406,11 @@ export default function SuperAdminMetricasPage() {
               <CardContent className="pt-4 pb-3">
                 <div className="flex items-center justify-between text-muted-foreground text-xs font-medium mb-1">
                   <span>Trabajadores</span>
-                  <span className="material-symbols-outlined text-purple-500 text-base">badge</span>
+                  <Sym name="badge" className="text-tint-purple-fg" />
                 </div>
-                <div className="text-2xl font-bold text-foreground">{trabStats.total}</div>
-                <div className="text-[11px] text-muted-foreground mt-1">
-                  <span className="text-emerald-600 font-semibold">{trabStats.activos} activos</span> · {trabStats.inactivos} inact.
+                <div className="app-numeral text-2xl text-on-surface">{trabStats.total}</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  <span className="text-tint-green-fg font-semibold">{trabStats.activos} activos</span> · {trabStats.inactivos} inact.
                 </div>
               </CardContent>
             </Card>
@@ -417,16 +464,16 @@ export default function SuperAdminMetricasPage() {
                       <div className="h-64 w-full">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={crecimientoMensual} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted/40" />
-                            <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-                            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                            <CartesianGrid vertical={false} stroke="var(--border)" />
+                            <XAxis dataKey="mes" tick={AXIS_TICK} />
+                            <YAxis allowDecimals={false} tick={AXIS_TICK} />
                             <RechartsTooltip
                               content={({ active, payload, label }) => {
                                 if (active && payload && payload.length) {
                                   return (
-                                    <div className="p-2 rounded-lg border bg-popover text-popover-foreground shadow-md text-xs">
+                                    <div className="rounded-md border border-border bg-surface p-2 text-xs text-on-surface shadow-md">
                                       <div className="font-semibold">{label}</div>
-                                      <div className="text-primary font-bold">
+                                      <div className="font-bold text-primary-text tabular-nums">
                                         {payload[0].value} {payload[0].value === 1 ? 'organización' : 'organizaciones'}
                                       </div>
                                     </div>
@@ -435,7 +482,7 @@ export default function SuperAdminMetricasPage() {
                                 return null;
                               }}
                             />
-                            <Bar dataKey="nuevas" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="nuevas" fill="var(--chart-1)" maxBarSize={32} radius={[2, 2, 0, 0]} />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -452,10 +499,10 @@ export default function SuperAdminMetricasPage() {
                   <CardContent className="space-y-4 pt-2">
                     <div className="p-4 rounded-xl border border-border/60 bg-muted/20 text-center space-y-1">
                       <div className="text-xs font-medium text-muted-foreground">Tasa de Retención de Tenants</div>
-                      <div className="text-3xl font-extrabold text-emerald-600">
-                        {retencion.toFixed(1)}%
+                      <div className="text-3xl font-extrabold text-tint-green-fg">
+                        {retencion != null ? `${retencion.toFixed(1)}%` : 'Sin datos'}
                       </div>
-                      <p className="text-[11px] text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {orgStats.activas} de {orgStats.total} organizaciones operativas
                       </p>
                     </div>
@@ -469,7 +516,7 @@ export default function SuperAdminMetricasPage() {
                           {ciudades.map((c, i) => (
                             <div key={i} className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/30">
                               <span className="font-medium text-foreground">{c.ciudad || c.CIUDAD}</span>
-                              <Badge variant="secondary" className="text-[10px] font-bold">
+                              <Badge variant="secondary" className="text-xs font-bold">
                                 {c.total || c.TOTAL} {c.total === 1 ? 'propiedad' : 'propiedades'}
                               </Badge>
                             </div>
@@ -489,7 +536,7 @@ export default function SuperAdminMetricasPage() {
                 <Card className="border-border/80">
                   <CardHeader>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary text-base">location_city</span>
+                      <Sym name="location_city" className="text-primary" />
                       Distribución por Tipo de Propiedad
                     </CardTitle>
                     <p className="text-xs text-muted-foreground">
@@ -519,7 +566,7 @@ export default function SuperAdminMetricasPage() {
                               </div>
                               <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                                 <div
-                                  className="bg-indigo-600 h-2 rounded-full transition-all"
+                                  className="bg-btn-primary h-2 rounded-full transition-all"
                                   style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
                                 />
                               </div>
@@ -535,7 +582,7 @@ export default function SuperAdminMetricasPage() {
                 <Card className="border-border/80">
                   <CardHeader>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <span className="material-symbols-outlined text-blue-500 text-base">door_front</span>
+                      <Sym name="door_front" className="text-tint-blue-fg" />
                       Distribución por Tipo de Unidad
                     </CardTitle>
                     <p className="text-xs text-muted-foreground">
@@ -565,7 +612,7 @@ export default function SuperAdminMetricasPage() {
                               </div>
                               <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                                 <div
-                                  className="bg-blue-600 h-2 rounded-full transition-all"
+                                  className="bg-btn-primary h-2 rounded-full transition-all"
                                   style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
                                 />
                               </div>
@@ -604,16 +651,16 @@ export default function SuperAdminMetricasPage() {
                       <div className="h-64 w-full">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={rolesChartData} layout="vertical" margin={{ left: 20, right: 20, top: 10, bottom: 10 }}>
-                            <CartesianGrid horizontal={false} strokeDasharray="3 3" className="stroke-muted/40" />
-                            <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                            <YAxis dataKey="rol" type="category" width={120} tick={{ fontSize: 11 }} />
+                            <CartesianGrid horizontal={false} stroke="var(--border)" />
+                            <XAxis type="number" allowDecimals={false} tick={AXIS_TICK} />
+                            <YAxis dataKey="rol" type="category" width={120} tick={AXIS_TICK} />
                             <RechartsTooltip
                               content={({ active, payload }) => {
                                 if (active && payload && payload.length) {
                                   return (
-                                    <div className="p-2 rounded-lg border bg-popover text-popover-foreground shadow-md text-xs">
+                                    <div className="rounded-md border border-border bg-surface p-2 text-xs text-on-surface shadow-md">
                                       <div className="font-semibold">{payload[0].payload.rol}</div>
-                                      <div className="text-primary font-bold">
+                                      <div className="font-bold text-primary-text tabular-nums">
                                         {payload[0].value} usuarios
                                       </div>
                                     </div>
@@ -622,7 +669,7 @@ export default function SuperAdminMetricasPage() {
                                 return null;
                               }}
                             />
-                            <Bar dataKey="cantidad" fill="#2563eb" radius={[0, 4, 4, 0]} />
+                            <Bar dataKey="cantidad" fill="var(--chart-1)" maxBarSize={32} radius={[0, 2, 2, 0]} />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -645,7 +692,7 @@ export default function SuperAdminMetricasPage() {
                           <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs">
                             <span className="font-medium text-foreground">{formatRoleLabel(r.rol || r.ROL)}</span>
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-muted-foreground font-mono">{pct}%</span>
+                              <span className="text-xs text-muted-foreground font-mono">{pct}%</span>
                               <Badge variant="secondary" className="font-bold text-xs">
                                 {cant}
                               </Badge>
@@ -666,7 +713,7 @@ export default function SuperAdminMetricasPage() {
                 <Card className="border-border/80">
                   <CardHeader>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary text-base">credit_card</span>
+                      <Sym name="credit_card" className="text-primary" />
                       Organizaciones por Plan
                     </CardTitle>
                     <p className="text-xs text-muted-foreground">Distribución de suscripciones por nivel de servicio.</p>
@@ -682,7 +729,7 @@ export default function SuperAdminMetricasPage() {
                           <div key={idx} className="p-3 rounded-lg border border-border/60 bg-muted/20 flex items-center justify-between">
                             <div>
                               <div className="text-xs font-bold text-foreground">{p.planNombre || p.planCodigo}</div>
-                              <div className="text-[11px] text-muted-foreground">
+                              <div className="text-xs text-muted-foreground">
                                 ${(p.precioMensual || 0).toLocaleString('es-CO')} / mes
                               </div>
                             </div>
@@ -700,7 +747,7 @@ export default function SuperAdminMetricasPage() {
                 <Card className="border-border/80">
                   <CardHeader>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <span className="material-symbols-outlined text-emerald-500 text-base">card_membership</span>
+                      <Sym name="card_membership" className="text-tint-green-fg" />
                       Membresías por Estado
                     </CardTitle>
                     <p className="text-xs text-muted-foreground">Ciclo de vida de membresías registradas.</p>
@@ -722,7 +769,7 @@ export default function SuperAdminMetricasPage() {
                                 variant="outline"
                                 className={
                                   isAct
-                                    ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-bold'
+                                    ? 'bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25 font-bold'
                                     : 'bg-muted text-muted-foreground'
                                 }
                               >
@@ -740,7 +787,7 @@ export default function SuperAdminMetricasPage() {
                 <Card className="border-border/80">
                   <CardHeader>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <span className="material-symbols-outlined text-indigo-500 text-base">extension</span>
+                      <Sym name="extension" className="text-primary-text" />
                       Módulos Habilitados
                     </CardTitle>
                     <p className="text-xs text-muted-foreground">Catálogo de funcionalidades por plan.</p>
@@ -756,9 +803,9 @@ export default function SuperAdminMetricasPage() {
                           <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-muted/30 text-xs">
                             <div>
                               <div className="font-semibold text-foreground">{mod.nombre || mod.codigo}</div>
-                              <div className="text-[10px] text-muted-foreground">{mod.categoria || 'GENERAL'}</div>
+                              <div className="text-xs text-muted-foreground">{mod.categoria || 'GENERAL'}</div>
                             </div>
-                            <Badge variant="outline" className="text-[10px] font-medium">
+                            <Badge variant="outline" className="text-xs font-medium">
                               {mod.planesHabilitados || 0} planes
                             </Badge>
                           </div>
@@ -777,7 +824,7 @@ export default function SuperAdminMetricasPage() {
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div>
                       <CardTitle className="text-base font-semibold flex items-center gap-2">
-                        <span className="material-symbols-outlined text-primary text-base">bolt</span>
+                        <Sym name="bolt" className="text-primary" />
                         Actividad Operativa Global del Periodo
                       </CardTitle>
                       <p className="text-xs text-muted-foreground mt-0.5">
@@ -792,29 +839,27 @@ export default function SuperAdminMetricasPage() {
                 <CardContent className="pt-2">
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
                     {[
-                      { label: 'Visitas', val: actividadOperativa.visitas, icon: 'badge', color: 'text-blue-500' },
-                      { label: 'Paquetes', val: actividadOperativa.paquetes, icon: 'inventory_2', color: 'text-amber-500' },
-                      { label: 'PQRS Radicadas', val: actividadOperativa.pqrs, icon: 'contact_support', color: 'text-rose-500' },
-                      { label: 'Mantenimientos', val: actividadOperativa.mantenimientos, icon: 'build', color: 'text-indigo-500' },
-                      { label: 'Reservas Zonas', val: actividadOperativa.reservas, icon: 'event', color: 'text-emerald-500' },
-                      { label: 'Comunicados', val: actividadOperativa.comunicados, icon: 'campaign', color: 'text-purple-500' },
+                      { label: 'Visitas', val: actividadOperativa.visitas, icon: 'badge', color: 'text-tint-blue-fg' },
+                      { label: 'Paquetes', val: actividadOperativa.paquetes, icon: 'inventory_2', color: 'text-tint-amber-fg' },
+                      { label: 'PQRS Radicadas', val: actividadOperativa.pqrs, icon: 'contact_support', color: 'text-destructive' },
+                      { label: 'Mantenimientos', val: actividadOperativa.mantenimientos, icon: 'build', color: 'text-primary-text' },
+                      { label: 'Reservas Zonas', val: actividadOperativa.reservas, icon: 'event', color: 'text-tint-green-fg' },
+                      { label: 'Comunicados', val: actividadOperativa.comunicados, icon: 'campaign', color: 'text-tint-purple-fg' },
                     ].map((item, idx) => (
                       <div key={idx} className="p-4 rounded-xl border border-border/60 bg-muted/20 text-center space-y-1.5 flex flex-col items-center justify-center">
                         <div className="w-10 h-10 rounded-lg bg-muted/40 flex items-center justify-center mb-1">
-                          <span className={`material-symbols-outlined text-xl select-none ${item.color}`}>
-                            {item.icon}
-                          </span>
+                          <Sym name={item.icon} className="h-5 w-5 text-text-secondary" />
                         </div>
-                        <div className="text-2xl font-bold text-foreground">{item.val}</div>
+                        <div className="app-numeral text-2xl text-on-surface">{item.val}</div>
                         <div className="text-xs text-muted-foreground">{item.label}</div>
                       </div>
                     ))}
                   </div>
 
                   <div className="mt-4 p-3 rounded-lg border border-border/40 bg-muted/10 text-xs text-muted-foreground flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-base">info</span>
+                    <Sym name="info" className="text-primary" />
                     <span>
-                      Estos valores representan eventos reales de operación agregados desde las tablas transaccionales de Oracle.
+                      Valores agregados de los registros de operación de las copropiedades en el periodo seleccionado.
                     </span>
                   </div>
                 </CardContent>
@@ -828,7 +873,7 @@ export default function SuperAdminMetricasPage() {
                 <Card className="border-border/80">
                   <CardHeader>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <span className="material-symbols-outlined text-amber-500 text-base">credit_card</span>
+                      <Sym name="credit_card" className="text-tint-amber-fg" />
                       Actividad Transaccional (Sandbox Wompi)
                     </CardTitle>
                     <p className="text-xs text-muted-foreground">
@@ -837,11 +882,11 @@ export default function SuperAdminMetricasPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {/* Banner de Aviso de Sandbox */}
-                    <div className="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5">
-                      <span className="material-symbols-outlined text-amber-600 text-lg shrink-0 mt-0.5">warning</span>
+                    <div className="p-3.5 rounded-lg border border-tint-amber-fg/25 bg-tint-amber-bg text-tint-amber-fg text-xs flex items-start gap-2.5">
+                      <Sym name="warning" className="text-tint-amber-fg shrink-0 mt-0.5" />
                       <div>
                         <div className="font-semibold">Entorno de Pruebas Activo</div>
-                        <p className="text-[11px] opacity-90 mt-0.5">
+                        <p className="text-xs opacity-90 mt-0.5">
                           {sandbox.aviso || 'Las transacciones registradas corresponden a pruebas de integración técnica en Wompi Sandbox y no constituyen facturación o ingresos reales.'}
                         </p>
                       </div>
@@ -849,27 +894,27 @@ export default function SuperAdminMetricasPage() {
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <div className="p-3 rounded-lg bg-muted/30 text-center">
-                        <div className="text-xl font-bold text-foreground">{sandbox.total}</div>
-                        <div className="text-[11px] text-muted-foreground">Total Intentos</div>
+                        <div className="app-numeral text-xl text-on-surface">{sandbox.total}</div>
+                        <div className="text-xs text-muted-foreground">Total Intentos</div>
                       </div>
-                      <div className="p-3 rounded-lg bg-emerald-500/10 text-center">
-                        <div className="text-xl font-bold text-emerald-600">{sandbox.aprobadas}</div>
-                        <div className="text-[11px] text-emerald-700 dark:text-emerald-300">Aprobadas</div>
+                      <div className="p-3 rounded-lg bg-tint-green-bg text-center">
+                        <div className="text-xl font-bold text-tint-green-fg">{sandbox.aprobadas}</div>
+                        <div className="text-xs text-tint-green-fg">Aprobadas</div>
                       </div>
-                      <div className="p-3 rounded-lg bg-rose-500/10 text-center">
-                        <div className="text-xl font-bold text-rose-600">{sandbox.rechazadas}</div>
-                        <div className="text-[11px] text-rose-700 dark:text-rose-300">Rechazadas</div>
+                      <div className="p-3 rounded-lg bg-tint-red-bg text-center">
+                        <div className="text-xl font-bold text-destructive">{sandbox.rechazadas}</div>
+                        <div className="text-xs text-destructive">Rechazadas</div>
                       </div>
-                      <div className="p-3 rounded-lg bg-amber-500/10 text-center">
-                        <div className="text-xl font-bold text-amber-600">{sandbox.pendientes}</div>
-                        <div className="text-[11px] text-amber-700 dark:text-amber-300">Pendientes</div>
+                      <div className="p-3 rounded-lg bg-tint-amber-bg text-center">
+                        <div className="text-xl font-bold text-tint-amber-fg">{sandbox.pendientes}</div>
+                        <div className="text-xs text-tint-amber-fg">Pendientes</div>
                       </div>
                     </div>
 
                     <div className="p-3 rounded-lg border border-border/50 bg-muted/20 flex items-center justify-between text-xs">
                       <span className="text-muted-foreground font-medium">Volumen Validado Sandbox:</span>
                       <span className="font-bold text-foreground text-sm">
-                        ${((sandbox.montoAprobadoCentavos || 0) / 100).toLocaleString('es-CO')} COP
+                        {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format((sandbox.montoAprobadoCentavos || 0) / 100)}
                       </span>
                     </div>
                   </CardContent>
@@ -879,7 +924,7 @@ export default function SuperAdminMetricasPage() {
                 <Card className="border-border/80">
                   <CardHeader>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary text-base">shield</span>
+                      <Sym name="shield" className="text-primary" />
                       Seguridad y Auditoría Global
                     </CardTitle>
                     <p className="text-xs text-muted-foreground">
@@ -888,27 +933,27 @@ export default function SuperAdminMetricasPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-3 gap-3">
-                      <div className="p-3 rounded-lg bg-emerald-500/10 text-center">
-                        <div className="text-xl font-bold text-emerald-600">{seguridad.loginsExitosos}</div>
-                        <div className="text-[11px] text-emerald-700 dark:text-emerald-300">Logins Exitosos</div>
+                      <div className="p-3 rounded-lg bg-tint-green-bg text-center">
+                        <div className="text-xl font-bold text-tint-green-fg">{seguridad.loginsExitosos}</div>
+                        <div className="text-xs text-tint-green-fg">Logins Exitosos</div>
                       </div>
-                      <div className="p-3 rounded-lg bg-rose-500/10 text-center">
-                        <div className="text-xl font-bold text-rose-600">{seguridad.loginsFallidos}</div>
-                        <div className="text-[11px] text-rose-700 dark:text-rose-300">Intentos Fallidos</div>
+                      <div className="p-3 rounded-lg bg-tint-red-bg text-center">
+                        <div className="text-xl font-bold text-destructive">{seguridad.loginsFallidos}</div>
+                        <div className="text-xs text-destructive">Intentos Fallidos</div>
                       </div>
                       <div className="p-3 rounded-lg bg-muted/30 text-center">
-                        <div className="text-xl font-bold text-foreground">{seguridad.accionesAuditadas}</div>
-                        <div className="text-[11px] text-muted-foreground">Acciones Auditadas</div>
+                        <div className="app-numeral text-xl text-on-surface">{seguridad.accionesAuditadas}</div>
+                        <div className="text-xs text-muted-foreground">Acciones Auditadas</div>
                       </div>
                     </div>
 
                     <div className="p-3 rounded-lg border border-border/50 bg-muted/20 space-y-2">
                       <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-emerald-600 text-sm">verified_user</span>
-                        Postura de Seguridad Activa
+                        <Sym name="verified_user" className="text-tint-green-fg" />
+                        Controles de seguridad
                       </div>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Aislamiento Zero-Trust con políticas de seguridad VPD/RLS a nivel de base de datos Oracle ATP. Los registros de auditoría en <span className="font-mono text-foreground font-semibold">AUDITORIA_LOG</span> son inmutables.
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Aislamiento de datos por organización con políticas VPD/RLS en la base de datos. Los registros de <span className="font-mono text-foreground font-semibold">AUDITORIA_LOG</span> son de solo anexión.
                       </p>
                     </div>
                   </CardContent>
@@ -918,6 +963,6 @@ export default function SuperAdminMetricasPage() {
           </Tabs>
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

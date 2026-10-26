@@ -43,6 +43,8 @@ import { Button } from '../components/ui/Button.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
 import { LoadingState } from '../components/ui/LoadingState.jsx';
 import { ErrorState } from '../components/ui/ErrorState.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { Input, Textarea, Select } from '../components/ui/Form.jsx';
 
@@ -53,26 +55,26 @@ function getPrioridadBadge(prioridad) {
   switch (p) {
     case 'URGENTE':
       return (
-        <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-[10px] font-bold uppercase">
+        <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-[11.5px] font-bold">
           Urgente
         </Badge>
       );
     case 'IMPORTANTE':
     case 'ALTA':
       return (
-        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800 text-[10px] font-semibold uppercase">
+        <Badge variant="outline" className="bg-tint-amber-bg text-tint-amber-fg border-tint-amber-fg/25 text-[11.5px] font-semibold">
           Importante
         </Badge>
       );
     case 'BAJA':
       return (
-        <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 text-[10px]">
+        <Badge variant="outline" className="bg-surface-dim text-text-secondary border-border text-[11.5px]">
           Baja
         </Badge>
       );
     default:
       return (
-        <Badge variant="outline" className="bg-muted text-muted-foreground text-[10px]">
+        <Badge variant="outline" className="bg-muted text-muted-foreground text-[11.5px]">
           Normal
         </Badge>
       );
@@ -409,65 +411,32 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
 
   return (
     <PageContainer className="space-y-6">
-      {/* 1. Header Contextual Enterprise */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-border/70 pb-5">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Centro de Comunicaciones
-            </h1>
-            <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-xs font-semibold">
-              Canal Unificado
-            </Badge>
-          </div>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Avisos oficiales, alertas operativas y notificaciones en tiempo real para la copropiedad
-          </p>
-        </div>
-
-        {/* Acciones del Header */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefetchAll}
-            disabled={refreshing}
-            className="text-xs min-h-[44px] sm:min-h-9"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${refreshing ? 'animate-spin text-primary' : ''}`} aria-hidden="true" />
-            Actualizar
-          </Button>
-          {(kpis.alertasPendientes > 0 || kpis.notificacionesNoLeidas > 0) && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleMarcarTodasLeidas}
-              className="text-xs min-h-[44px] sm:min-h-9"
-            >
-              <CheckCheck className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
-              Marcar Todo Leído
+      <PageHeader
+        title="Centro de Comunicaciones"
+        subtitle="Avisos oficiales, alertas operativas y notificaciones de la copropiedad."
+        action={
+          <>
+            <Button variant="outline" size="sm" onClick={handleRefetchAll} disabled={refreshing}>
+              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${refreshing ? 'animate-spin' : ''}`} aria-hidden="true" />
+              Actualizar
             </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setModalAlertaOpen(true)}
-            className="text-xs min-h-[44px] sm:min-h-9 border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-          >
-            <AlertTriangle className="h-3.5 w-3.5 mr-1.5 text-amber-600" aria-hidden="true" />
-            Nueva Alerta
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setModalAvisoOpen(true)}
-            className="text-xs min-h-[44px] sm:min-h-9 shadow-xs"
-          >
-            <Plus className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
-            Publicar Aviso
-          </Button>
-        </div>
-      </div>
+            {(kpis.alertasPendientes > 0 || kpis.notificacionesNoLeidas > 0) && (
+              <Button variant="outline" size="sm" onClick={handleMarcarTodasLeidas}>
+                <CheckCheck className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                Marcar Todo Leído
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setModalAlertaOpen(true)}>
+              <AlertTriangle className="h-3.5 w-3.5 mr-1.5 text-tint-amber-fg" aria-hidden="true" />
+              Nueva Alerta
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => setModalAvisoOpen(true)}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+              Publicar Aviso
+            </Button>
+          </>
+        }
+      />
 
       {/* 2. Grid de KPIs Operativos */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -524,16 +493,16 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
                       setActiveTab(tab.id);
                       setPage(0);
                     }}
-                    className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-2 ${
+                    className={`min-h-10 px-3 py-2 rounded-md text-xs font-semibold transition-colors duration-150 shrink-0 flex items-center gap-2 ${
                       isSelected
-                        ? 'bg-primary text-primary-foreground shadow-xs'
-                        : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                        ? 'bg-btn-primary text-white shadow-sm'
+                        : 'bg-surface-dim text-text-secondary hover:bg-surface-container hover:text-on-surface'
                     }`}
                   >
                     <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                     <span>{tab.label}</span>
                     <span
-                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                      className={`px-1.5 rounded-[3px] text-[11.5px] tabular-nums font-bold ${
                         isSelected ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-background text-muted-foreground'
                       }`}
                     >
@@ -556,7 +525,7 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
                     setPage(0);
                   }}
                   placeholder="Buscar en comunicaciones..."
-                  className="w-full pl-9 pr-8 py-1.5 text-xs bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-foreground"
+                  className="h-10 w-full rounded-md border border-input bg-surface pl-9 pr-9 text-sm text-on-surface placeholder:text-text-muted focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
                 />
                 {search && (
                   <button
@@ -573,7 +542,7 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
 
           {/* Chips de filtro rápido */}
           <div className="flex items-center gap-2 flex-wrap text-xs pt-1 border-t border-border/40">
-            <span className="text-muted-foreground text-[11px] font-medium mr-1 flex items-center gap-1">
+            <span className="text-muted-foreground text-[11.5px] font-medium mr-1 flex items-center gap-1">
               <Filter className="h-3 w-3" /> Filtrar:
             </span>
             <button
@@ -582,10 +551,10 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
                 setSoloPendientes((prev) => !prev);
                 setPage(0);
               }}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
+              className={`min-h-9 px-2.5 py-1 rounded-md text-xs font-semibold transition-colors duration-150 ${
                 soloPendientes
-                  ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30'
-                  : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                  ? 'bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25'
+                  : 'bg-surface-dim text-text-secondary hover:bg-surface-container'
               }`}
             >
               Solo Pendientes / Sin Leer
@@ -596,15 +565,15 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
                 setSoloPrioritarias((prev) => !prev);
                 setPage(0);
               }}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
+              className={`min-h-9 px-2.5 py-1 rounded-md text-xs font-semibold transition-colors duration-150 ${
                 soloPrioritarias
                   ? 'bg-destructive/15 text-destructive border border-destructive/30'
-                  : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                  : 'bg-surface-dim text-text-secondary hover:bg-surface-container'
               }`}
             >
               Alta Prioridad / Urgentes
             </button>
-            <span className="ml-auto text-muted-foreground text-[11px]">
+            <span className="ml-auto text-muted-foreground text-[11.5px]">
               Mostrando <strong>{rows.length}</strong> de <strong>{itemsFiltrados.length}</strong>
             </span>
           </div>
@@ -614,36 +583,36 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
         <CardContent className="p-0">
           {isLoadingInitial && !avisosRaw && !alertasRaw ? (
             <div className="p-8">
-              <LoadingState message="Cargando centro de comunicaciones..." description="Consultando avisos, alertas y notificaciones con aislamiento RLS" />
+              <LoadingState message="Cargando centro de comunicaciones..." description="Consultando avisos, alertas y notificaciones." />
             </div>
           ) : (errorAvisos || errorAlertas) && itemsFiltrados.length === 0 ? (
             <div className="p-8">
               <ErrorState title="Error de sincronización" message="No se pudieron consultar los canales de comunicación. Verifique su sesión o reintente." onRetry={handleRefetchAll} />
             </div>
           ) : itemsFiltrados.length === 0 ? (
-            <div className="p-12 text-center flex flex-col items-center justify-center">
-              <div className="p-3.5 rounded-2xl bg-primary/10 text-primary mb-3">
-                <MessageSquare className="h-8 w-8" />
-              </div>
-              <h3 className="text-base font-semibold text-foreground">
-                {search ? 'Sin coincidencias' : 'No hay comunicaciones en esta categoría'}
-              </h3>
-              <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mt-1 mb-4">
-                {search
+            <EmptyState
+              icon={MessageSquare}
+              title={search ? 'Sin coincidencias' : 'No hay comunicaciones en esta categoría'}
+              subtitle={
+                search
                   ? `No se encontró ningún mensaje para "${search}". Intente con otro término.`
-                  : 'Las novedades operativas, circulares y notificaciones registradas aparecerán aquí.'}
-              </p>
-              {search ? (
-                <Button variant="outline" size="sm" onClick={() => setSearch('')}>
-                  Limpiar búsqueda
-                </Button>
-              ) : (
-                <Button variant="primary" size="sm" onClick={() => setModalAvisoOpen(true)}>
-                  <Plus className="h-3.5 w-3.5 mr-1.5" />
-                  Publicar Aviso Oficial
-                </Button>
-              )}
-            </div>
+                  : 'Las novedades operativas, circulares y notificaciones registradas aparecerán aquí.'
+              }
+              className="py-12"
+            >
+              <div className="mt-4">
+                {search ? (
+                  <Button variant="outline" size="sm" onClick={() => setSearch('')}>
+                    Limpiar búsqueda
+                  </Button>
+                ) : (
+                  <Button variant="primary" size="sm" onClick={() => setModalAvisoOpen(true)}>
+                    <Plus className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                    Publicar Aviso Oficial
+                  </Button>
+                )}
+              </div>
+            </EmptyState>
           ) : (
             <div className="divide-y divide-border/50">
               {rows.map((item) => {
@@ -655,7 +624,7 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
                   <div
                     key={item.id}
                     className={`p-4 sm:p-5 transition-colors flex flex-col sm:flex-row sm:items-start justify-between gap-4 hover:bg-muted/30 ${
-                      !item.leido ? 'bg-primary/2 dark:bg-primary/5' : ''
+                      !item.leido ? 'bg-tint-primary-bg/40' : ''
                     }`}
                   >
                     <div className="flex items-start gap-3.5 min-w-0">
@@ -663,10 +632,10 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
                       <div
                         className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
                           isAviso
-                            ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400'
+                            ? 'bg-tint-blue-bg text-tint-blue-fg'
                             : isAlerta
-                            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                            : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                            ? 'bg-tint-amber-bg text-tint-amber-fg'
+                            : 'bg-tint-primary-bg text-primary-text'
                         }`}
                       >
                         {isAviso ? (
@@ -683,19 +652,19 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
                         <div className="flex items-center gap-2 flex-wrap">
                           <Badge
                             variant="outline"
-                            className={`text-[10px] font-semibold ${
+                            className={`text-[11.5px] font-semibold ${
                               isAviso
-                                ? 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300'
+                                ? 'bg-tint-blue-bg text-tint-blue-fg border-tint-blue-fg/25'
                                 : isAlerta
-                                ? 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300'
-                                : 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300'
+                                ? 'bg-tint-amber-bg text-tint-amber-fg border-tint-amber-fg/25'
+                                : 'bg-tint-primary-bg text-primary-text border-tint-primary-fg/25'
                             }`}
                           >
                             {isAviso ? 'Aviso Oficial' : isAlerta ? 'Alerta Operativa' : 'Notificación Sistema'}
                           </Badge>
                           {getPrioridadBadge(item.prioridad)}
                           {!item.leido && (
-                            <Badge variant="outline" className="bg-amber-500/15 text-amber-700 border-amber-300 dark:text-amber-400 text-[9px] font-bold uppercase tracking-wider animate-pulse">
+                            <Badge variant="outline" className="bg-tint-amber-bg text-tint-amber-fg border-tint-amber-fg/25 text-[11.5px] font-bold animate-pulse">
                               Pendiente
                             </Badge>
                           )}
@@ -706,7 +675,7 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
                         <p className="text-xs text-muted-foreground line-clamp-2">{item.contenido}</p>
 
                         {/* Metadatos: Inmueble, Residente, Fecha */}
-                        <div className="flex items-center gap-3 text-[11px] text-muted-foreground pt-1 flex-wrap">
+                        <div className="flex items-center gap-3 text-[11.5px] text-muted-foreground pt-1 flex-wrap">
                           {item.unidad && (
                             <span className="flex items-center gap-1">
                               <Building2 className="h-3 w-3 text-muted-foreground/70" />
@@ -743,7 +712,7 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
                           variant="outline"
                           size="sm"
                           onClick={() => handleMarcarLeida(item)}
-                          className="text-xs h-8 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50"
+                          className="text-xs h-8 border-tint-green-fg/25 text-tint-green-fg hover:bg-tint-green-bg"
                         >
                           <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
                           {isAlerta ? 'Atendida' : 'Leída'}
@@ -833,14 +802,14 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
                 value={avisoForm.idPropiedad}
                 onChange={(e) => setAvisoForm({ ...avisoForm, idPropiedad: e.target.value })}
               >
-                <option value="TODAS">🏢 Todas las propiedades de la organización</option>
+                <option value="TODAS">Todas las propiedades de la organización</option>
                 {properties.map((p) => (
                   <option key={p.id} value={p.id}>
-                    📍 {p.nombre} {p.ciudad ? `(${p.ciudad})` : ''}
+                    {p.nombre} {p.ciudad ? `(${p.ciudad})` : ''}
                   </option>
                 ))}
               </Select>
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-[11.5px] text-muted-foreground mt-1">
                 Elija si este comunicado se enviará a todos los edificios de la organización o solo a uno en particular.
               </p>
             </div>
@@ -1000,7 +969,7 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
         {detalleItem && (
           <div className="space-y-4 py-2 text-xs sm:text-sm">
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="outline" className="font-semibold text-[10px]">
+              <Badge variant="outline" className="font-semibold text-[11.5px]">
                 {detalleItem.tipo === 'AVISO'
                   ? 'Aviso Oficial'
                   : detalleItem.tipo === 'ALERTA'
@@ -1008,7 +977,7 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
                   : 'Notificación'}
               </Badge>
               {getPrioridadBadge(detalleItem.prioridad)}
-              <span className="text-muted-foreground text-[11px] ml-auto">
+              <span className="text-muted-foreground text-[11.5px] ml-auto">
                 {detalleItem.fecha ? formatDateTime(detalleItem.fecha) : ''}
               </span>
             </div>

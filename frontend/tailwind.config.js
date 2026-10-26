@@ -14,6 +14,17 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Nueva Identidad Visual SAED
+        saed: {
+          white: '#FFFFFF',
+          pearl: '#F7F9FE',
+          'pastel-blue': '#DFEBFF',
+          lavender: '#EEE8FF',
+          mint: '#DCF4EB',
+          indigo: '#5267DA',
+          'indigo-hover': '#4155C6',
+          ink: '#1D2942',
+        },
         // Brand palette (SAED v4)
         navy: {
           900: '#0A1628',
@@ -105,6 +116,9 @@ export default {
           foreground: withOpacity('--on-primary'),
         },
         'on-primary': withOpacity('--on-primary'),
+        'primary-text': withOpacity('--primary-text'),
+        keyline: withOpacity('--keyline'),
+        sidebar: withOpacity('--sidebar-bg'),
         accent: {
           DEFAULT: withOpacity('--warn'),
           hover: withOpacity('--btn-warn-hover'),
@@ -122,6 +136,24 @@ export default {
         'warn-amber': withOpacity('--warn'),
         'warn-amber-bg': withOpacity('--warn-amber-bg'),
         // Botones solidos: profundos en ambos modos (texto blanco AA).
+        tint: {
+          'primary-bg': withOpacity('--tint-primary-bg'),
+          'primary-fg': withOpacity('--tint-primary-fg'),
+          'blue-bg': withOpacity('--tint-blue-bg'),
+          'blue-fg': withOpacity('--tint-blue-fg'),
+          'green-bg': withOpacity('--tint-green-bg'),
+          'green-fg': withOpacity('--tint-green-fg'),
+          'amber-bg': withOpacity('--tint-amber-bg'),
+          'amber-fg': withOpacity('--tint-amber-fg'),
+          'purple-bg': withOpacity('--tint-purple-bg'),
+          'purple-fg': withOpacity('--tint-purple-fg'),
+          'red-bg': withOpacity('--tint-red-bg'),
+          'red-fg': withOpacity('--tint-red-fg'),
+          'neutral-bg': withOpacity('--tint-neutral-bg'),
+          'neutral-fg': withOpacity('--tint-neutral-fg'),
+        },
+        'btn-primary': withOpacity('--btn-primary'),
+        'btn-primary-hover': withOpacity('--btn-primary-hover'),
         'btn-accent': withOpacity('--btn-accent'),
         'btn-accent-hover': withOpacity('--btn-accent-hover'),
         'btn-danger': withOpacity('--btn-danger'),
@@ -180,11 +212,11 @@ export default {
         'muted-foreground': withOpacity('--text-muted'),
         'accent-foreground': withOpacity('--on-surface'),
         destructive: {
-          DEFAULT: withOpacity('--btn-danger'),
-          foreground: withOpacity('--on-primary'),
+          DEFAULT: withOpacity('--destructive'),
+          foreground: withOpacity('--destructive-foreground'),
         },
-        'destructive-foreground': withOpacity('--on-primary'),
-        input: withOpacity('--outline-variant', '#1E293B'),
+        'destructive-foreground': withOpacity('--destructive-foreground'),
+        input: withOpacity('--input-border', '#5C6886'),
         ring: withOpacity('--border-focus'),
         popover: {
           DEFAULT: withOpacity('--surface'),
@@ -213,29 +245,37 @@ export default {
         label: ['0.75rem', { lineHeight: '1rem', fontWeight: '600' }],
         caption: ['0.6875rem', { lineHeight: '0.875rem', fontWeight: '500' }],
       },
+      // App surfaces: pieces are square or barely softened (control 6px, card 8px).
       borderRadius: {
-        xs: '4px',
-        sm: '8px',
-        DEFAULT: '12px',
-        md: '14px',
-        lg: '18px',
-        xl: '24px',
+        xs: '3px',
+        sm: '4px',
+        DEFAULT: '6px',
+        md: '6px',
+        lg: '8px',
+        xl: '8px',
+        '2xl': '10px',
+        '3xl': '12px',
       },
+      // Slab shadows: offset + soft blur directly under each piece.
       boxShadow: {
-        xs: '0 1px 2px rgba(15,23,42,0.04)',
-        sm: '0 2px 8px rgba(15,23,42,0.06), 0 0 0 1px rgba(15,23,42,0.03)',
-        DEFAULT: '0 4px 20px rgba(0, 0, 0, 0.03)',
-        md: '0 4px 16px rgba(15,23,42,0.08), 0 0 0 1px rgba(15,23,42,0.03)',
-        lg: '0 12px 40px rgba(15,23,42,0.12), 0 0 0 1px rgba(15,23,42,0.04)',
-        xl: '0 24px 64px rgba(15,23,42,0.16)',
-        soft: '0px 4px 20px rgba(0, 0, 0, 0.03)',
+        xs: '0 1px 2px rgba(29,41,66,0.06)',
+        sm: '0 1px 2px rgba(29,41,66,0.06), 0 6px 14px -10px rgba(29,41,66,0.28)',
+        DEFAULT: '0 1px 2px rgba(29,41,66,0.06), 0 6px 14px -10px rgba(29,41,66,0.28)',
+        md: '0 10px 18px -12px rgba(29,41,66,0.45), 0 2px 4px -1px rgba(29,41,66,0.1)',
+        lg: '0 18px 32px -18px rgba(29,41,66,0.5), 0 4px 8px -4px rgba(29,41,66,0.12)',
+        xl: '0 28px 48px -28px rgba(29,41,66,0.55), 0 6px 12px -6px rgba(29,41,66,0.14)',
+        '2xl': '0 28px 48px -28px rgba(29,41,66,0.55), 0 6px 12px -6px rgba(29,41,66,0.14)',
+        soft: '0 1px 2px rgba(29,41,66,0.06), 0 6px 14px -10px rgba(29,41,66,0.28)',
+        slab: '0 10px 18px -12px rgba(29,41,66,0.5), 0 2px 4px -1px rgba(29,41,66,0.12)',
       },
       fontFamily: {
         sans: ['Plus Jakarta Sans', 'DM Sans', 'system-ui', 'sans-serif'],
+        display: ['Archivo', 'Plus Jakarta Sans', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
       transitionTimingFunction: {
         DEFAULT: 'cubic-bezier(0.4, 0, 0.2, 1)',
+        out: 'cubic-bezier(0.16, 1, 0.3, 1)',
       },
       transitionDuration: {
         fast: '150ms',

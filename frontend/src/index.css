@@ -30,171 +30,196 @@
   :root {
     /* Tokens semanticos: misma fuente de verdad que tailwind.config.js.
        Las paginas usan estas vars inline (`var(--text-muted)`) y los componentes
-       del kit usan las utilidades de Tailwind; ambos deben resolver al mismo valor. */
+       del kit usan las utilidades de Tailwind; ambos deben resolver al mismo valor.
+       App surfaces extend the "Manual de armado" palette (see DESIGN.md, App surfaces). */
     color-scheme: light;
-    --background: #f8fafc;
-    --background-subtle: #eef2f8;
-    --on-background: #0f172a;
+    --saed-white: #ffffff;
+    --saed-pearl: #f7f9fe;
+    --saed-pastel-blue: #dfebff;
+    --saed-lavender: #eee8ff;
+    --saed-mint: #dcf4eb;
+    --saed-indigo: #5267da;
+    --saed-indigo-hover: #4155c6;
+    --saed-ink: #1d2942;
+    --background: #f7f9fe;
+    --background-subtle: #eef2fa;
+    --on-background: #1d2942;
     --surface: #ffffff;
-    --surface-dim: #f1f5f9;
-    --surface-container: #f8fafc;
-    --sidebar-bg: #0a1628;
+    --surface-dim: #eef2fa;
+    --surface-container: #f3f6fc;
+    --sidebar-bg: #1d2942;
     --topbar-bg: #ffffff;
     --login-card-bg: rgba(255, 255, 255, 0.97);
-    --primary: #0f2044;
-    --primary-hover: #163060;
+    --primary: #5267da;
+    --primary-hover: #4155c6;
+    --primary-text: #4155c6;
     --on-primary: #ffffff;
-    --on-surface: #0f172a;
-    --on-surface-variant: #475569;
-    --outline-variant: #e2e8f0;
---text-secondary: #475569;
---text-muted: #64748b;
---text-hint: #6b7280;
---border: #e2e8f0;
---border-focus: #3d6bbf;
---border-subtle: #f1f5f9;
---surface-selected: #dce8fb;
---preview-bg: #0b1220;
---chart-1: #0f2044;
---chart-2: #163060;
---chart-3: #3d6bbf;
---chart-4: #6b93d6;
---chart-5: #a8c4ec;
+    --on-surface: #1d2942;
+    --on-surface-variant: #3a4766;
+    --outline-variant: #cfd6e6;
+    /* Control boundaries keep >= 3:1 against their surface (WCAG 1.4.11). */
+    --input-border: #8792aa;
+    --text-secondary: #3a4766;
+    --text-muted: #5b6785;
+    --text-hint: #657290;
+    /* Keylines: --keyline is the strong Azul tinta rule; --border divides containers. */
+    --keyline: #1d2942;
+    --border: #d6dcea;
+    --border-focus: #5267da;
+    --border-subtle: #e6eaf3;
+    --surface-selected: #dfebff;
+    --preview-bg: #0b1220;
+    --glass-bar: rgba(247, 249, 254, 0.74);
+    --glass-panel: rgba(255, 255, 255, 0.86);
+    --stud-dot: rgba(29, 41, 66, 0.12);
+    /* Chart series keep their meaning across modes: 1 Índigo, 2 ink, 3 green, 4 amber, 5 lavanda. */
+    --chart-1: #5267da;
+    --chart-2: #1d2942;
+    --chart-3: #0f6b4f;
+    --chart-4: #b4620a;
+    --chart-5: #7663b5;
     /* Anillos de foco (RGB triplets para alpha en Tailwind). */
-    --ring-primary: 61 107 191;
-    --ring-error: 225 29 72;
-    --error: #e11d48;
-    --error-container: #ffe4e6;
-    --success: #059669;
-    --success-strong: #047857;
-    --warn: #d97706;
-    --warn-amber-bg: #fffbeb;
-    --accent-green: #10b981;
-    --accent-green-bg: #ecfdf5;
-    --info: #0369a1;
-    --info-bg: #e0f2fe;
-    /* Tintes de iconos estaticos (stat-icon) y badges: par bg/fg tonal. */
-    --tint-primary-bg: #edf4fc;
-    --tint-primary-fg: #163060;
-    --tint-blue-bg: #f0f9ff;
-    --tint-blue-fg: #0369a1;
-    --tint-green-bg: #ecfdf5;
-    --tint-green-fg: #065f46;
-    --tint-amber-bg: #fffbeb;
-    --tint-amber-fg: #92400e;
-    --tint-cyan-bg: #f0fdfa;
-    --tint-cyan-fg: #0f766e;
-    --tint-orange-bg: #fff7ed;
-    --tint-orange-fg: #c2410c;
-    --tint-purple-bg: #f5f3ff;
-    --tint-purple-fg: #7c3aed;
-    --tint-red-bg: #fff1f2;
-    --tint-red-fg: #9f1239;
-    --tint-neutral-bg: #f1f5f9;
-    --tint-neutral-fg: #475569;
-    --tint-navy-bg: #d6e5f7;
-    --tint-navy-fg: #0f2044;
+    --ring-primary: 82 103 218;
+    --ring-error: 180 35 60;
+    --error: #b4233c;
+    --error-container: #fde8ec;
+    --destructive: #b4233c;
+    --destructive-foreground: #ffffff;
+    --success: #0f6b4f;
+    --success-strong: #0b5a42;
+    --warn: #8a4b08;
+    --warn-amber-bg: #fdf1dc;
+    --accent-green: #0f6b4f;
+    --accent-green-bg: #dcf4eb;
+    --info: #23408f;
+    --info-bg: #dfebff;
+    /* Tintes de iconos estaticos (stat-icon) y badges: par bg/fg tonal (AA >= 4.5:1). */
+    --tint-primary-bg: #e3e7fb;
+    --tint-primary-fg: #4155c6;
+    --tint-blue-bg: #dfebff;
+    --tint-blue-fg: #23408f;
+    --tint-green-bg: #dcf4eb;
+    --tint-green-fg: #0f6b4f;
+    --tint-amber-bg: #fdf1dc;
+    --tint-amber-fg: #8a4b08;
+    --tint-cyan-bg: #dcf4eb;
+    --tint-cyan-fg: #0f5f5a;
+    --tint-orange-bg: #fdeadb;
+    --tint-orange-fg: #9a3c0b;
+    --tint-purple-bg: #eee8ff;
+    --tint-purple-fg: #53428f;
+    --tint-red-bg: #fde8ec;
+    --tint-red-fg: #9a1c32;
+    --tint-neutral-bg: #eef2fa;
+    --tint-neutral-fg: #3a4766;
+    --tint-navy-bg: #dfebff;
+    --tint-navy-fg: #1d2942;
     /* Botones solidos: se mantienen 'profundos' tambien en dark para conservar
        contraste AA del texto blanco sobre el fondo del boton. */
-    --btn-primary: #0f2044;
-    --btn-primary-hover: #163060;
-    --btn-accent: #065f46;
-    --btn-accent-hover: #047857;
-    --btn-danger: #e11d48;
-    --btn-danger-hover: #be123c;
-    --btn-warn: #b45309;
-    --btn-warn-hover: #92400e;
-    --btn-success: #047857;
-    /* Sombra por elevacion (se atenua en dark para no quemar el fondo). */
-    --shadow-soft: rgba(15, 23, 42, 0.04);
-    --shadow-md: rgba(15, 23, 42, 0.08);
-    --overlay: rgba(15, 23, 42, 0.5);
-    /* Radio unico para controles interactivos (estilo shadcn, no pildoras).
-       Consistente con el token Tailwind `rounded` (DEFAULT 12px). */
-    --radius-control: 12px;
-    --error: #e11d48;
-    --error-container: #ffe4e6;
-    --destructive: #e11d48;
+    --btn-primary: #5267da;
+    --btn-primary-hover: #4155c6;
+    --btn-accent: #0f6b4f;
+    --btn-accent-hover: #0b5a42;
+    --btn-danger: #b4233c;
+    --btn-danger-hover: #9a1c32;
+    --btn-warn: #9a5208;
+    --btn-warn-hover: #7f4306;
+    --btn-success: #0f6b4f;
+    /* Sombras "slab": offset + blur suave bajo cada pieza (sin halos). */
+    --shadow-soft: 0 1px 2px rgba(29, 41, 66, 0.06), 0 6px 14px -10px rgba(29, 41, 66, 0.28);
+    --shadow-md: 0 10px 18px -12px rgba(29, 41, 66, 0.45), 0 2px 4px -1px rgba(29, 41, 66, 0.1);
+    --shadow-page: 0 28px 48px -28px rgba(29, 41, 66, 0.5), 0 6px 12px -6px rgba(29, 41, 66, 0.14);
+    --overlay: rgba(29, 41, 66, 0.48);
+    /* Radio unico para controles interactivos (pieza ligeramente suavizada). */
+    --radius-control: 6px;
+    --radius-card: 8px;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   [data-theme='dark'],
   .dark {
     color-scheme: dark;
-    --error: #f43f5e;
-    --error-container: #4c0519;
-    --destructive: #f43f5e;
-    --background: #070b14;
-    --background-subtle: #0b1120;
-    --on-background: #f8fafc;
+    --background: #0b1222;
+    --background-subtle: #0f172a;
+    --on-background: #eef3ff;
     --surface: #0f172a;
-    --surface-dim: #162238;
-    --surface-container: #111d33;
-    --sidebar-bg: #060911;
-    --topbar-bg: #090e1a;
+    --surface-dim: #151f36;
+    --surface-container: #121b31;
+    --sidebar-bg: #070b14;
+    --topbar-bg: #0b1222;
     --login-card-bg: rgba(15, 23, 42, 0.95);
-    --primary: #38bdf8;
-    --primary-hover: #0284c7;
-    --on-primary: #070b14;
-    --btn-primary: #0284c7;
-    --btn-primary-hover: #0369a1;
-    --on-surface: #f1f5f9;
-    --on-surface-variant: #94a3b8;
-    --outline-variant: #1e293b;
-    --text-secondary: #94a3b8;
-    --text-muted: #64748b;
-    --text-hint: #475569;
-    --border: #1e293b;
-    --border-focus: #38bdf8;
-    --border-subtle: #131d31;
-    --surface-selected: #1e3a5f;
+    --primary: #a3b0ff;
+    --primary-hover: #c2caff;
+    --primary-text: #a3b0ff;
+    --on-primary: #0b1222;
+    --on-surface: #eef3ff;
+    --on-surface-variant: #b4c0dc;
+    --outline-variant: #2f3a55;
+    --input-border: #5c6886;
+    --text-secondary: #b4c0dc;
+    --text-muted: #8f9bb8;
+    --text-hint: #7c88a6;
+    --keyline: rgba(214, 227, 255, 0.8);
+    --border: #263049;
+    --border-focus: #a3b0ff;
+    --border-subtle: #1a2338;
+    --surface-selected: #1f2a4d;
     --preview-bg: #070b14;
-    --chart-1: #38bdf8;
-    --chart-2: #60a5fa;
-    --chart-3: #818cf8;
-    --chart-4: #34d399;
-    --chart-5: #f472b6;
-    --ring-primary: 56 189 248;
-    --ring-error: 244 63 94;
-    --error: #f43f5e;
-    --error-container: #4c0519;
-    --success: #10b981;
-    --success-strong: #34d399;
-    --warn: #f59e0b;
-    --warn-amber-bg: #451a03;
-    --accent-green: #10b981;
-    --accent-green-bg: #064e3b;
-    --info: #38bdf8;
-    --info-bg: #082f49;
-    --tint-primary-bg: rgba(56, 189, 248, 0.12);
-    --tint-primary-fg: #38bdf8;
-    --tint-blue-bg: rgba(56, 189, 248, 0.12);
-    --tint-blue-fg: #38bdf8;
-    --tint-green-bg: rgba(16, 185, 129, 0.12);
-    --tint-green-fg: #10b981;
-    --tint-amber-bg: rgba(245, 158, 11, 0.12);
-    --tint-amber-fg: #f59e0b;
-    --tint-cyan-bg: rgba(6, 182, 212, 0.12);
-    --tint-cyan-fg: #06b6d4;
-    --tint-orange-bg: rgba(249, 115, 22, 0.12);
-    --tint-orange-fg: #f97316;
-    --tint-purple-bg: rgba(168, 85, 247, 0.12);
-    --tint-purple-fg: #a855f7;
-    --tint-red-bg: rgba(244, 63, 94, 0.12);
-    --tint-red-fg: #f43f5e;
-    --tint-neutral-bg: rgba(148, 163, 184, 0.12);
-    --tint-neutral-fg: #94a3b8;
-    --tint-navy-bg: rgba(56, 189, 248, 0.12);
-    --tint-navy-fg: #38bdf8;
-    --btn-accent: #059669;
-    --btn-accent-hover: #047857;
-    --btn-danger: #e11d48;
-    --btn-danger-hover: #be123c;
-    --btn-warn: #d97706;
-    --btn-warn-hover: #b45309;
-    --btn-success: #059669;
-    --shadow-soft: rgba(0, 0, 0, 0.4);
-    --shadow-md: rgba(0, 0, 0, 0.6);
-    --overlay: rgba(3, 7, 18, 0.8);
+    --glass-bar: rgba(11, 18, 34, 0.74);
+    --glass-panel: rgba(15, 23, 42, 0.9);
+    --stud-dot: rgba(214, 227, 255, 0.1);
+    --chart-1: #a3b0ff;
+    --chart-2: #b4c0dc;
+    --chart-3: #86e3c1;
+    --chart-4: #fcd27a;
+    --chart-5: #c6bcef;
+    --ring-primary: 163 176 255;
+    --ring-error: 255 143 163;
+    --error: #ff8fa3;
+    --error-container: #3a1220;
+    --destructive: #ff8fa3;
+    --destructive-foreground: #2a0a12;
+    --success: #86e3c1;
+    --success-strong: #a6eed3;
+    --warn: #fcd27a;
+    --warn-amber-bg: #33240a;
+    --accent-green: #86e3c1;
+    --accent-green-bg: #0f2e26;
+    --info: #c2caff;
+    --info-bg: #19234a;
+    --tint-primary-bg: rgba(163, 176, 255, 0.14);
+    --tint-primary-fg: #a3b0ff;
+    --tint-blue-bg: rgba(163, 176, 255, 0.12);
+    --tint-blue-fg: #c2caff;
+    --tint-green-bg: rgba(134, 227, 193, 0.12);
+    --tint-green-fg: #86e3c1;
+    --tint-amber-bg: rgba(252, 210, 122, 0.12);
+    --tint-amber-fg: #fcd27a;
+    --tint-cyan-bg: rgba(134, 227, 193, 0.12);
+    --tint-cyan-fg: #86e3c1;
+    --tint-orange-bg: rgba(253, 186, 116, 0.12);
+    --tint-orange-fg: #fdba74;
+    --tint-purple-bg: rgba(198, 188, 239, 0.14);
+    --tint-purple-fg: #c6bcef;
+    --tint-red-bg: rgba(255, 143, 163, 0.12);
+    --tint-red-fg: #ff8fa3;
+    --tint-neutral-bg: rgba(180, 192, 220, 0.1);
+    --tint-neutral-fg: #b4c0dc;
+    --tint-navy-bg: rgba(163, 176, 255, 0.12);
+    --tint-navy-fg: #c2caff;
+    --btn-primary: #5267da;
+    --btn-primary-hover: #4155c6;
+    --btn-accent: #0f6b4f;
+    --btn-accent-hover: #0b5a42;
+    --btn-danger: #b4233c;
+    --btn-danger-hover: #9a1c32;
+    --btn-warn: #9a5208;
+    --btn-warn-hover: #7f4306;
+    --btn-success: #0f6b4f;
+    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 14px -10px rgba(0, 0, 0, 0.8);
+    --shadow-md: 0 12px 22px -12px rgba(0, 0, 0, 0.9), 0 2px 4px -1px rgba(0, 0, 0, 0.5);
+    --shadow-page: 0 30px 50px -28px rgba(0, 0, 0, 0.95), 0 6px 12px -6px rgba(0, 0, 0, 0.5);
+    --overlay: rgba(3, 6, 14, 0.72);
   }
 
   /* Material Symbols */
@@ -207,8 +232,19 @@
   }
 
   ::selection {
-    background: var(--surface-selected);
-    color: var(--on-surface);
+    background: #dfebff;
+    color: #1d2942;
+  }
+  [data-theme='dark'] ::selection,
+  .dark ::selection {
+    background: #dfebff;
+    color: #1d2942;
+  }
+
+  input,
+  textarea,
+  [contenteditable='true'] {
+    caret-color: var(--primary);
   }
 
   /* Inputs base */
@@ -372,7 +408,7 @@
   /* Grupo activo por hijo activo: se identifica aunque esté cerrado */
   .sidebar-group.group-active > .sidebar-group-btn {
     color: white;
-    background: rgba(61, 107, 191, 0.1);
+    background: rgba(82, 103, 218, 0.22);
   }
   .sidebar-group.group-active > .sidebar-group-btn::after {
     content: '';
@@ -470,7 +506,7 @@
     color: rgba(255, 255, 255, 0.9);
   }
   .sidebar-item-btn.active {
-    background: rgba(61, 107, 191, 0.14);
+    background: rgba(82, 103, 218, 0.22);
     color: white;
     font-weight: 600;
     border-radius: 10px;
@@ -670,15 +706,20 @@
     font-size: 12px;
     color: var(--on-surface-variant);
   }
-  .user-info .badge-role {
+    .user-info .badge-role {
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     padding: 3px 8px;
     border-radius: 9999px;
-    background: var(--surface-dim);
-    color: var(--text-secondary);
+    background: #eee8ff;
+    color: #5267da;
+  }
+  [data-theme='dark'] .user-info .badge-role,
+  .dark .user-info .badge-role {
+    background: rgba(82, 103, 218, 0.2);
+    color: #a5b4fc;
   }
   .topbar-logout-btn {
     display: inline-flex;
@@ -742,15 +783,11 @@
   /* ── Cards ── */
   .card {
     background: var(--surface);
-    border-radius: 18px;
+    border-radius: var(--radius-card);
     padding: 24px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px rgba(15, 23, 42, 0.05);
-    border: 1px solid var(--border-subtle);
-    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
-  }
-  .card:hover {
-    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05), 0 10px 32px rgba(15, 23, 42, 0.09);
-    border-color: var(--border);
+    box-shadow: var(--shadow-soft);
+    border: 1px solid var(--border);
+    transition: box-shadow 0.18s var(--ease-out), border-color 0.18s var(--ease-out);
   }
   .card-title {
     font-size: 16px;
@@ -845,10 +882,10 @@
   /* ── Stat Card ── */
   .stat-card {
     background: var(--surface);
-    border-radius: 18px;
+    border-radius: var(--radius-card);
     padding: 20px;
     box-shadow: var(--shadow-soft);
-    border: 1px solid var(--border-subtle);
+    border: 1px solid var(--border);
     display: flex;
     align-items: center;
     gap: 16px;
@@ -865,16 +902,15 @@
     transition: opacity 0.2s ease;
   }
   .stat-card:hover {
-    box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
   }
   .stat-card:hover::before {
     opacity: 1;
   }
   .stat-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-control);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -912,10 +948,13 @@
     min-width: 0;
   }
   .stat-value {
+    font-family: 'Archivo', 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-variation-settings: 'wdth' 112, 'wght' 800;
+    font-weight: 800;
     font-size: 24px;
-    font-weight: 700;
+    font-variant-numeric: tabular-nums lining-nums;
     color: var(--on-surface);
-    line-height: 1.2;
+    line-height: 1.15;
   }
   .stat-label {
     font-size: 12px;
@@ -941,15 +980,14 @@
     padding: 16px;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: var(--radius-card);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out);
     min-height: 100px;
   }
   .action-card:hover {
     border-color: var(--primary);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(15, 32, 68, 0.1);
+    box-shadow: var(--shadow-md);
   }
   .action-card:hover .action-card-icon {
     color: var(--primary);
@@ -979,9 +1017,13 @@
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: background-color 0.15s var(--ease-out), color 0.15s var(--ease-out), border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out), transform 0.15s var(--ease-out);
     white-space: nowrap;
     min-height: 36px;
+    border: 1px solid transparent;
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(1px);
   }
   .btn:focus-visible {
     outline: 2px solid var(--border-focus);
@@ -994,7 +1036,7 @@
   .btn-primary {
     background: var(--btn-primary);
     color: white;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+    box-shadow: var(--shadow-soft);
   }
   .btn-primary:hover:not(:disabled) {
     background: var(--btn-primary-hover);
@@ -1013,7 +1055,7 @@
   }
   .btn-outline:hover:not(:disabled) {
     background: var(--surface-container);
-    border-color: var(--border-focus);
+    border-color: var(--primary);
   }
   .btn-danger {
     background: var(--btn-danger);
@@ -1067,16 +1109,17 @@
     border-collapse: collapse;
     font-size: 13px;
   }
+  /* Zero-specificity default so alignment utilities (text-right, text-center) on a th win. */
+  :where(.data-table thead th) {
+    text-align: start;
+  }
   .data-table thead th {
-    text-align: left;
     padding: 12px 16px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-muted);
-    background: var(--surface);
-    border-bottom: 2px solid var(--border);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    background: var(--surface-container);
+    border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
     z-index: 1;
@@ -1109,10 +1152,9 @@ background: var(--surface-container);
 /* Anillo de foco global (WCAG 2.4.7): cualquier control navegable por teclado
    muestra un anillo visible consistente. Los inputs del kit conservan su ring
    propio (focus:ring-*) sin interferencia. */
-:where(a, button, [role='button'], [tabindex]:not([tabindex='-1'])):focus-visible {
+:where(a, button, [role='button'], [role='tab'], summary, [tabindex]:not([tabindex='-1'])):focus-visible {
 outline: 2px solid var(--border-focus);
 outline-offset: 2px;
-border-radius: 4px;
 }
 
 
@@ -1121,11 +1163,12 @@ border-radius: 4px;
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 10px;
-    border-radius: 9999px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1.5;
   }
   .badge-sm {
     padding: 2px 8px;
@@ -1205,17 +1248,24 @@ border-radius: 4px;
     width: 100%;
     padding: 9px 12px;
     border: 1px solid var(--border);
-    border-radius: 12px !important;
-    border-color: var(--outline-variant) !important;
+    border-radius: var(--radius-control) !important;
+    border-color: var(--input-border) !important;
     font-size: 13px;
     background: var(--surface) !important;
     color: var(--on-surface);
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
+  .form-control:hover:not(:disabled):not(:focus) {
+    border-color: var(--keyline) !important;
+  }
   .form-control:focus {
     border-color: var(--border-focus) !important;
-    box-shadow: 0 0 0 3px rgb(var(--ring-primary) / 0.25);
+    box-shadow: 0 0 0 3px rgb(var(--ring-primary) / 0.22);
     outline: none;
+    caret-color: var(--primary);
+  }
+  .form-control[aria-invalid='true'] {
+    border-color: var(--error) !important;
   }
   .form-control:disabled {
     background: var(--surface-container);
@@ -1511,6 +1561,8 @@ border-radius: 4px;
     position: fixed;
     inset: 0;
     background: var(--overlay);
+    -webkit-backdrop-filter: blur(6px) saturate(1.2);
+    backdrop-filter: blur(6px) saturate(1.2);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1520,13 +1572,14 @@ border-radius: 4px;
   }
   .modal {
     background: var(--surface);
-    border-radius: 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
     width: 100%;
     max-width: 500px;
     max-height: 90vh;
     overflow: auto;
-    box-shadow: 0 24px 64px rgba(15, 23, 42, 0.16);
-    animation: slide-up 0.3s ease;
+    box-shadow: var(--shadow-page);
+    animation: slide-up 0.22s var(--ease-out);
   }
   .modal-header {
     display: flex;
@@ -1536,19 +1589,21 @@ border-radius: 4px;
     border-bottom: 1px solid var(--border-subtle);
   }
   .modal-header h3 {
-    font-size: 16px;
-    font-weight: 700;
+    font-family: 'Archivo', 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-variation-settings: 'wdth' 106, 'wght' 750;
+    font-size: 17px;
+    font-weight: 750;
     color: var(--on-surface);
   }
   .modal-close {
     width: 32px;
     height: 32px;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text-secondary);
-    transition: all 0.18s ease;
+    transition: background-color 0.15s var(--ease-out), color 0.15s var(--ease-out);
   }
   .modal-close:hover {
     background: var(--surface-dim);
@@ -1578,8 +1633,12 @@ border-radius: 4px;
   .empty-icon {
     width: 56px;
     height: 56px;
-    border-radius: 50%;
-    background: var(--surface-dim);
+    border-radius: var(--radius-control);
+    border: 1.5px dashed color-mix(in srgb, var(--keyline) 40%, transparent);
+    background-color: var(--surface);
+    background-image: radial-gradient(var(--stud-dot) 1.3px, transparent 1.6px);
+    background-size: 12px 12px;
+    background-position: 0 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1592,8 +1651,8 @@ border-radius: 4px;
   }
   .empty-title {
     font-size: 14px;
-    font-weight: 600;
-    color: var(--on-surface-variant);
+    font-weight: 700;
+    color: var(--on-surface);
   }
   .empty-subtitle {
     font-size: 12px;
@@ -1862,16 +1921,17 @@ border-radius: 4px;
     gap: 4px;
     margin-bottom: 16px;
     background: var(--surface-dim);
-    padding: 4px;
-    border-radius: 10px;
+    border: 1px solid var(--border);
+    padding: 3px;
+    border-radius: var(--radius-control);
     width: fit-content;
   }
   .tab {
-    padding: 8px 16px;
+    padding: 7px 14px;
     font-size: 13px;
     font-weight: 600;
     color: var(--text-secondary);
-    border-radius: 8px;
+    border-radius: 4px;
     cursor: pointer;
     transition: all 0.18s ease;
     background: transparent;
@@ -1883,8 +1943,8 @@ border-radius: 4px;
   }
   .tab.active {
     background: var(--surface);
-    color: var(--primary);
-    box-shadow: var(--shadow-soft);
+    color: var(--primary-text);
+    box-shadow: var(--shadow-soft), inset 0 0 0 1px var(--border);
   }
   .tab-content {
     display: none;
@@ -2009,6 +2069,10 @@ border-radius: 4px;
 
 /* ==== Polish global (shadcn) ==== */
 
+/* Browser surfaces themed from the palette: thin ink-tinted scrollbars. */
+html {
+  scrollbar-color: color-mix(in srgb, var(--keyline) 32%, transparent) transparent;
+}
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -2017,13 +2081,13 @@ border-radius: 4px;
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--text-muted) 35%, transparent);
-  border-radius: 8px;
-  border: 2px solid transparent;
+  background: color-mix(in srgb, var(--keyline) 28%, transparent);
+  border-radius: 3px;
+  border: 3px solid transparent;
   background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--text-muted) 55%, transparent);
+  background: color-mix(in srgb, var(--keyline) 48%, transparent);
   background-clip: content-box;
 }
 
@@ -2366,3 +2430,131 @@ textarea[aria-invalid="true"]:focus-visible {
   background-color: #081426 !important;
 }
 
+
+/* ==== App surfaces (Operate): extension of the "Manual de armado" system ==== */
+
+/* Archivo display cut for page titles and numerals; Plus Jakarta Sans stays the reading face. */
+.app-display {
+  font-family: 'Archivo', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-variation-settings: 'wdth' 106, 'wght' 760;
+  font-weight: 760;
+  letter-spacing: -0.012em;
+}
+.app-numeral {
+  font-family: 'Archivo', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-variation-settings: 'wdth' 118, 'wght' 850;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+.app-stamp {
+  font-family: 'Archivo', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-variation-settings: 'wdth' 118, 'wght' 760;
+  font-weight: 760;
+}
+.tabular-nums {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Stud-dot texture: quiet places only (empty states, headers), never behind dense data. */
+.app-studs {
+  background-image: radial-gradient(var(--stud-dot) 1.3px, transparent 1.6px);
+  background-size: 24px 24px;
+  background-position: 12px 12px;
+}
+
+/* Sticky glass header over scrolling content: blur always bounded by a keyline. */
+.app-glass-bar {
+  background: var(--glass-bar);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+  border-bottom: 1px solid var(--border);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.6);
+}
+[data-theme='dark'] .app-glass-bar,
+.dark .app-glass-bar {
+  box-shadow: inset 0 -1px 0 rgba(214, 227, 255, 0.04);
+}
+
+/* Sidebar: Azul tinta rail, slides as a drawer below 1024px. */
+.app-sidebar {
+  transition:
+    transform 260ms var(--ease-out),
+    width 220ms var(--ease-out),
+    visibility 0s linear 0s;
+}
+.app-sidebar-scroll {
+  scrollbar-color: rgba(214, 227, 255, 0.22) transparent;
+}
+.app-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(214, 227, 255, 0.2);
+  background-clip: content-box;
+}
+@media (max-width: 1023.98px) {
+  .app-sidebar[data-open='false'] {
+    visibility: hidden;
+    transition:
+      transform 260ms var(--ease-out),
+      width 220ms var(--ease-out),
+      visibility 0s linear 260ms;
+  }
+}
+
+/* Skeleton pieces for loading states (no spinners in the middle of content). */
+.app-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-dim) 0%,
+    color-mix(in srgb, var(--surface-dim) 55%, var(--surface)) 50%,
+    var(--surface-dim) 100%
+  );
+  background-size: 200% 100%;
+  border-radius: 4px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .app-skeleton {
+    animation: app-skeleton-sweep 1.4s var(--ease-out) infinite;
+  }
+}
+@keyframes app-skeleton-sweep {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* Dialog surfaces (Radix): frosted overlay + keylined panel. */
+.app-overlay {
+  background: var(--overlay);
+  -webkit-backdrop-filter: blur(6px) saturate(1.2);
+  backdrop-filter: blur(6px) saturate(1.2);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .app-dialog[data-state='open'] {
+    animation: app-dialog-in 200ms var(--ease-out);
+  }
+  .app-overlay[data-state='open'] {
+    animation: app-fade-in 160ms var(--ease-out);
+  }
+}
+@keyframes app-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 8px)) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+@keyframes app-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

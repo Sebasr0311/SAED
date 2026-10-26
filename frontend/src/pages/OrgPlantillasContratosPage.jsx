@@ -11,12 +11,8 @@ import {
   Eye,
   Copy,
   CheckCircle2,
-  Clock,
-  AlertCircle,
-  Calendar,
   Sparkles,
   Code,
-  Archive,
   RefreshCw,
   X,
   Layers,
@@ -29,15 +25,24 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog.tsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+
+const CONTROL =
+  'mt-1.5 h-10 w-full rounded-md border border-input bg-surface px-3 text-sm text-on-surface transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 disabled:opacity-60';
+const FIELD_LABEL = 'text-sm font-semibold text-on-surface';
 
 const TIPOS_CONTRATO = ['INICIAL', 'RENOVACION', 'PERMANENCIA', 'COMERCIAL', 'OTRO'];
 
-const ESTADO_COLORS = {
-  ACTIVA: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-  BORRADOR: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-  HISTORICA: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20',
-  SUSPENDIDA: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
-  INACTIVA: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+const ESTADO_VARIANT = {
+  ACTIVA: 'success',
+  BORRADOR: 'warning',
+  HISTORICA: 'secondary',
+  SUSPENDIDA: 'destructive',
+  INACTIVA: 'destructive',
 };
 
 const DEFAULT_VARIABLES = [
@@ -362,65 +367,56 @@ export default function OrgPlantillasContratosPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Encabezado */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/70 pb-5">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Plantillas de Contratos
-            </h1>
-            <Badge variant="outline" className="bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20 text-xs font-semibold">
-              Formato HTML
-            </Badge>
-            <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-xs font-semibold">
-              Multi-Tenancy Org
-            </Badge>
-          </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Cargue y configure contratos en formato HTML para su organización con control de versiones y variables dinámicas (${'{variable}'})
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={loadPlantillas} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-            Actualizar
-          </Button>
-          <Button variant="primary" size="sm" onClick={abrirNuevo}>
-            <UploadCloud className="h-4 w-4 mr-1.5" />
-            Cargar / Nueva Plantilla
-          </Button>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Plantillas de contratos"
+        subtitle="Contratos en formato HTML para su organización, con control de versiones y variables dinámicas."
+        badge={<Badge variant="info">Formato HTML</Badge>}
+        action={
+          <>
+            <Button variant="outline" size="sm" onClick={loadPlantillas} disabled={loading} className="min-h-10 sm:min-h-9">
+              <RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" />
+              Actualizar
+            </Button>
+            <Button variant="primary" size="sm" onClick={abrirNuevo} className="min-h-10 sm:min-h-9">
+              <UploadCloud aria-hidden="true" />
+              Cargar o crear plantilla
+            </Button>
+          </>
+        }
+      />
 
       {/* Barra de Filtros y Búsqueda */}
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
         <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
           <input
             type="text"
+            aria-label="Buscar plantillas"
             placeholder="Buscar por nombre, código o tipo..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className={`${CONTROL} mt-0 pl-9 pr-10`}
           />
           {searchTerm && (
             <button
+              type="button"
               onClick={() => setSearchTerm('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Limpiar búsqueda"
+              className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded text-text-muted hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <label className="text-xs text-muted-foreground whitespace-nowrap">Estado:</label>
+          <label htmlFor="plantillas-estado" className="whitespace-nowrap text-xs font-semibold text-text-secondary">Estado</label>
           <select
+            id="plantillas-estado"
             value={filtroEstado}
             onChange={(e) => setFiltroEstado(e.target.value)}
-            className="text-xs sm:text-sm bg-background border border-border rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className={`${CONTROL} mt-0 sm:w-auto`}
           >
             <option value="">Todos los estados</option>
             <option value="ACTIVA">Activas</option>
@@ -433,7 +429,7 @@ export default function OrgPlantillasContratosPage() {
 
       {/* Listado de Plantillas */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div role="status" aria-busy="true" aria-label="Cargando plantillas" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="p-4 space-y-3">
               <Skeleton className="h-5 w-3/4" />
@@ -443,29 +439,38 @@ export default function OrgPlantillasContratosPage() {
           ))}
         </div>
       ) : error ? (
-        <Card className="p-6 text-center text-danger-600 space-y-2">
-          <AlertCircle className="h-8 w-8 mx-auto" />
-          <p className="font-semibold">{error}</p>
-          <Button variant="outline" size="sm" onClick={loadPlantillas}>
-            Reintentar
-          </Button>
-        </Card>
+        <ErrorState title="No se pudo cargar el catálogo de plantillas" message={error} onRetry={loadPlantillas} />
       ) : plantillasFiltradas.length === 0 ? (
-        <Card className="p-12 text-center space-y-3">
-          <FileText className="h-10 w-10 mx-auto text-muted-foreground/60" />
-          <h3 className="font-semibold text-foreground">No se encontraron plantillas</h3>
-          <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto">
-            {searchTerm || filtroEstado
-              ? 'No hay plantillas que coincidan con los filtros aplicados.'
-              : 'Aún no has registrado plantillas de contrato para esta organización. Crea la primera con el botón "Nueva Plantilla".'}
-          </p>
-          {!searchTerm && !filtroEstado && (
-            <Button variant="primary" size="sm" onClick={abrirNuevo}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              Crear Primera Plantilla
-            </Button>
-          )}
-        </Card>
+        <div className="table-container">
+          <EmptyState
+            icon={FileText}
+            title="No se encontraron plantillas"
+            subtitle={
+              searchTerm || filtroEstado
+                ? 'No hay plantillas que coincidan con los filtros aplicados.'
+                : 'Aún no hay plantillas de contrato para esta organización.'
+            }
+          >
+            {!searchTerm && !filtroEstado ? (
+              <Button variant="primary" size="sm" onClick={abrirNuevo} className="mt-3">
+                <Plus aria-hidden="true" />
+                Crear primera plantilla
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => {
+                  setSearchTerm('');
+                  setFiltroEstado('');
+                }}
+              >
+                Limpiar filtros
+              </Button>
+            )}
+          </EmptyState>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {plantillasFiltradas.map((p) => (
@@ -473,25 +478,25 @@ export default function OrgPlantillasContratosPage() {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-1">
-                    <span className="font-mono text-[11px] text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">
+                    <span className="font-mono text-xs text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">
                       {p.codigo}
                     </span>
                     <CardTitle className="text-base font-bold leading-tight line-clamp-1">
                       {p.nombre}
                     </CardTitle>
                   </div>
-                  <Badge variant="outline" className={`text-xs font-semibold ${ESTADO_COLORS[p.estado] || ''}`}>
+                  <Badge variant={ESTADO_VARIANT[p.estado] || 'secondary'}>
                     {p.estado}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-2 pt-1">
-                  <Badge variant="secondary" className="text-[11px] font-medium">
+                  <Badge variant="secondary" className="text-xs font-medium">
                     {p.tipoContrato}
                   </Badge>
-                  <Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20 font-mono">
+                  <Badge variant="outline" className="text-xs bg-tint-blue-bg text-tint-blue-fg border-tint-blue-fg/25 font-mono">
                     HTML
                   </Badge>
-                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
                     <Layers className="h-3 w-3" /> v{p.version}
                   </span>
                 </div>
@@ -502,7 +507,7 @@ export default function OrgPlantillasContratosPage() {
                   {p.descripcion || 'Sin descripción detallada registrada para esta plantilla.'}
                 </p>
 
-                <div className="text-[11px] text-muted-foreground space-y-1 border-t border-border/50 pt-3">
+                <div className="text-xs text-muted-foreground space-y-1 border-t border-border/50 pt-3">
                   <div className="flex items-center justify-between">
                     <span>Vigencia:</span>
                     <span className="font-medium text-foreground">
@@ -525,7 +530,7 @@ export default function OrgPlantillasContratosPage() {
                       size="sm"
                       onClick={() => previsualizar(p)}
                       title="Previsualizar contrato renderizado"
-                      className="h-8 px-2 text-xs"
+                      className="h-10 px-2 text-xs sm:h-8"
                     >
                       <Eye className="h-3.5 w-3.5 mr-1" />
                       Ver
@@ -535,7 +540,7 @@ export default function OrgPlantillasContratosPage() {
                       size="sm"
                       onClick={() => handleDownloadHtml(p)}
                       title="Descargar archivo HTML de la plantilla"
-                      className="h-8 px-2 text-xs text-sky-600 dark:text-sky-400"
+                      className="h-8 px-2 text-xs text-tint-blue-fg"
                     >
                       <Download className="h-3.5 w-3.5 mr-1" />
                       HTML
@@ -545,7 +550,7 @@ export default function OrgPlantillasContratosPage() {
                       size="sm"
                       onClick={() => abrirEditar(p)}
                       title="Editar plantilla"
-                      className="h-8 px-2 text-xs"
+                      className="h-10 px-2 text-xs sm:h-8"
                     >
                       Editar
                     </Button>
@@ -557,7 +562,7 @@ export default function OrgPlantillasContratosPage() {
                       size="sm"
                       onClick={() => abrirNuevaVersion(p)}
                       title="Crear nueva versión incrementando número"
-                      className="h-8 px-2 text-xs"
+                      className="h-10 px-2 text-xs sm:h-8"
                     >
                       <Copy className="h-3.5 w-3.5 mr-1" />
                       v{p.version + 1}
@@ -569,7 +574,7 @@ export default function OrgPlantillasContratosPage() {
                         size="sm"
                         onClick={() => cambiarEstado(p.idPlantilla, 'ACTIVA')}
                         title="Activar plantilla"
-                        className="h-8 px-2 text-xs bg-emerald-600 hover:bg-emerald-700"
+                        className="h-10 px-2 text-xs sm:h-8"
                       >
                         Activar
                       </Button>
@@ -582,7 +587,7 @@ export default function OrgPlantillasContratosPage() {
                           size="sm"
                           onClick={() => cambiarEstado(p.idPlantilla, 'SUSPENDIDA')}
                           title="Suspender plantilla temporalmente"
-                          className="h-8 px-2 text-xs text-rose-600 hover:bg-rose-500/10"
+                          className="h-8 px-2 text-xs text-destructive hover:bg-tint-red-bg"
                         >
                           <PauseCircle className="h-3.5 w-3.5 mr-1" />
                           Suspender
@@ -605,7 +610,7 @@ export default function OrgPlantillasContratosPage() {
                         size="sm"
                         onClick={() => cambiarEstado(p.idPlantilla, 'ACTIVA')}
                         title="Reactivar plantilla para su uso"
-                        className="h-8 px-2 text-xs text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10"
+                        className="h-8 px-2 text-xs text-tint-green-fg border-tint-green-fg/25 hover:bg-tint-green-bg"
                       >
                         <PlayCircle className="h-3.5 w-3.5 mr-1" />
                         Reactivar
@@ -617,9 +622,10 @@ export default function OrgPlantillasContratosPage() {
                       size="sm"
                       onClick={() => setPlantillaAEliminar(p)}
                       title="Eliminar plantilla"
-                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      aria-label={`Eliminar plantilla ${p.nombre}`}
+                      className="h-10 w-10 p-0 text-text-muted hover:bg-tint-red-bg hover:text-destructive sm:h-8 sm:w-8"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                     </Button>
                   </div>
                 </div>
@@ -630,62 +636,55 @@ export default function OrgPlantillasContratosPage() {
       )}
 
       {/* Modal de Crear / Editar / Versionar */}
-      {modalFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-3xl my-8 overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
-                <h3 className="font-bold text-lg text-foreground">
-                  {isVersionMode
-                    ? `Crear Nueva Versión de Plantilla`
-                    : editingId
-                      ? 'Editar Plantilla de Contrato'
-                      : 'Nueva Plantilla de Contrato'}
-                </h3>
-              </div>
-              <button
-                onClick={() => setModalFormOpen(false)}
-                className="text-muted-foreground hover:text-foreground p-1 rounded-lg"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleGuardar} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+      <Dialog open={modalFormOpen} onOpenChange={(o) => !saving && setModalFormOpen(o)}>
+        <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {isVersionMode
+                ? 'Crear nueva versión de plantilla'
+                : editingId
+                  ? 'Editar plantilla de contrato'
+                  : 'Nueva plantilla de contrato'}
+            </DialogTitle>
+            <DialogDescription>Los campos marcados con * son obligatorios.</DialogDescription>
+          </DialogHeader>
+            <form onSubmit={handleGuardar} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-xs font-semibold text-foreground">Código Único *</label>
+                  <label htmlFor="pl-codigo" className={FIELD_LABEL}>Código único *</label>
                   <input
+                    id="pl-codigo"
                     type="text"
                     required
                     disabled={!!editingId && !isVersionMode}
                     value={form.codigo}
                     onChange={(e) => setForm({ ...form, codigo: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
                     placeholder="Ej. CONTRATO_ARRIENDO_V1"
-                    className="w-full mt-1.5 px-3 py-2 text-xs sm:text-sm bg-background border border-border rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
+                    className={`${CONTROL} font-mono`}
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-semibold text-foreground">Nombre de la Plantilla *</label>
+                  <label htmlFor="pl-nombre" className={FIELD_LABEL}>Nombre de la plantilla *</label>
                   <input
+                    id="pl-nombre"
                     type="text"
                     required
                     value={form.nombre}
                     onChange={(e) => setForm({ ...form, nombre: e.target.value })}
                     placeholder="Ej. Contrato de Arrendamiento Residencial Estándar"
-                    className="w-full mt-1.5 px-3 py-2 text-xs sm:text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    className={CONTROL}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-xs font-semibold text-foreground">Tipo de Contrato</label>
+                  <label htmlFor="pl-tipo" className={FIELD_LABEL}>Tipo de contrato</label>
                   <select
+                    id="pl-tipo"
                     value={form.tipoContrato}
                     onChange={(e) => setForm({ ...form, tipoContrato: e.target.value })}
-                    className="w-full mt-1.5 px-3 py-2 text-xs sm:text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    className={CONTROL}
                   >
                     {TIPOS_CONTRATO.map((t) => (
                       <option key={t} value={t}>
@@ -695,11 +694,12 @@ export default function OrgPlantillasContratosPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-foreground">Estado Inicial</label>
+                  <label htmlFor="pl-estado-inicial" className={FIELD_LABEL}>Estado inicial</label>
                   <select
+                    id="pl-estado-inicial"
                     value={form.estado}
                     onChange={(e) => setForm({ ...form, estado: e.target.value })}
-                    className="w-full mt-1.5 px-3 py-2 text-xs sm:text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    className={CONTROL}
                   >
                     <option value="ACTIVA">ACTIVA</option>
                     <option value="BORRADOR">BORRADOR</option>
@@ -707,24 +707,26 @@ export default function OrgPlantillasContratosPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-foreground">Vigencia Desde</label>
+                  <label htmlFor="pl-vigencia" className={FIELD_LABEL}>Vigencia desde</label>
                   <input
+                    id="pl-vigencia"
                     type="date"
                     value={form.vigenciaDesde}
                     onChange={(e) => setForm({ ...form, vigenciaDesde: e.target.value })}
-                    className="w-full mt-1.5 px-3 py-2 text-xs sm:text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    className={CONTROL}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground">Descripción Operativa</label>
+                <label htmlFor="pl-descripcion" className={FIELD_LABEL}>Descripción operativa</label>
                 <input
+                  id="pl-descripcion"
                   type="text"
                   value={form.descripcion}
                   onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
                   placeholder="Instrucciones para los administradores de propiedad al aplicar esta plantilla..."
-                  className="w-full mt-1.5 px-3 py-2 text-xs sm:text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className={CONTROL}
                 />
               </div>
 
@@ -767,7 +769,7 @@ export default function OrgPlantillasContratosPage() {
                 {uploadedFileName && (
                   <div className="mt-3 pt-3 border-t border-primary/20 flex items-center justify-between text-xs text-primary font-medium">
                     <span className="flex items-center gap-1.5">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-tint-green-fg" />
                       Archivo cargado: <strong>{uploadedFileName}</strong>
                     </span>
                     <button
@@ -776,7 +778,7 @@ export default function OrgPlantillasContratosPage() {
                         setUploadedFileName('');
                         if (fileInputRef.current) fileInputRef.current.value = '';
                       }}
-                      className="text-muted-foreground hover:text-destructive text-[11px]"
+                      className="text-muted-foreground hover:text-destructive text-xs"
                     >
                       Quitar archivo
                     </button>
@@ -790,6 +792,7 @@ export default function OrgPlantillasContratosPage() {
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
+                      aria-pressed={modalTab === 'editor'}
                       onClick={() => setModalTab('editor')}
                       className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
                         modalTab === 'editor'
@@ -802,6 +805,7 @@ export default function OrgPlantillasContratosPage() {
                     </button>
                     <button
                       type="button"
+                      aria-pressed={modalTab === 'preview'}
                       onClick={() => setModalTab('preview')}
                       className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
                         modalTab === 'preview'
@@ -813,7 +817,7 @@ export default function OrgPlantillasContratosPage() {
                       Vista Previa en Vivo
                     </button>
                   </div>
-                  <span className="text-[11px] font-mono text-muted-foreground">
+                  <span className="text-xs font-mono text-muted-foreground">
                     {form.contenidoHtml ? `${(new Blob([form.contenidoHtml]).size / 1024).toFixed(1)} KB` : '0 KB'}
                   </span>
                 </div>
@@ -823,7 +827,7 @@ export default function OrgPlantillasContratosPage() {
                     {/* Inserción de variables dinámicas */}
                     <div className="space-y-2 p-3 bg-muted/40 border border-border/70 rounded-lg">
                       <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                        <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                        <Sparkles className="h-3.5 w-3.5 text-tint-amber-fg" />
                         <span>Insertar Variable Dinámica (clic para añadir al HTML):</span>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
@@ -832,7 +836,7 @@ export default function OrgPlantillasContratosPage() {
                             type="button"
                             key={v}
                             onClick={() => insertarVariable(v)}
-                            className="text-[11px] font-mono px-2 py-1 bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/40 border border-border rounded transition-colors text-muted-foreground"
+                            className="text-xs font-mono px-2 py-1 bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/40 border border-border rounded transition-colors text-muted-foreground"
                           >
                             + {`\${${v}}`}
                           </button>
@@ -843,22 +847,23 @@ export default function OrgPlantillasContratosPage() {
                     <div>
                       <textarea
                         required
+                        aria-label="Código HTML del contrato"
                         rows={12}
                         value={form.contenidoHtml}
                         onChange={(e) => setForm({ ...form, contenidoHtml: e.target.value })}
                         placeholder="Pegue o escriba aquí el código HTML de su contrato..."
-                        className="w-full px-3 py-2 text-xs font-mono bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 leading-relaxed"
+                        className="w-full rounded-md border border-input bg-surface px-3 py-2 font-mono text-xs leading-relaxed text-on-surface focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
                       />
-                      <p className="text-[11px] text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Soporta etiquetas HTML estándar (&lt;h1&gt;, &lt;p&gt;, &lt;table&gt;, &lt;ul&gt;, etc.) y estilos CSS inline.
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-6 bg-white dark:bg-slate-900 min-h-[250px] max-h-[400px] overflow-y-auto">
-                    <div className="mb-3 pb-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-muted-foreground">
-                      <span className="font-semibold text-foreground">Simulación con datos de prueba</span>
-                      <span>Renderizado en tiempo real</span>
+                  <div className="min-h-[250px] max-h-[400px] overflow-y-auto bg-surface p-4">
+                    <div className="mb-3 flex items-center justify-between border-b border-border pb-2 text-xs text-text-muted">
+                      <span className="font-semibold text-on-surface">Vista con datos de ejemplo</span>
+                      <span>Se actualiza al escribir</span>
                     </div>
                     {/* F5-H06: template HTML is rendered in a sandboxed frame (no scripts, no same-origin access). */}
                     <iframe
@@ -871,71 +876,61 @@ export default function OrgPlantillasContratosPage() {
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+              <DialogFooter className="gap-2 border-t border-border pt-4">
                 <Button type="button" variant="outline" onClick={() => setModalFormOpen(false)} disabled={saving}>
                   Cancelar
                 </Button>
                 <Button type="submit" variant="primary" disabled={saving}>
-                  {saving ? 'Guardando...' : isVersionMode ? 'Publicar Nueva Versión' : 'Guardar Plantilla'}
+                  {saving ? 'Guardando...' : isVersionMode ? 'Publicar nueva versión' : 'Guardar plantilla'}
                 </Button>
-              </div>
+              </DialogFooter>
             </form>
-          </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Vista Previa Renderizada */}
-      {previewModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-3xl my-8 overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div className="flex items-center gap-2">
-                <Eye className="h-5 w-5 text-primary" />
-                <h3 className="font-bold text-base text-foreground">Vista Previa: {previewTitle}</h3>
+      <Dialog open={previewModalOpen} onOpenChange={setPreviewModalOpen}>
+        <DialogContent className="flex max-h-[90dvh] max-w-3xl flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="pr-8">Vista previa: {previewTitle}</DialogTitle>
+            <DialogDescription>Contrato con las variables sustituidas por datos de ejemplo.</DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border">
+            {previewLoading ? (
+              <div className="space-y-3 p-6" role="status" aria-busy="true">
+                <Skeleton className="h-6 w-1/2" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-11/12" />
+                <Skeleton className="h-40 w-full" />
+                <p className="text-xs text-text-muted">Sustituyendo variables y generando el contrato...</p>
               </div>
-              <button
-                onClick={() => setPreviewModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground p-1 rounded-lg"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto flex-1 bg-white text-slate-900 rounded-b-xl dark:bg-slate-900 dark:text-slate-100">
-              {previewLoading ? (
-                <div className="py-16 text-center space-y-3">
-                  <RefreshCw className="h-8 w-8 animate-spin mx-auto text-primary" />
-                  <p className="text-xs text-muted-foreground">Sustituyendo variables y generando contrato...</p>
-                </div>
-              ) : (
-                <iframe
-                  title="Vista previa del contrato"
-                  sandbox=""
-                  srcDoc={previewHtml || ''}
-                  className="w-full min-h-[60vh] bg-white rounded border-0"
-                />
-              )}
-            </div>
-
-            <div className="px-6 py-3 border-t border-border bg-muted/20 flex justify-end">
-              <Button variant="outline" size="sm" onClick={() => setPreviewModalOpen(false)}>
-                Cerrar Previsualización
-              </Button>
-            </div>
+            ) : (
+              <iframe
+                title="Vista previa del contrato"
+                sandbox=""
+                srcDoc={previewHtml || ''}
+                className="min-h-[60vh] w-full border-0 bg-white"
+              />
+            )}
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setPreviewModalOpen(false)}>
+              Cerrar vista previa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogo de Confirmación para Eliminar */}
       <ConfirmDialog
         open={!!plantillaAEliminar}
         onClose={() => setPlantillaAEliminar(null)}
         onConfirm={handleEliminarConfirmado}
-        title="Eliminar Plantilla de Contrato"
+        title="Eliminar plantilla de contrato"
         message={`¿Está seguro de que desea eliminar la plantilla "${plantillaAEliminar?.nombre}" (${plantillaAEliminar?.codigo})? Esta acción no se puede deshacer.`}
-        confirmLabel="Eliminar Definitivamente"
+        confirmLabel="Eliminar definitivamente"
         danger
       />
-    </div>
+    </PageContainer>
   );
 }

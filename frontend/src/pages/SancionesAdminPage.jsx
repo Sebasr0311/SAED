@@ -5,6 +5,8 @@ import { Pagination } from '../components/ui/Pagination';
 import { Modal } from '../components/ui/Modal';
 import { Select, Input, Textarea } from '../components/ui/Form.jsx';
 import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/badge.tsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
 import { useFetch, useLiveValidation } from '../lib/hooks';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
@@ -27,18 +29,34 @@ import { valTexto, valSelect, valNumero, formatoCOP } from '../lib/validation.js
 const PAGE_SIZE = 10;
 
 const ESTADO_BADGE = {
-  NOTIFICADA: { class: 'badge-warning', label: 'Notificada', icon: Clock },
-  EN_DESCARGOS: { class: 'badge-info', label: 'En Descargos', icon: FileText },
-  ABSUELTA: { class: 'badge-neutral', label: 'Absuelta', icon: CheckCircle2 },
-  APLICADA: { class: 'badge-error', label: 'Sanción Aplicada', icon: ShieldAlert },
-  ANULADA: { class: 'badge-neutral', label: 'Anulada', icon: XCircle },
+  NOTIFICADA: { variant: 'warning', label: 'Notificada', icon: Clock },
+  EN_DESCARGOS: { variant: 'info', label: 'En descargos', icon: FileText },
+  ABSUELTA: { variant: 'secondary', label: 'Absuelta', icon: CheckCircle2 },
+  APLICADA: { variant: 'destructive', label: 'Sanción aplicada', icon: ShieldAlert },
+  ANULADA: { variant: 'outline', label: 'Anulada', icon: XCircle },
 };
 
 const GRAVEDAD_BADGE = {
-  LEVE: { class: 'badge-neutral', label: 'Leve' },
-  GRAVE: { class: 'badge-warning', label: 'Grave' },
-  GRAVISIMA: { class: 'badge-error', label: 'Gravísima' },
+  LEVE: { variant: 'secondary', label: 'Leve' },
+  GRAVE: { variant: 'warning', label: 'Grave' },
+  GRAVISIMA: { variant: 'destructive', label: 'Gravísima' },
 };
+
+function EstadoBadge({ estado }) {
+  const meta = ESTADO_BADGE[estado] || { variant: 'secondary', label: estado };
+  const Icon = meta.icon;
+  return (
+    <Badge variant={meta.variant}>
+      {Icon && <Icon className="h-3 w-3" aria-hidden="true" />}
+      {meta.label}
+    </Badge>
+  );
+}
+
+function GravedadBadge({ gravedad }) {
+  const meta = GRAVEDAD_BADGE[gravedad] || { variant: 'secondary', label: gravedad };
+  return <Badge variant={meta.variant}>{meta.label}</Badge>;
+}
 
 const TIPOS_SANCION = [
   { value: 'AMONESTACION_ESCRITA', label: 'Amonestación Escrita' },
@@ -92,6 +110,7 @@ export default function SancionesAdminPage() {
 
   // Detalle y resolución
   const [detalle, setDetalle] = useState(null);
+  const [anulacion, setAnulacion] = useState(null); // { idSancion, motivo }
   const [resolucionForm, setResolucionForm] = useState({
     decision: 'APLICADA',
     resolucionFinal: '',
@@ -273,7 +292,7 @@ export default function SancionesAdminPage() {
       label: 'Expediente',
       width: 150,
       render: (r) => (
-        <span className="font-mono font-medium text-xs text-foreground bg-muted px-2 py-0.5 rounded">
+        <span className="whitespace-nowrap rounded-[3px] bg-surface-dim px-2 py-0.5 font-mono text-xs font-semibold text-on-surface">
           {r.numeroExpediente || `EXP-${r.idSancion}`}
         </span>
       ),
@@ -282,8 +301,8 @@ export default function SancionesAdminPage() {
       key: 'identificadorUnidad',
       label: 'Unidad',
       render: (r) => (
-        <div className="flex items-center gap-1.5 font-medium text-foreground">
-          <Home className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        <div className="flex items-center gap-1.5 font-semibold text-on-surface">
+          <Home className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden="true" />
           <span>{r.identificadorUnidad || (r.idUnidad ? `Unidad #${r.idUnidad}` : '-')}</span>
         </div>
       ),
@@ -292,8 +311,8 @@ export default function SancionesAdminPage() {
       key: 'nombreImputado',
       label: 'Persona Imputada',
       render: (r) => (
-        <div className="flex items-center gap-1.5 text-sm text-foreground">
-          <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        <div className="flex items-center gap-1.5 text-sm text-on-surface">
+          <User className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden="true" />
           <span>{r.nombreImputado || (r.idPersonaImputada ? `Persona #${r.idPersonaImputada}` : 'No especificado')}</span>
         </div>
       ),
@@ -302,18 +321,12 @@ export default function SancionesAdminPage() {
     {
       key: 'gravedad',
       label: 'Gravedad',
-      render: (r) => {
-        const meta = GRAVEDAD_BADGE[r.gravedad] || { class: 'badge-neutral', label: r.gravedad };
-        return <span className={`badge ${meta.class}`}>{meta.label}</span>;
-      },
+      render: (r) => <GravedadBadge gravedad={r.gravedad} />,
     },
     {
       key: 'estado',
       label: 'Estado',
-      render: (r) => {
-        const meta = ESTADO_BADGE[r.estado] || { class: 'badge-neutral', label: r.estado };
-        return <span className={`badge ${meta.class}`}>{meta.label}</span>;
-      },
+      render: (r) => <EstadoBadge estado={r.estado} />,
     },
   ];
 
@@ -412,13 +425,20 @@ export default function SancionesAdminPage() {
     }
   }
 
-  async function handleAnularSancion(idSancion) {
-    const motivo = window.prompt('Ingrese el motivo de anulación del expediente sancionatorio (garantía de debido proceso):');
-    if (!motivo || !motivo.trim()) return;
+  function handleAnularSancion(idSancion) {
+    setAnulacion({ idSancion, motivo: '' });
+  }
+
+  async function confirmarAnulacion(e) {
+    e.preventDefault();
+    const idSancion = anulacion?.idSancion;
+    const motivo = anulacion?.motivo || '';
+    if (!idSancion || !motivo.trim()) return;
     setSubmitting(true);
     try {
       await tenantApi.put(`/sanciones/${idSancion}/anular`, { motivo: motivo.trim() });
       toast.success('Expediente sancionatorio anulado');
+      setAnulacion(null);
       setDetalle(null);
       refetch();
     } catch (err) {
@@ -431,11 +451,13 @@ export default function SancionesAdminPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Debido Proceso y Sanciones"
-        subtitle="Gestión de pliegos, descargos, garantías constitucionales y resoluciones"
+        title="Debido proceso y sanciones"
+        subtitle="Pliegos de cargos, descargos y resoluciones con garantía de debido proceso"
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-end gap-2">
             <Select
+              id="sanciones-filtro"
+              aria-label="Filtrar por estado"
               value={filtroEstado}
               onChange={(e) => {
                 setFiltroEstado(e.target.value);
@@ -445,53 +467,63 @@ export default function SancionesAdminPage() {
             >
               <option value="">Todos los estados</option>
               <option value="NOTIFICADA">Notificada</option>
-              <option value="EN_DESCARGOS">En Descargos</option>
+              <option value="EN_DESCARGOS">En descargos</option>
               <option value="ABSUELTA">Absuelta</option>
-              <option value="APLICADA">Sanción Aplicada</option>
+              <option value="APLICADA">Sanción aplicada</option>
               <option value="ANULADA">Anulada</option>
             </Select>
-            <Button onClick={() => setModalOpen(true)} className="flex items-center gap-2">
-              <Gavel className="w-4 h-4" />
-              <span>Nuevo Pliego</span>
+            <Button onClick={() => setModalOpen(true)} icon={<Gavel className="h-4 w-4" />}>
+              Nuevo pliego
             </Button>
           </div>
         }
       />
 
-      <DataTable
-        columns={columns}
-        rows={rows}
-        loading={loading}
-        empty={{
-          icon: 'balance',
-          title: 'Sin sanciones registradas',
-          subtitle: 'No hay procesos sancionatorios activos en este momento.',
-        }}
-        error={error?.message}
-        keyField="idSancion"
-        onRowClick={setDetalle}
-      />
+      {error ? (
+        <ErrorState
+          title="No se pudieron cargar los procesos sancionatorios"
+          message={error.message || 'Revise su conexión e intente de nuevo.'}
+          onRetry={() => refetch().catch(() => {})}
+        />
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            rows={rows}
+            loading={loading}
+            empty={{
+              icon: Scale,
+              title: filtroEstado ? 'No hay procesos en este estado' : 'Sin sanciones registradas',
+              subtitle: filtroEstado
+                ? 'Cambie el filtro de estado para ver otros expedientes.'
+                : 'Abra un pliego de cargos para iniciar un proceso sancionatorio.',
+            }}
+            keyField="idSancion"
+            onRowClick={setDetalle}
+          />
 
-      <Pagination
-        page={safePage}
-        totalPages={totalPages}
-        totalItems={filtered.length}
-        pageSize={PAGE_SIZE}
-        onPageChange={setPage}
-      />
+          <Pagination
+            page={safePage}
+            totalPages={totalPages}
+            totalItems={filtered.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
+        </>
+      )}
 
       {/* Modal de Creación de Nuevo Pliego de Cargos */}
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title="Abrir Pliego de Cargos (Debido Proceso)"
+        title="Abrir pliego de cargos"
         size="lg"
       >
         <form onSubmit={handleCreate} className="space-y-4 pt-1">
-          <div className="p-3 bg-muted/40 rounded-lg border border-border/60 text-xs text-muted-foreground flex items-start gap-2.5">
-            <Scale className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+          <div className="flex items-start gap-2.5 rounded-md border border-border bg-surface-container p-3 text-xs text-text-secondary">
+            <Scale className="mt-0.5 h-4 w-4 shrink-0 text-primary-text" aria-hidden="true" />
             <div>
-              <span className="font-semibold text-foreground">Garantía de Debido Proceso (Ley 675 / CP Art. 29):</span>
+              <span className="font-semibold text-on-surface">Garantía de debido proceso (Ley 675 y artículo 29 de la Constitución):</span>
               <p className="mt-0.5">
                 La notificación del pliego otorgará días hábiles al imputado para presentar sus descargos y controvertir pruebas antes de cualquier fallo.
               </p>
@@ -499,12 +531,12 @@ export default function SancionesAdminPage() {
           </div>
 
           {/* Indicador de Copropiedad Activa */}
-          <div className="flex items-center justify-between px-3.5 py-2.5 bg-muted/40 rounded-lg border border-border/60 text-xs">
-            <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
-              <Building className="w-3.5 h-3.5 text-primary shrink-0" />
-              Copropiedad activa:
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-surface-container px-3.5 py-2.5 text-xs">
+            <span className="flex items-center gap-1.5 font-medium text-text-secondary">
+              <Building className="h-3.5 w-3.5 shrink-0 text-primary-text" aria-hidden="true" />
+              Copropiedad activa
             </span>
-            <span className="font-semibold text-foreground">
+            <span className="font-semibold text-on-surface">
               {activePropertyName || 'Copropiedad en administración'}
             </span>
           </div>
@@ -512,7 +544,7 @@ export default function SancionesAdminPage() {
           {/* Fila 1: Selección de Unidad Habitacional */}
           <div className="relative">
             <Select
-              label="Unidad Habitacional"
+              label="Unidad habitacional"
               required
               id="sancion-unidad"
               value={form.idUnidad}
@@ -532,8 +564,8 @@ export default function SancionesAdminPage() {
                 {loadingUnidades
                   ? 'Cargando unidades...'
                   : unidades.length === 0
-                  ? '-- Sin unidades registradas en la copropiedad --'
-                  : '-- Seleccionar Unidad Habitacional --'}
+                  ? 'Sin unidades registradas en la copropiedad'
+                  : 'Seleccione la unidad habitacional'}
               </option>
               {unidades.map((u) => (
                 <option key={u.id} value={u.id}>
@@ -542,8 +574,8 @@ export default function SancionesAdminPage() {
               ))}
             </Select>
             {loadingUnidades && (
-              <span className="absolute right-8 top-8 text-xs text-muted-foreground flex items-center gap-1">
-                <Loader2 className="w-3 h-3 animate-spin" /> Cargando...
+              <span className="absolute right-8 top-8 flex items-center gap-1 text-xs text-text-muted" role="status">
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> Cargando…
               </span>
             )}
           </div>
@@ -551,18 +583,21 @@ export default function SancionesAdminPage() {
           {/* Fila 2: Persona Imputada (Habitante de la unidad) */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-foreground">
-                Persona Imputada <span className="text-destructive font-bold">*</span>
-              </span>
+              <label
+                htmlFor={modoManualPersona ? 'sancion-imputado-manual' : 'sancion-imputado'}
+                className="text-sm font-semibold text-on-surface"
+              >
+                Persona imputada <span className="font-bold text-destructive" aria-hidden="true">*</span>
+              </label>
               <button
                 type="button"
                 onClick={() => {
                   setModoManualPersona(!modoManualPersona);
                   setForm((f) => ({ ...f, idPersonaImputada: '' }));
                 }}
-                className="text-xs text-primary hover:underline focus:outline-none"
+                className="min-h-8 rounded px-1 text-xs font-semibold text-primary-text underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {modoManualPersona ? '← Volver a lista de habitantes' : '¿Ingresar ID manual?'}
+                {modoManualPersona ? 'Volver a la lista de habitantes' : 'Ingresar el ID manualmente'}
               </button>
             </div>
 
@@ -582,12 +617,12 @@ export default function SancionesAdminPage() {
                 >
                   <option value="">
                     {!form.idUnidad
-                      ? '-- Seleccione primero una unidad --'
+                      ? 'Seleccione primero una unidad'
                       : loadingCandidatos
-                      ? 'Cargando habitantes de la unidad...'
+                      ? 'Cargando habitantes de la unidad…'
                       : candidatos.length === 0
-                      ? '-- No hay habitantes registrados (use ID manual) --'
-                      : '-- Seleccionar Habitante / Propietario --'}
+                      ? 'No hay habitantes registrados (use el ID manual)'
+                      : 'Seleccione el habitante o propietario'}
                   </option>
                   {candidatos.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -596,8 +631,8 @@ export default function SancionesAdminPage() {
                   ))}
                 </Select>
                 {loadingCandidatos && (
-                  <span className="absolute right-8 top-2.5 text-xs text-muted-foreground flex items-center gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin" />
+                  <span className="absolute right-8 top-2.5 flex items-center gap-1 text-xs text-text-muted">
+                    <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
                   </span>
                 )}
               </div>
@@ -616,7 +651,7 @@ export default function SancionesAdminPage() {
                 }}
               />
             )}
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-text-muted">
               Seleccione al residente o propietario presuntamente responsable del hecho violatorio.
             </p>
           </div>
@@ -625,7 +660,7 @@ export default function SancionesAdminPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-1">
               <Input
-                label="Tipo de Falta"
+                label="Tipo de falta"
                 required
                 id="sancion-falta"
                 placeholder="Ej. Ruido fuera de horario"
@@ -653,7 +688,7 @@ export default function SancionesAdminPage() {
             </div>
             <div>
               <Select
-                label="Sanción Propuesta"
+                label="Sanción propuesta"
                 required
                 id="sancion-propuesta"
                 value={form.tipoSancionPropuesta}
@@ -671,7 +706,7 @@ export default function SancionesAdminPage() {
           {/* Fila 4: Días para descargos y Artículo violado */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
-              label="Días Hábiles para Descargos"
+              label="Días hábiles para descargos"
               type="number"
               min="1"
               max="60"
@@ -686,7 +721,7 @@ export default function SancionesAdminPage() {
               }}
             />
             <Input
-              label="Artículo de Reglamento Violado (Opcional)"
+              label="Artículo del reglamento infringido (opcional)"
               id="sancion-articulo"
               placeholder="Ej. Art. 45 Inciso 3 - Manual de Convivencia"
               value={form.articuloReglamentoViolado}
@@ -696,7 +731,7 @@ export default function SancionesAdminPage() {
 
           {/* Fila 5: Hechos */}
           <Textarea
-            label="Descripción Circunstanciada de los Hechos"
+            label="Descripción circunstanciada de los hechos"
             required
             id="sancion-hechos"
             placeholder="Detalle fecha, hora, lugar, personas involucradas y la conducta observada que motiva la apertura del pliego..."
@@ -715,7 +750,7 @@ export default function SancionesAdminPage() {
               Cancelar
             </Button>
             <Button type="submit" loading={submitting}>
-              Notificar y Radicar Pliego
+              Notificar y radicar pliego
             </Button>
           </div>
         </form>
@@ -725,74 +760,73 @@ export default function SancionesAdminPage() {
       <Modal
         open={!!detalle}
         onClose={() => setDetalle(null)}
-        title={`Expediente Sancionatorio ${detalle?.numeroExpediente || (detalle?.idSancion ? `#${detalle.idSancion}` : '')}`}
+        title={`Expediente sancionatorio ${detalle?.numeroExpediente || (detalle?.idSancion ? `#${detalle.idSancion}` : '')}`}
         size="lg"
       >
         {detalle && (
           <div className="space-y-4 text-sm">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-muted/30 rounded-lg border border-border/60">
+            <div className="grid grid-cols-2 gap-3 rounded-md border border-border bg-surface-container p-3 sm:grid-cols-4">
               <div>
-                <span className="text-xs text-muted-foreground block">Estado</span>
-                <span className={`badge mt-1 ${ESTADO_BADGE[detalle.estado]?.class || 'badge-neutral'}`}>
-                  {ESTADO_BADGE[detalle.estado]?.label || detalle.estado}
-                </span>
+                <span className="block text-xs text-text-secondary">Estado</span>
+                <span className="mt-1 block"><EstadoBadge estado={detalle.estado} /></span>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground block">Gravedad</span>
-                <span className="font-semibold text-foreground mt-1 block">{detalle.gravedad}</span>
+                <span className="block text-xs text-text-secondary">Gravedad</span>
+                <span className="mt-1 block"><GravedadBadge gravedad={detalle.gravedad} /></span>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground block">Unidad</span>
-                <span className="font-semibold text-foreground mt-1 block">
+                <span className="block text-xs text-text-secondary">Unidad</span>
+                <span className="mt-1 block font-semibold text-on-surface">
                   {detalle.identificadorUnidad || `Unidad #${detalle.idUnidad}`}
                 </span>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground block">Plazo Descargos</span>
-                <span className="font-semibold text-foreground mt-1 block">
+                <span className="block text-xs text-text-secondary">Plazo de descargos</span>
+                <span className="mt-1 block font-semibold tabular-nums text-on-surface">
                   {detalle.fechaLimiteDescargos || '10 días'}
                 </span>
               </div>
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">
-                  Imputado: <strong className="text-foreground">{detalle.nombreImputado || `ID #${detalle.idPersonaImputada}`}</strong>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="text-text-secondary">
+                  Imputado: <strong className="text-on-surface">{detalle.nombreImputado || `ID #${detalle.idPersonaImputada}`}</strong>
                 </span>
-                <span className="text-muted-foreground">
-                  Falta: <strong className="text-foreground">{detalle.tipoFalta}</strong>
+                <span className="text-text-secondary">
+                  Falta: <strong className="text-on-surface">{detalle.tipoFalta}</strong>
                 </span>
               </div>
 
               {detalle.articuloReglamentoViolado && (
-                <div className="text-xs text-muted-foreground">
-                  Norma vulnerada: <span className="font-mono text-foreground">{detalle.articuloReglamentoViolado}</span>
+                <div className="text-xs text-text-secondary">
+                  Norma vulnerada: <span className="font-mono text-on-surface">{detalle.articuloReglamentoViolado}</span>
                 </div>
               )}
 
-              <div className="p-3 bg-muted/40 rounded-lg border border-border/80">
-                <strong className="text-xs uppercase tracking-wider text-muted-foreground block mb-1">
-                  Relación de los Hechos:
+              <div className="rounded-md border border-border bg-surface-container p-3">
+                <strong className="mb-1 block text-xs font-semibold text-text-secondary">
+                  Relación de los hechos
                 </strong>
-                <p className="text-foreground leading-relaxed whitespace-pre-wrap">{detalle.descripcionHechos}</p>
+                <p className="whitespace-pre-wrap leading-relaxed text-on-surface">{detalle.descripcionHechos}</p>
               </div>
             </div>
 
             {/* Descargos presentados si existen */}
             {Array.isArray(detalle.descargos) && detalle.descargos.length > 0 && (
               <div className="space-y-2 pt-2 border-t border-border">
-                <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <FileText className="w-3.5 h-3.5 text-primary" /> Descargos Presentados ({detalle.descargos.length}):
+                <h4 className="flex items-center gap-1.5 text-[13px] font-bold text-on-surface">
+                  <FileText className="h-3.5 w-3.5 text-primary-text" aria-hidden="true" />
+                  Descargos presentados <span className="tabular-nums">({detalle.descargos.length})</span>
                 </h4>
                 <div className="space-y-2">
                   {detalle.descargos.map((d, idx) => (
-                    <div key={d.idDescargo || idx} className="p-3 bg-muted/20 border border-border rounded-lg text-xs">
-                      <div className="flex justify-between text-muted-foreground mb-1">
+                    <div key={d.idDescargo || idx} className="rounded-md border border-border bg-surface p-3 text-xs">
+                      <div className="mb-1 flex justify-between tabular-nums text-text-muted">
                         <span>Descargo #{idx + 1}</span>
                         <span>{d.fechaPresentacion ? new Date(d.fechaPresentacion).toLocaleDateString('es-CO') : ''}</span>
                       </div>
-                      <p className="text-foreground whitespace-pre-wrap">{d.argumentos || d.textoDescargo}</p>
+                      <p className="whitespace-pre-wrap text-on-surface">{d.argumentos || d.textoDescargo}</p>
                     </div>
                   ))}
                 </div>
@@ -806,9 +840,10 @@ export default function SancionesAdminPage() {
                   variant="ghost"
                   type="button"
                   onClick={() => handleAnularSancion(detalle.idSancion)}
-                  className="text-destructive hover:bg-destructive/10 text-xs"
+                  className="text-destructive hover:bg-tint-red-bg hover:text-destructive"
+                  icon={<XCircle className="h-3.5 w-3.5" />}
                 >
-                  <XCircle className="w-3.5 h-3.5 mr-1" /> Anular Expediente Sancionatorio
+                  Anular expediente
                 </Button>
               </div>
             )}
@@ -817,28 +852,30 @@ export default function SancionesAdminPage() {
             {detalle.estado === 'EN_DESCARGOS' && (
               <form
                 onSubmit={handleEmitirResolucion}
-                className="mt-4 p-4 rounded-xl bg-card border border-border space-y-3"
+                className="mt-4 space-y-3 rounded-lg border border-border bg-surface p-4"
               >
                 <div className="flex items-center gap-2">
-                  <Scale className="w-4 h-4 text-primary" />
-                  <h4 className="font-bold text-base text-foreground">Emitir y Firmar Resolución Final</h4>
+                  <Scale className="h-4 w-4 text-primary-text" aria-hidden="true" />
+                  <h4 className="text-base font-bold text-on-surface">Emitir y firmar resolución final</h4>
                 </div>
 
                 <Select
-                  label="Decisión Final"
+                  id="sancion-decision"
+                  label="Decisión final"
                   value={resolucionForm.decision}
                   onChange={(e) => setResolucionForm({ ...resolucionForm, decision: e.target.value })}
                   required
                 >
                   <option value="APLICADA">Aplicar Sanción</option>
-                  <option value="ABSUELTA">Absolver / Archivar Proceso</option>
-                  <option value="ANULADA">Anular Proceso</option>
+                  <option value="ABSUELTA">Absolver y archivar el proceso</option>
+                  <option value="ANULADA">Anular el proceso</option>
                 </Select>
 
                 {resolucionForm.decision === 'APLICADA' && detalle.tipoSancionPropuesta === 'MULTA_ECONOMICA' && (
                   <div className="space-y-1">
                     <Input
-                      label="Monto de la Multa (COP) *"
+                      id="sancion-monto"
+                      label="Monto de la multa (COP)"
                       type="number"
                       min="1000"
                       step="1000"
@@ -853,8 +890,8 @@ export default function SancionesAdminPage() {
                       required
                     />
                     {resolucionForm.montoMulta && Number(resolucionForm.montoMulta) > 0 ? (
-                      <p className="text-xs text-muted-foreground">
-                        Valor liquidado: <strong className="text-foreground">{formatoCOP(resolucionForm.montoMulta)}</strong>
+                      <p className="text-xs text-text-secondary">
+                        Valor liquidado: <strong className="tabular-nums text-on-surface">{formatoCOP(resolucionForm.montoMulta)}</strong>
                       </p>
                     ) : (
                       <p className="text-xs text-destructive">El monto debe ser un valor positivo mayor a 0.</p>
@@ -864,7 +901,8 @@ export default function SancionesAdminPage() {
 
                 {resolucionForm.decision === 'APLICADA' && detalle.tipoSancionPropuesta === 'SUSPENSION_ZONAS_COMUNES' && (
                   <Input
-                    label="Suspensión de zonas comunes hasta (inclusive) *"
+                    id="sancion-restriccion"
+                    label="Suspensión de zonas comunes hasta (inclusive)"
                     type="date"
                     min={new Date().toISOString().slice(0, 10)}
                     value={resolucionForm.restriccionHasta}
@@ -874,7 +912,8 @@ export default function SancionesAdminPage() {
                 )}
 
                 <Textarea
-                  label="Motivación y Fundamento Jurídico de la Resolución"
+                  id="sancion-resolucion"
+                  label="Motivación y fundamento jurídico de la resolución"
                   placeholder="Explique las razones de hecho y derecho, valoración de pruebas y descargos..."
                   value={resolucionForm.resolucionFinal}
                   onChange={(e) => setResolucionForm({ ...resolucionForm, resolucionFinal: e.target.value })}
@@ -893,22 +932,59 @@ export default function SancionesAdminPage() {
                       (!resolucionForm.montoMulta || Number(resolucionForm.montoMulta) <= 0))
                   }
                 >
-                  Firmar y Notificar Resolución
+                  Firmar y notificar resolución
                 </Button>
               </form>
             )}
 
             {/* Resolución emitida previamente */}
             {detalle.resolucionFinal && (
-              <div className="p-3 bg-muted/40 border border-border rounded-lg space-y-1 mt-3">
-                <span className="text-xs font-semibold text-primary block flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Resolución Final Emitida:
+              <div className="mt-3 space-y-1 rounded-md border border-tint-green-fg/25 bg-tint-green-bg p-3">
+                <span className="flex items-center gap-1.5 text-xs font-bold text-tint-green-fg">
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> Resolución final emitida
                 </span>
-                <p className="text-foreground whitespace-pre-wrap">{detalle.resolucionFinal}</p>
+                <p className="whitespace-pre-wrap text-on-surface">{detalle.resolucionFinal}</p>
               </div>
             )}
           </div>
         )}
+      </Modal>
+
+      {/* Annulment reason (replaces window.prompt) */}
+      <Modal
+        open={!!anulacion}
+        onClose={() => {
+          if (!submitting) setAnulacion(null);
+        }}
+        title="Anular expediente sancionatorio"
+        size="sm"
+      >
+        <form onSubmit={confirmarAnulacion} className="space-y-4">
+          <p className="text-sm text-text-secondary">
+            Indique el motivo de la anulación. Queda registrado en el expediente como garantía de debido proceso.
+          </p>
+          <Textarea
+            id="sancion-motivo-anulacion"
+            label="Motivo de la anulación"
+            required
+            rows={3}
+            value={anulacion?.motivo || ''}
+            onChange={(e) => setAnulacion((a) => ({ ...a, motivo: e.target.value }))}
+          />
+          <div className="flex justify-end gap-2 border-t border-border pt-3">
+            <Button variant="outline" type="button" onClick={() => setAnulacion(null)} disabled={submitting}>
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              type="submit"
+              loading={submitting}
+              disabled={submitting || !anulacion?.motivo?.trim()}
+            >
+              Anular expediente
+            </Button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

@@ -15,10 +15,10 @@ import {
 import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
-import { Card } from '../components/ui/card.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
 import LoadingState from '../components/ui/LoadingState.jsx';
 
 import { useFetch } from '../lib/hooks.js';
@@ -163,53 +163,54 @@ export default function ResDocumentosPage() {
   return (
     <PageContainer>
       <PageHeader
-        title="Biblioteca de Documentos"
-        subtitle="Reglamentos internos, manuales de convivencia y actas oficiales de la copropiedad"
+        title="Biblioteca de documentos"
+        subtitle="Reglamentos internos, manuales de convivencia y actas oficiales de la copropiedad."
         action={
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="w-4 h-4 mr-1.5" />
+          <Button variant="outline" onClick={() => refetch().catch(() => {})} className="min-h-10">
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
             Actualizar
           </Button>
         }
       />
 
       {/* 1. KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <MetricCard
-          label="Documentos Públicos"
-          value={String(stats.total)}
+          label="Documentos públicos"
+          value={loading ? '…' : error ? '—' : String(stats.total)}
           icon={FileText}
           variant="primary"
           context="Disponibles para consulta"
         />
         <MetricCard
-          label="Reglamentos y Manuales"
-          value={String(stats.reglamentos)}
+          label="Reglamentos y manuales"
+          value={loading ? '…' : error ? '—' : String(stats.reglamentos)}
           icon={BookOpen}
           variant="success"
           context="Normas de convivencia"
         />
         <MetricCard
-          label="Actas de Asamblea"
-          value={String(stats.actas)}
+          label="Actas de asamblea"
+          value={loading ? '…' : error ? '—' : String(stats.actas)}
           icon={FileCheck}
-          variant="primary"
+          variant="info"
           context="Decisiones de copropietarios"
         />
       </div>
 
       {/* 2. Filtros y Búsqueda */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between mb-6">
+      <div className="flex flex-col items-stretch justify-between gap-3 rounded-lg border border-border bg-surface p-3 shadow-sm sm:flex-row sm:items-center">
         <div className="flex gap-2 items-center flex-wrap w-full sm:w-auto">
           {categorias.map((cat) => (
             <button
               key={cat}
               type="button"
               onClick={() => setCategoriaFiltro(cat)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              aria-pressed={categoriaFiltro === cat}
+              className={`min-h-10 rounded-md px-3.5 text-xs font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9 ${
                 categoriaFiltro === cat
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  ? 'bg-btn-primary text-white shadow-sm'
+                  : 'border border-border bg-surface text-text-secondary hover:bg-surface-container hover:text-on-surface'
               }`}
             >
               {cat === 'TODAS'
@@ -221,13 +222,14 @@ export default function ResDocumentosPage() {
 
         <div className="w-full sm:w-72">
           <div className="relative">
-            <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Buscar por título o contenido..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+              aria-label="Buscar documentos"
+              className="h-10 w-full rounded-md border border-input bg-surface pl-9 pr-3 text-sm text-on-surface placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/25"
             />
           </div>
         </div>
@@ -235,71 +237,107 @@ export default function ResDocumentosPage() {
 
       {/* 3. Listado de Documentos */}
       {loading ? (
-        <LoadingState text="Cargando biblioteca de documentos oficiales..." />
+        <div className="rounded-lg border border-border bg-surface shadow-sm">
+          <LoadingState message="Cargando documentos…" />
+        </div>
       ) : error ? (
-        <Card className="p-8 text-center">
-          <p className="text-sm font-medium text-destructive">{error.message || 'Error al cargar documentos'}</p>
-          <Button variant="outline" size="sm" className="mt-4" onClick={() => refetch()}>
-            Reintentar
-          </Button>
-        </Card>
+        <ErrorState
+          title="No se pudieron cargar los documentos"
+          message="Revisa tu conexión e intenta de nuevo."
+          onRetry={() => refetch().catch(() => {})}
+        />
       ) : filteredDocs.length === 0 ? (
         <EmptyState
-          icon="folder_off"
-          title="No hay documentos disponibles"
-          subtitle="Los reglamentos, actas y circulares publicadas por la administración aparecerán aquí."
-        />
+          icon={FileText}
+          title={search || categoriaFiltro !== 'TODAS' ? 'Sin documentos para este filtro' : 'No hay documentos disponibles'}
+          subtitle={
+            search || categoriaFiltro !== 'TODAS'
+              ? 'Prueba con otra categoría o término de búsqueda.'
+              : 'Los reglamentos, actas y circulares que publique la administración aparecerán aquí.'
+          }
+        >
+          {(search || categoriaFiltro !== 'TODAS') && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={() => {
+                setSearch('');
+                setCategoriaFiltro('TODAS');
+              }}
+            >
+              Ver todos los documentos
+            </Button>
+          )}
+        </EmptyState>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredDocs.map((doc) => {
             const CatIcon = CATEGORIA_ICONS[doc.categoria] || FileText;
             const size = formatFileSize(doc.archivoTamanoBytes);
+            const isLegalOrReglamento =
+              (doc.categoria || '').includes('REGLA') ||
+              (doc.categoria || '').includes('MANUAL') ||
+              (doc.categoria || '').includes('POLIZA');
 
             return (
               <div
                 key={doc.idDocumento}
-                className="group bg-card border border-border rounded-xl p-4 sm:p-5 hover:border-primary/40 hover:shadow-md transition-all flex flex-col justify-between"
+                className="flex flex-col justify-between rounded-lg border border-border bg-surface p-4 shadow-sm transition-colors duration-150 hover:border-primary/50 sm:p-5"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="p-3 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors shrink-0">
+                    <div
+                      className={`shrink-0 rounded-md p-2.5 ${
+                        isLegalOrReglamento ? 'bg-tint-purple-bg text-tint-purple-fg' : 'bg-tint-blue-bg text-tint-blue-fg'
+                      }`}
+                    >
                       <CatIcon className="w-5 h-5" />
                     </div>
                     {doc.categoria && (
-                      <Badge variant="secondary" className="text-xs font-semibold">
+                      <Badge
+                        variant={isLegalOrReglamento ? 'lavender' : 'secondary'}
+                        className="text-xs font-semibold"
+                      >
                         {CATEGORIA_LABELS[doc.categoria] || doc.categoria}
                       </Badge>
                     )}
                   </div>
 
-                  <h3 className="text-base font-bold text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                  <h3 className="line-clamp-2 text-[15px] font-bold text-on-surface">
                     {doc.titulo}
                   </h3>
                   {doc.descripcion && (
-                    <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2 leading-relaxed">
+                    <p className="text-xs text-text-muted mt-1.5 line-clamp-2 leading-relaxed">
                       {doc.descripcion}
                     </p>
                   )}
                 </div>
 
-                <div className="pt-4 mt-3 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
+                <div className="pt-4 mt-3 border-t border-border flex items-center justify-between text-xs text-text-muted">
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5" />
+                      <Calendar className="w-3.5 h-3.5 text-primary-text" />
                       <span>{formatDate(doc.fechaCreacion)}</span>
                     </div>
-                    {size && <span>{size} • v{doc.numeroVersion || 1}</span>}
+                    {size && (
+                      <span className="inline-block font-medium tabular-nums text-text-secondary">
+                        {size} • v{doc.numeroVersion || 1}
+                      </span>
+                    )}
                   </div>
 
-                  <button
-                    type="button"
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => handleDownload(doc)}
                     disabled={downloadingId === doc.idDocumento}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50"
+                    aria-label={`Descargar ${doc.titulo}`}
+                    className="min-h-10 sm:min-h-8"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    {downloadingId === doc.idDocumento ? 'Descargando...' : 'Descargar'}
-                  </button>
+                    <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                    {downloadingId === doc.idDocumento ? 'Descargando…' : 'Descargar'}
+                  </Button>
                 </div>
               </div>
             );

@@ -6,7 +6,12 @@ import { DataTable } from '../components/ui/DataTable.jsx';
 import { Pagination } from '../components/ui/Pagination.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import { StatCard } from '../components/ui/StatCard.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import { Badge } from '../components/ui/badge.tsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
+import { LoadingState } from '../components/ui/LoadingState.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { AlarmClock, AlertTriangle, Inbox, Search, Ticket } from 'lucide-react';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, formatDateTime } from '../lib/utils.js';
@@ -39,39 +44,67 @@ const TRANSICIONES = {
 };
 
 const ESTADO_BADGE = {
-  RADICADO: 'badge-pendiente-firma',
-  ASIGNADO: 'badge-info',
-  EN_GESTION: 'badge-info',
-  ESCALADO: 'badge-warning',
-  RESUELTO: 'badge-activo',
-  CERRADO: 'badge-neutral',
-  RECHAZADO: 'badge-danger',
+  RADICADO: 'warning',
+  ASIGNADO: 'info',
+  EN_GESTION: 'info',
+  ESCALADO: 'warning',
+  RESUELTO: 'success',
+  CERRADO: 'secondary',
+  RECHAZADO: 'destructive',
 };
+
+const ESTADO_LABEL = {
+  RADICADO: 'Radicado',
+  ASIGNADO: 'Asignado',
+  EN_GESTION: 'En gestión',
+  ESCALADO: 'Escalado',
+  RESUELTO: 'Resuelto',
+  CERRADO: 'Cerrado',
+  RECHAZADO: 'Rechazado',
+};
+
+const TIPO_LABEL = {
+  PETICION: 'Petición',
+  QUEJA: 'Queja',
+  RECLAMO: 'Reclamo',
+  SUGERENCIA: 'Sugerencia',
+  APELACION: 'Apelación',
+  SOLICITUD: 'Solicitud',
+};
+
+const labelOf = (map, value) => (value ? map[value] || value : value);
 
 const SLA_BADGE = {
-  EN_TIEMPO: { cls: 'badge-activo', label: 'En tiempo' },
-  EN_RIESGO: { cls: 'badge-warning', label: 'En riesgo' },
-  VENCIDO: { cls: 'badge-danger', label: 'Vencido' },
-  CUMPLIDO: { cls: 'badge-activo', label: 'Cumplido' },
-  INCUMPLIDO: { cls: 'badge-danger', label: 'Incumplido' },
-  FINALIZADO: { cls: 'badge-neutral', label: 'Finalizado' },
+  EN_TIEMPO: { variant: 'success', label: 'En tiempo' },
+  EN_RIESGO: { variant: 'warning', label: 'En riesgo' },
+  VENCIDO: { variant: 'destructive', label: 'Vencido' },
+  CUMPLIDO: { variant: 'success', label: 'Cumplido' },
+  INCUMPLIDO: { variant: 'destructive', label: 'Incumplido' },
+  FINALIZADO: { variant: 'secondary', label: 'Finalizado' },
 };
 
+const PRIORIDAD_BADGE = { EMERGENCIA: 'destructive', ALTA: 'warning', MEDIA: 'info', BAJA: 'secondary' };
+
 const prioridadLabel = (p) => PRIORIDADES.find((x) => x.value === p)?.label || p || '—';
+
+function PrioridadBadge({ prioridad }) {
+  if (!prioridad) return <span>—</span>;
+  return <Badge variant={PRIORIDAD_BADGE[prioridad] || 'secondary'}>{prioridadLabel(prioridad)}</Badge>;
+}
 
 function SlaBadge({ ticket }) {
   const cfg = SLA_BADGE[ticket.slaEstado];
   if (!cfg) return <span>—</span>;
   const pct = ticket.slaPorcentajeConsumido;
   return (
-    <span className={`badge ${cfg.cls}`}>
+    <Badge variant={cfg.variant} className="whitespace-nowrap tabular-nums">
       {cfg.label}
       {pct != null ? ` · ${pct} %` : ''}
-    </span>
+    </Badge>
   );
 }
 
-const labelStyle = { fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 };
+const LABEL = 'text-xs font-semibold text-text-secondary';
 
 export default function QuejasAdminPage() {
   const [page, setPage] = useState(0);
@@ -230,35 +263,49 @@ export default function QuejasAdminPage() {
     runAction(() => api.put(`/pqrs/${modal.idTicket}/prioridad`, { prioridad }), 'Prioridad actualizada');
 
   const columns = [
-    { key: 'numeroRadicado', label: 'Radicado' },
-    { key: 'tipo', label: 'Tipo' },
+    { key: 'numeroRadicado', label: 'Radicado', cellClassName: 'font-mono tabular-nums whitespace-nowrap' },
+    { key: 'tipo', label: 'Tipo', render: (r) => labelOf(TIPO_LABEL, r.tipo) },
     { key: 'asunto', label: 'Asunto' },
-    { key: 'prioridad', label: 'Prioridad', render: (r) => prioridadLabel(r.prioridad) },
+    { key: 'prioridad', label: 'Prioridad', render: (r) => <PrioridadBadge prioridad={r.prioridad} /> },
     {
       key: 'estado',
       label: 'Estado',
-      render: (r) => <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>{r.estado}</span>,
+      render: (r) => <Badge variant={ESTADO_BADGE[r.estado] || 'secondary'}>{labelOf(ESTADO_LABEL, r.estado)}</Badge>,
     },
     { key: 'sla', label: 'SLA', render: (r) => <SlaBadge ticket={r} /> },
-    { key: 'fechaLimiteSla', label: 'Vence (SLA)', render: (r) => formatDateTime(r.fechaLimiteSla) },
+    { key: 'fechaLimiteSla', label: 'Vence (SLA)', cellClassName: 'tabular-nums whitespace-nowrap', render: (r) => formatDateTime(r.fechaLimiteSla) },
   ];
 
   const transiciones = modal ? TRANSICIONES[modal.estado] || [] : [];
   const terminal = modal && transiciones.length === 0;
+  const hayFiltros = Boolean(filtroEstado || filtroTipo || filtroPrioridad || filtroSla || search);
 
   return (
-    <div>
-      <PageHeader title="PQRS (Tickets)" subtitle="Peticiones, Quejas, Reclamos y Sugerencias con SLA y Trazabilidad" />
+    <PageContainer>
+      <PageHeader
+        title="PQRS (Tickets)"
+        subtitle="Peticiones, quejas, reclamos y sugerencias con SLA y trazabilidad."
+      />
 
-      <div className="card-grid-4" style={{ marginBottom: '20px' }}>
-        <StatCard icon="confirmation_number" value={stats.total} label="Total PQRS" color="primary" />
-        <StatCard icon="pending" value={stats.abiertos} label="Abiertos" color="blue" />
-        <StatCard icon="warning" value={stats.riesgo} label="SLA en riesgo" color="amber" />
-        <StatCard icon="alarm" value={stats.vencidos} label="SLA vencido" color="red" />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <MetricCard label="Total PQRS" value={!data ? '—' : stats.total} icon={Ticket} variant="primary" />
+        <MetricCard label="Abiertos" value={!data ? '—' : stats.abiertos} icon={Inbox} variant="info" />
+        <MetricCard
+          label="SLA en riesgo"
+          value={!data ? '—' : stats.riesgo}
+          icon={AlertTriangle}
+          variant={stats.riesgo > 0 ? 'warning' : 'secondary'}
+        />
+        <MetricCard
+          label="SLA vencido"
+          value={!data ? '—' : stats.vencidos}
+          icon={AlarmClock}
+          variant={stats.vencidos > 0 ? 'danger' : 'secondary'}
+        />
       </div>
 
-      <div className="card" style={{ marginBottom: '16px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
+      <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(4,minmax(0,1fr))_minmax(0,1.5fr)]">
           <Select
             id="f-estado"
             aria-label="Filtrar por estado"
@@ -267,12 +314,11 @@ export default function QuejasAdminPage() {
               setFiltroEstado(e.target.value);
               setPage(0);
             }}
-            className="filter-select"
           >
             <option value="">Todos los estados</option>
             {ESTADOS.map((e) => (
               <option key={e} value={e}>
-                {e}
+                {labelOf(ESTADO_LABEL, e)}
               </option>
             ))}
           </Select>
@@ -284,7 +330,6 @@ export default function QuejasAdminPage() {
               setFiltroPrioridad(e.target.value);
               setPage(0);
             }}
-            className="filter-select"
           >
             <option value="">Todas las prioridades</option>
             {PRIORIDADES.map((p) => (
@@ -301,12 +346,11 @@ export default function QuejasAdminPage() {
               setFiltroTipo(e.target.value);
               setPage(0);
             }}
-            className="filter-select"
           >
             <option value="">Todos los tipos</option>
             {TIPOS.map((t) => (
               <option key={t} value={t}>
-                {t}
+                {labelOf(TIPO_LABEL, t)}
               </option>
             ))}
           </Select>
@@ -318,7 +362,6 @@ export default function QuejasAdminPage() {
               setFiltroSla(e.target.value);
               setPage(0);
             }}
-            className="filter-select"
           >
             <option value="">Todos los SLA</option>
             {SLA_FILTROS.map((s) => (
@@ -327,30 +370,47 @@ export default function QuejasAdminPage() {
               </option>
             ))}
           </Select>
-          <input
-            id="search"
-            aria-label="Buscar"
-            type="text"
-            placeholder="Buscar radicado o asunto..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(0);
-            }}
-            className="form-control"
-            style={{ flex: 1, minWidth: '200px' }}
-          />
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary"
+              aria-hidden="true"
+            />
+            <input
+              id="search"
+              aria-label="Buscar"
+              type="search"
+              placeholder="Buscar radicado o asunto..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(0);
+              }}
+              className="h-9 w-full rounded-md border border-input bg-surface pl-9 pr-3 text-sm text-on-surface placeholder:text-text-muted transition-[border-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+            />
+          </div>
         </div>
       </div>
-      <DataTable
-        columns={columns}
-        rows={rows}
-        loading={loading}
-        empty={{ icon: 'support_agent', title: 'No hay PQRS', subtitle: 'Las PQRS de los residentes aparecerán aquí.' }}
-        error={error?.message}
-        keyField="idTicket"
-        onRowClick={openDetalle}
-      />
+
+      {error && !data ? (
+        <ErrorState
+          title="No se pudieron cargar las PQRS"
+          message={error?.message || 'Verifique su conexión e intente nuevamente.'}
+          onRetry={() => refetch().catch(() => {})}
+        />
+      ) : (
+        <DataTable
+          columns={columns}
+          rows={rows}
+          loading={loading && !data}
+          empty={
+            hayFiltros
+              ? { icon: 'filter_alt_off', title: 'Sin resultados', subtitle: 'Ninguna PQRS coincide con los filtros aplicados.' }
+              : { icon: 'support_agent', title: 'No hay PQRS', subtitle: 'Las PQRS de los residentes aparecerán aquí.' }
+          }
+          keyField="idTicket"
+          onRowClick={openDetalle}
+        />
+      )}
       <Pagination
         page={safePage}
         totalPages={totalPages}
@@ -371,108 +431,105 @@ export default function QuejasAdminPage() {
         }
       >
         {modal && (
-          <>
-            <div className="card-grid-2" style={{ marginBottom: '16px' }}>
+          <div className="space-y-4 text-[13px]">
+            <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <div style={labelStyle}>Estado</div>
-                <span className={`badge ${ESTADO_BADGE[modal.estado] || 'badge-neutral'}`}>{modal.estado}</span>
+                <dt className={LABEL}>Estado</dt>
+                <dd><Badge variant={ESTADO_BADGE[modal.estado] || 'secondary'}>{labelOf(ESTADO_LABEL, modal.estado)}</Badge></dd>
               </div>
               <div>
-                <div style={labelStyle}>SLA</div>
-                <SlaBadge ticket={modal} />
+                <dt className={LABEL}>SLA</dt>
+                <dd><SlaBadge ticket={modal} /></dd>
               </div>
               <div>
-                <div style={labelStyle}>Tipo / Categoría</div>
-                <div style={{ fontSize: '13px' }}>
-                  {modal.tipo} · {modal.categoria}
-                </div>
+                <dt className={LABEL}>Tipo / Categoría</dt>
+                <dd className="text-on-surface">
+                  {labelOf(TIPO_LABEL, modal.tipo)} · {modal.categoria}
+                </dd>
               </div>
               <div>
-                <div style={labelStyle}>Prioridad</div>
-                <div style={{ fontSize: '13px' }}>{prioridadLabel(modal.prioridad)}</div>
+                <dt className={LABEL}>Prioridad</dt>
+                <dd><PrioridadBadge prioridad={modal.prioridad} /></dd>
               </div>
               <div>
-                <div style={labelStyle}>Radicado por</div>
-                <div style={{ fontSize: '13px' }}>
+                <dt className={LABEL}>Radicado por</dt>
+                <dd className="text-on-surface">
                   {modal.nombreRadicador || '—'}
                   {modal.identificadorUnidad ? ` · Unidad ${modal.identificadorUnidad}` : ''}
-                </div>
+                </dd>
               </div>
               <div>
-                <div style={labelStyle}>Responsable</div>
-                <div style={{ fontSize: '13px' }}>{modal.nombreResponsable || 'Sin asignar'}</div>
+                <dt className={LABEL}>Responsable</dt>
+                <dd className="text-on-surface">{modal.nombreResponsable || 'Sin asignar'}</dd>
               </div>
               <div>
-                <div style={labelStyle}>Fecha de radicación</div>
-                <div style={{ fontSize: '13px' }}>{formatDateTime(modal.fechaRadicacion)}</div>
+                <dt className={LABEL}>Fecha de radicación</dt>
+                <dd className="tabular-nums text-on-surface">{formatDateTime(modal.fechaRadicacion)}</dd>
               </div>
               <div>
-                <div style={labelStyle}>Vencimiento SLA</div>
-                <div style={{ fontSize: '13px' }}>{formatDateTime(modal.fechaLimiteSla)}</div>
+                <dt className={LABEL}>Vencimiento SLA</dt>
+                <dd className="tabular-nums text-on-surface">{formatDateTime(modal.fechaLimiteSla)}</dd>
               </div>
+            </dl>
+            <div>
+              <div className={LABEL}>Asunto</div>
+              <div className="text-sm font-semibold text-on-surface">{modal.asunto}</div>
             </div>
-            <div className="form-group">
-              <div style={labelStyle}>Asunto</div>
-              <div style={{ fontSize: '14px', fontWeight: 500 }}>{modal.asunto}</div>
-            </div>
-            <div className="form-group">
-              <div style={labelStyle}>Descripción de la solicitud</div>
-              <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '6px' }}>
+            <div>
+              <div className={LABEL}>Descripción de la solicitud</div>
+              <div className="whitespace-pre-wrap rounded-md border border-border bg-surface-dim p-3 text-on-surface">
                 {modal.descripcion}
               </div>
             </div>
             {modal.observacionCierre && (
-              <div className="form-group">
-                <div style={labelStyle}>
+              <div>
+                <div className={LABEL}>
                   Observación de cierre {modal.fechaCierre ? `(${formatDate(modal.fechaCierre)})` : ''}
                 </div>
-                <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap' }}>{modal.observacionCierre}</div>
+                <div className="whitespace-pre-wrap text-on-surface">{modal.observacionCierre}</div>
               </div>
             )}
 
-            <hr style={{ margin: '16px 0', borderColor: 'var(--border-color)' }} />
-            <div style={{ ...labelStyle, marginBottom: '8px' }}>Historial y respuestas</div>
-            {trazaLoading ? (
-              <div style={{ fontSize: '13px' }}>Cargando historial...</div>
-            ) : trazaError ? (
-              <div role="alert" style={{ fontSize: '13px', color: 'var(--danger-color)' }}>{trazaError}</div>
-            ) : traza.length === 0 ? (
-              <div style={{ fontSize: '13px' }}>Sin movimientos registrados.</div>
-            ) : (
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '8px' }}>
-                {traza.map((t) => (
-                  <li
-                    key={t.idTrazabilidad}
-                    style={{ fontSize: '13px', background: 'var(--bg-secondary)', padding: '10px', borderRadius: '6px' }}
-                  >
-                    <div style={{ fontWeight: 600 }}>
-                      {t.tipoIntervencion}
-                      {t.estadoAnterior !== t.estadoNuevo && t.estadoNuevo
-                        ? ` · ${t.estadoAnterior || '—'} → ${t.estadoNuevo}`
-                        : ''}
-                    </div>
-                    <div style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>
-                      {t.nombreUsuario || 'Sistema'} · {formatDateTime(t.fechaHora)}
-                    </div>
-                    {t.comentario && <div style={{ whiteSpace: 'pre-wrap', marginTop: '4px' }}>{t.comentario}</div>}
-                  </li>
-                ))}
-              </ul>
-            )}
+            <section className="border-t border-border pt-4">
+              <h3 className="mb-2 text-sm font-bold text-on-surface">Historial y respuestas</h3>
+              {trazaLoading ? (
+                <LoadingState size="sm" message="Cargando historial..." />
+              ) : trazaError ? (
+                <ErrorState compact title="No se pudo cargar el historial" message={trazaError} onRetry={() => loadTraza(modal.idTicket)} />
+              ) : traza.length === 0 ? (
+                <p className="text-text-secondary">Sin movimientos registrados.</p>
+              ) : (
+                <ul className="grid gap-2">
+                  {traza.map((t) => (
+                    <li key={t.idTrazabilidad} className="rounded-md border border-border bg-surface-dim p-2.5">
+                      <div className="font-semibold text-on-surface">
+                        {t.tipoIntervencion}
+                        {t.estadoAnterior !== t.estadoNuevo && t.estadoNuevo
+                          ? ` · ${labelOf(ESTADO_LABEL, t.estadoAnterior) || '—'} → ${labelOf(ESTADO_LABEL, t.estadoNuevo)}`
+                          : ''}
+                      </div>
+                      <div className="text-xs text-text-secondary tabular-nums">
+                        {t.nombreUsuario || 'Sistema'} · {formatDateTime(t.fechaHora)}
+                      </div>
+                      {t.comentario && <div className="mt-1 whitespace-pre-wrap text-on-surface">{t.comentario}</div>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
-            <hr style={{ margin: '16px 0', borderColor: 'var(--border-color)' }} />
-            {formError && (
-              <div role="alert" style={{ color: 'var(--danger-color)', fontSize: '13px', marginBottom: '12px' }}>
-                {formError}
-              </div>
-            )}
-            {terminal ? (
-              <div style={{ fontSize: '13px' }}>
-                Este ticket está en un estado final ({modal.estado}); no admite más acciones.
-              </div>
-            ) : (
-              <>
-                <div className="form-group">
+            <section className="space-y-3 border-t border-border pt-4">
+              {formError && (
+                <div role="alert" className="rounded-md border border-tint-red-fg/25 bg-tint-red-bg px-3 py-2 text-[13px] font-semibold text-tint-red-fg">
+                  {formError}
+                </div>
+              )}
+              {terminal ? (
+                <p className="text-text-secondary">
+                  Este ticket está en un estado final ({labelOf(ESTADO_LABEL, modal.estado)}); no admite más acciones.
+                </p>
+              ) : (
+                <>
                   <Textarea
                     id="respuesta"
                     label="Respuesta / observación"
@@ -481,109 +538,105 @@ export default function QuejasAdminPage() {
                     value={respuesta}
                     onChange={(e) => setRespuesta(e.target.value)}
                   />
-                </div>
-                <div className="form-group">
                   <Select
                     id="nuevo-estado"
                     label="Cambiar estado (opcional)"
                     value={nuevoEstado}
                     onChange={(e) => setNuevoEstado(e.target.value)}
                   >
-                    <option value="">Mantener {modal.estado}</option>
+                    <option value="">Mantener {labelOf(ESTADO_LABEL, modal.estado)}</option>
                     {transiciones.map((e) => (
                       <option key={e} value={e}>
-                        {e}
+                        {labelOf(ESTADO_LABEL, e)}
                       </option>
                     ))}
                   </Select>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
-                  <Button onClick={responder} disabled={saving}>
-                    {nuevoEstado ? 'Responder y cambiar estado' : 'Responder'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => cambiarEstado(nuevoEstado, respuesta.trim(), 'Estado actualizado')}
-                    disabled={saving || !nuevoEstado}
-                  >
-                    Solo cambiar estado
-                  </Button>
-                  {modal.estado === 'RESUELTO' && (
-                    <>
-                      <Button
-                        variant="outline"
-                        onClick={() => cambiarEstado('CERRADO', respuesta.trim(), 'Ticket cerrado')}
-                        disabled={saving}
-                      >
-                        Cerrar ticket
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => cambiarEstado('EN_GESTION', respuesta.trim(), 'Ticket reabierto')}
-                        disabled={saving}
-                      >
-                        Reabrir
-                      </Button>
-                    </>
-                  )}
-                </div>
-
-                <div className="card-grid-2">
-                  <div>
-                    <Select
-                      id="responsable"
-                      label="Asignar responsable"
-                      value={responsable}
-                      onChange={(e) => setResponsable(e.target.value)}
-                    >
-                      <option value="">Seleccione...</option>
-                      {responsables.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.nombre} {u.rol ? `(${u.rol})` : ''}
-                        </option>
-                      ))}
-                    </Select>
-                    <input
-                      aria-label="Observación de asignación"
-                      type="text"
-                      className="form-control"
-                      placeholder="Observación (opcional)"
-                      value={obsAsignacion}
-                      onChange={(e) => setObsAsignacion(e.target.value)}
-                      style={{ marginTop: '8px' }}
-                    />
-                    <Button variant="outline" onClick={asignar} disabled={saving} style={{ marginTop: '8px' }}>
-                      Asignar
+                  <div className="flex flex-wrap gap-2">
+                    <Button onClick={responder} disabled={saving} loading={saving}>
+                      {nuevoEstado ? 'Responder y cambiar estado' : 'Responder'}
                     </Button>
-                  </div>
-                  <div>
-                    <Select
-                      id="prioridad"
-                      label="Prioridad"
-                      value={prioridad}
-                      onChange={(e) => setPrioridad(e.target.value)}
-                    >
-                      {PRIORIDADES.map((p) => (
-                        <option key={p.value} value={p.value}>
-                          {p.label}
-                        </option>
-                      ))}
-                    </Select>
                     <Button
                       variant="outline"
-                      onClick={cambiarPrioridad}
-                      disabled={saving || prioridad === modal.prioridad}
-                      style={{ marginTop: '8px' }}
+                      onClick={() => cambiarEstado(nuevoEstado, respuesta.trim(), 'Estado actualizado')}
+                      disabled={saving || !nuevoEstado}
                     >
-                      Cambiar prioridad
+                      Solo cambiar estado
                     </Button>
+                    {modal.estado === 'RESUELTO' && (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => cambiarEstado('CERRADO', respuesta.trim(), 'Ticket cerrado')}
+                          disabled={saving}
+                        >
+                          Cerrar ticket
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => cambiarEstado('EN_GESTION', respuesta.trim(), 'Ticket reabierto')}
+                          disabled={saving}
+                        >
+                          Reabrir
+                        </Button>
+                      </>
+                    )}
                   </div>
-                </div>
-              </>
-            )}
-          </>
+
+                  <div className="grid grid-cols-1 gap-4 border-t border-border pt-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Select
+                        id="responsable"
+                        label="Asignar responsable"
+                        value={responsable}
+                        onChange={(e) => setResponsable(e.target.value)}
+                      >
+                        <option value="">Seleccione...</option>
+                        {responsables.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.nombre} {u.rol ? `(${u.rol})` : ''}
+                          </option>
+                        ))}
+                      </Select>
+                      <input
+                        aria-label="Observación de asignación"
+                        type="text"
+                        className="h-9 w-full rounded-md border border-input bg-surface px-3 text-sm text-on-surface placeholder:text-text-muted focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+                        placeholder="Observación (opcional)"
+                        value={obsAsignacion}
+                        onChange={(e) => setObsAsignacion(e.target.value)}
+                      />
+                      <Button variant="outline" onClick={asignar} disabled={saving}>
+                        Asignar
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      <Select
+                        id="prioridad"
+                        label="Prioridad"
+                        value={prioridad}
+                        onChange={(e) => setPrioridad(e.target.value)}
+                      >
+                        {PRIORIDADES.map((p) => (
+                          <option key={p.value} value={p.value}>
+                            {p.label}
+                          </option>
+                        ))}
+                      </Select>
+                      <Button
+                        variant="outline"
+                        onClick={cambiarPrioridad}
+                        disabled={saving || prioridad === modal.prioridad}
+                      >
+                        Cambiar prioridad
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </section>
+          </div>
         )}
       </Modal>
-    </div>
+    </PageContainer>
   );
 }

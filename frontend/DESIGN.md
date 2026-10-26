@@ -19,6 +19,8 @@ colors:
   noche-ink-2: "#B4C0DC"
   indigo-luminoso: "#A3B0FF"
   menta-luminosa: "#86E3C1"
+  error-tinta: "#B4233C"
+  error-luminoso: "#FF8FA3"
 typography:
   display:
     fontFamily: "Archivo, Plus Jakarta Sans, system-ui, sans-serif"
@@ -75,10 +77,39 @@ typography:
     fontWeight: 800
     lineHeight: 1.5
     fontVariation: "'wdth' 125, 'wght' 800"
+  app-label:
+    fontFamily: "Plus Jakarta Sans, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 600
+    lineHeight: 1.35
+  app-caption:
+    fontFamily: "Plus Jakarta Sans, system-ui, sans-serif"
+    fontSize: "12px"
+    fontWeight: 500
+    lineHeight: 1.4
+  app-meta:
+    fontFamily: "Plus Jakarta Sans, system-ui, sans-serif"
+    fontSize: "11.5px"
+    fontWeight: 500
+    lineHeight: 1.35
+  app-micro:
+    fontFamily: "Plus Jakarta Sans, system-ui, sans-serif"
+    fontSize: "11px"
+    fontWeight: 600
+    lineHeight: 1.35
+  app-page-title:
+    fontFamily: "Archivo, Plus Jakarta Sans, system-ui, sans-serif"
+    fontSize: "1.625rem"
+    fontWeight: 760
+    lineHeight: 1.2
+    fontVariation: "'wdth' 106, 'wght' 760"
 rounded:
   square: "0px"
+  tag: "2px"
   piece: "3px"
+  inset: "4px"
   control: "6px"
+  card: "8px"
 spacing:
   stud: "24px"
   gutter-sm: "16px"
@@ -177,7 +208,7 @@ The marketing surfaces read as a brick-build instruction book for a residential 
 
 Density is calm and generous: one spread, one model, one call-out at a time. Glass is the requested material, but it always sits inside a keyline; blur never stands alone as the edge of a surface. Dark mode is the same manual printed on night ink (Noche ground) with luminous keylines and luminous Índigo.
 
-**Scope boundary.** This world is scoped to the `.saed-manual` class (tokens live as `--m-*` custom properties in `src/components/landing/manual.css`) and covers the public landing at `/` plus the shared `LandingNavbar` and `LandingFooter`, which self-scope and also render on `/suscripciones`. The authenticated app UI (AppShell, dashboards, shadcn `ui/*` components, `src/index.css` / Tailwind theme) keeps its incumbent system and must not inherit these tokens or rules. The `/suscripciones` body and `LandingPricing` have not been migrated into this world yet (see Don'ts).
+**Scope boundary.** This world is scoped to the `.saed-manual` class (tokens live as `--m-*` custom properties in `src/components/landing/manual.css`) and covers the public landing at `/` plus the shared `LandingNavbar` and `LandingFooter`, which self-scope and also render on `/suscripciones`. The authenticated app UI does not use the `--m-*` tokens; it carries an Operate-mode extension of this world on its own tokens (`src/index.css` `:root` / `[data-theme='dark']` and the Tailwind theme), described in **App surfaces (Operate)** below. The `/suscripciones` body and `LandingPricing` have not been migrated into this world yet (see Don'ts).
 
 **Key Characteristics:**
 - 24px stud module: background dot grid, brick studs at 24px pitch, parts tray on the same grid.
@@ -321,4 +352,33 @@ One easing, expo-out `cubic-bezier(0.16, 1, 0.3, 1)`. Pieces transition 600ms (h
 - **Don't** use hard offset shadows; depth is the soft slab and page shadow under pieces.
 - **Don't** round call-outs, pages or tables; pill shapes and 16–24px radii belong to the incumbent app UI, not this world.
 - **Don't** introduce hues outside the pinned palette, or a second Índigo piece in one step.
-- **Don't** apply `--m-*` tokens or these rules to the authenticated app UI; it keeps its incumbent system.
+- **Don't** apply `--m-*` tokens or the manual's illustrative rules (stud-grid layout, giant step numerals, 1.5px keylines on everything) to the authenticated app; it uses the Operate extension below.
+
+## App surfaces (Operate)
+
+The authenticated app (all roles) extends the manual into Operate mode: a working product first, with the world lending only palette, type, density and one signature move. Navigation, controls and dialogs stay standard web components. Tokens live in `src/index.css` (`:root` and `[data-theme='dark'], .dark`) and are mirrored in `tailwind.config.js` (`surface`, `on-surface`, `text-secondary`, `text-muted`, `border`, `input`, `keyline`, `primary`, `primary-text`, `btn-*`, `tint-*-bg/fg`, `destructive`).
+
+### Palette
+- **Light:** page Perla `#F7F9FE`, surfaces Blanco `#FFFFFF`, second neutral layer `#EEF2FA`/`#F3F6FC`, ink Azul tinta `#1D2942`, secondary ink `#3A4766`, muted `#5B6785`, hint `#657290` (all ≥4.5:1 on white and Perla). Container border `#D6DCEA`; control boundary `--input-border #8792AA` (≥3:1). Primary fill Índigo `#5267DA`, hover and Índigo text `#4155C6`. Selection is Azul pastel on Azul tinta.
+- **Dark:** ground `#070B14` (sidebar), page `#0B1222`, paper `#0F172A`; ink `#EEF3FF` / `#B4C0DC` / `#8F9BB8`; border `#263049`, control boundary `#5C6886`; primary text, focus and accents Índigo luminoso `#A3B0FF`. Solid buttons keep `#5267DA` / `#B4233C` fills with white labels in both modes.
+- **Status (semantic, AA in both modes):** success Menta `#DCF4EB` / Verde ok `#0F6B4F` (dark `#86E3C1` on 12% tint); warning `#FDF1DC` / `#8A4B08` (dark `#FCD27A`); danger `#FDE8EC` / `#B4233C`→`#9A1C32` text (dark `#FF8FA3`); info Azul pastel / `#23408F` (dark `#C2CAFF`). Use them through `tint-*` utilities or `Badge` variants; `text-destructive` is the readable danger ink, `bg-btn-danger` the solid fill.
+
+### Type
+Plus Jakarta Sans carries every label, body and datum on a fixed rem ramp (11.5 / 12 / 13 / 14 / 15 / 16px). Archivo appears only as `.app-display` (wdth 106, 760: page titles via `PageHeader` h1 at 1.625rem, dialog titles, the dashboard greeting), `.app-numeral` (wdth 118, 850, tabular lining figures: KPI values, counts, money in rows) and `.app-stamp` (wdth 118: version tag, avatar initials, payment-method tags). Sentence case everywhere; no uppercase tracked labels, including nav group labels and table headers.
+
+### Shape, depth, glass
+Controls 6px (`--radius-control`, Tailwind `rounded`/`rounded-md`), cards and dialogs 8px (`--radius-card`, `rounded-lg`/`rounded-xl`), badges and tags 2–3px. The Tailwind radius scale was flattened (`2xl` 10px, `3xl` 12px), so legacy page classes inherit it. Shadows are slabs with offset and soft blur (`--shadow-soft`, `--shadow-md`, `--shadow-page`; Tailwind `shadow-sm/md/xl`). Glass is used in three places only, always bounded by a keyline: the sticky header (`.app-glass-bar`, 14px blur), dialog and drawer overlays (`.app-overlay`, 6px blur).
+
+### Shell (`AppShell.jsx`, all roles)
+- **Sidebar:** Azul tinta (`--sidebar-bg`; Noche in dark), 256px or a 72px rail (`saed_sidebar_collapsed`). Brand mark in a white keylined square, Archivo wordmark and a keylined `2.0` stamp. Groups use sentence-case 12px labels with a chevron; in the rail a dashed rule separates groups. **The active item is the Índigo piece** (`NAV_ACTIVE_PIECE`: solid Índigo, inner highlight, slab shadow; luminous glass in dark), the only Índigo fill in the sidebar. Footer: user card (Lavanda initial tile, name, role label), Cambiar clave, Cerrar sesión.
+- **Mobile drawer (<1024px):** modal dialog semantics, focus moves in and is trapped, Escape/overlay/close button dismiss, focus returns to "Abrir menú", body scroll locks; closed, the sidebar is `inert` and hidden.
+- **Header:** 64px sticky glass bar with breadcrumbs, collapse toggle, tenant switcher, theme toggle, notification bell, user pill and quick logout; icon buttons are 44px keylined squares.
+
+### Kit
+`button` (default/primary Índigo, outline keylined, secondary Azul pastel, ghost, link, destructive solid red; 1px press nudge), `badge` (tinted, 3px), `card`, `tabs` (segmented, active segment on paper with Índigo text), `dialog`/`alert-dialog`/`Modal`/`ConfirmDialog`, inputs/selects/textarea (3px focus ring, Índigo caret), `MetricCard` (sentence-case label, Archivo numeral, tinted icon tile), `PageHeader` (h1), `EmptyState` (dashed keylined icon tile on stud dots), `LoadingState` (skeleton lines, `.app-skeleton`), `ErrorState` (full or `compact` inline row with retry). Legacy `.card/.stat-card/.btn/.badge/.modal/.form-control/.tabs/.data-table` classes follow the same tokens.
+
+### Signature move
+On the resident home ("Lo que requiere tu atención"), each line is a part: a line that needs the resident shows a small **Índigo piece** and an Índigo Archivo count; settled lines show a **ghosted dashed piece** and a muted count. Stud-dot texture (`.app-studs`) appears only in quiet places: the greeting header and empty-state tiles, never behind data.
+
+### Motion and browser surfaces
+Expo-out `cubic-bezier(0.16, 1, 0.3, 1)` (Tailwind `ease-out`), 150–260ms state changes, no page-load choreography; skeleton sweep and dialog entrance are dropped under reduced motion. Focus rings are 2px Índigo (luminous in dark) with 2px offset; scrollbars are thin ink-tinted; numerals in data use tabular figures.

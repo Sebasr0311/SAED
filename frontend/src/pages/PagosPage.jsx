@@ -1,14 +1,29 @@
 import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { Building2, Gavel, Receipt, Search } from 'lucide-react';
 import { Button } from '../components/ui/Button.jsx';
-import { Input, Select } from '../components/ui/Form.jsx';
+import { Input, Select, Textarea } from '../components/ui/Form.jsx';
+import { Input as BareInput } from '../components/ui/input.tsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import { StatCard } from '../components/ui/StatCard.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import { Skeleton } from '../components/ui/skeleton.tsx';
+import { Badge } from '../components/ui/badge.tsx';
+import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs.tsx';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatCurrency, formatDate, todayStr, formatMiles, parseMiles, periodoLabel } from '../lib/utils.js';
+import { cn, formatCurrency, formatDate, todayStr, formatMiles, parseMiles, periodoLabel } from '../lib/utils.js';
+
+const quiet = (fn) => () => fn().catch(() => {});
+
+const ESTADO_PAGO = {
+  PENDIENTE_APROBACION: { variant: 'warning', label: 'Pendiente de aprobación' },
+  APROBADO: { variant: 'success', label: 'Aprobado' },
+  RECHAZADO: { variant: 'destructive', label: 'Rechazado' },
+};
 
 function agruparPorApartamento(cuotas, multas) {
   const safeCuotas = Array.isArray(cuotas) ? cuotas : (Array.isArray(cuotas?.items) ? cuotas.items : []);
@@ -75,7 +90,6 @@ export default function PagosPage() {
   const [accionandoPago, setAccionandoPago] = useState(false);
 
   const loading = loadingCuotas || loadingMultas || (tabPrincipal === 'APROBACIONES' && loadingPagos);
-  const fetchError = errorCuotas || errorMultas || errorPagos;
 
   const pagos = useMemo(() => {
     const list = pagosData?.items || pagosData || [];
@@ -167,17 +181,39 @@ export default function PagosPage() {
   }, [cuotas, multas, residentes]);
 
   const columns = [
-    { key: 'numeroApartamento', label: 'Apartamento' },
+    {
+      key: 'numeroApartamento',
+      label: 'Apartamento',
+      render: (r) => <span className="font-semibold">{r.numeroApartamento}</span>,
+    },
     { key: 'nombreResidente', label: 'Residente' },
     {
       key: 'cuotas',
       label: 'Cuotas pendientes',
-      render: (r) => <span className="badge badge-pendiente-firma">{r.cuotas.length}</span>,
+      render: (r) => (
+        <Badge variant={r.cuotas.length > 0 ? 'warning' : 'secondary'}>
+          <span className="tabular-nums">{r.cuotas.length}</span>
+        </Badge>
+      ),
     },
     {
       key: 'multas',
       label: 'Multas pendientes',
-      render: (r) => <span className="badge badge-danger">{r.multas.length}</span>,
+      render: (r) => (
+        <Badge variant={r.multas.length > 0 ? 'destructive' : 'secondary'}>
+          <span className="tabular-nums">{r.multas.length}</span>
+        </Badge>
+      ),
+    },
+    {
+      key: 'saldo',
+      label: <span className="block text-right">Saldo pendiente</span>,
+      cellClassName: 'text-right tabular-nums font-semibold whitespace-nowrap',
+      render: (r) =>
+        formatCurrency(
+          r.cuotas.reduce((s, c) => s + Number(c?.saldoPendiente ?? c?.valorTotal ?? 0), 0) +
+            r.multas.reduce((s, m) => s + Number(m?.monto || 0), 0)
+        ),
     },
   ];
 
@@ -256,431 +292,445 @@ export default function PagosPage() {
     }
   }
 
+  const cobrosError = errorCuotas || errorMultas;
+  const saldoDe = (item) => Number(item?.saldoPendiente ?? item?.valorTotal ?? 0);
+  const filtrosPago = [
+    { id: 'PENDIENTE_APROBACION', label: 'Pendientes', count: pagosPendientesCount },
+    { id: 'APROBADO', label: 'Aprobados' },
+    { id: 'RECHAZADO', label: 'Rechazados' },
+    { id: 'TODOS', label: 'Todos', count: pagos.length },
+  ];
+
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="Gestión de Pagos"
-        subtitle="Control de cartera, cobros y aprobación de pagos manuales"
-        action={
-          <Input
-            id="search" aria-label="Buscar"
-            placeholder={tabPrincipal === 'COBROS' ? "Buscar apto o residente..." : "Buscar por apto, residente, ref..."}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        }
+        title="Gestión de pagos"
+        subtitle="Saldos por apartamento, registro de pagos manuales y aprobación de soportes"
       />
 
-      {/* Tabs Principales: Cobros vs Bandeja de Aprobación */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-        <button
-          type="button"
-          onClick={() => setTabPrincipal('COBROS')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: '8px',
-            fontSize: '13px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            border: '1px solid var(--border-color, #e2e8f0)',
-            background: tabPrincipal === 'COBROS' ? 'var(--primary, #0f172a)' : 'var(--card-bg, #fff)',
-            color: tabPrincipal === 'COBROS' ? '#fff' : 'inherit',
-          }}
-        >
-          Cobros y Saldos
-        </button>
-        <button
-          type="button"
-          onClick={() => setTabPrincipal('APROBACIONES')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: '8px',
-            fontSize: '13px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            border: '1px solid var(--border-color, #e2e8f0)',
-            background: tabPrincipal === 'APROBACIONES' ? 'var(--primary, #0f172a)' : 'var(--card-bg, #fff)',
-            color: tabPrincipal === 'APROBACIONES' ? '#fff' : 'inherit',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          <span>Bandeja de Aprobación</span>
-          {pagosPendientesCount > 0 && (
-            <span
-              style={{
-                background: '#f59e0b',
-                color: '#fff',
-                fontSize: '11px',
-                padding: '1px 6px',
-                borderRadius: '9999px',
-                fontWeight: 700,
-              }}
-            >
-              {pagosPendientesCount}
-            </span>
-          )}
-        </button>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Tabs value={tabPrincipal} onValueChange={setTabPrincipal} className="-mx-1 min-w-0 overflow-x-auto px-1 pb-1">
+          <TabsList>
+            <TabsTrigger value="COBROS">Cobros y saldos</TabsTrigger>
+            <TabsTrigger value="APROBACIONES" className="gap-2">
+              Bandeja de aprobación
+              {pagosPendientesCount > 0 && (
+                <Badge variant="warning" className="px-1.5 py-0">
+                  <span className="tabular-nums">{pagosPendientesCount}</span>
+                  <span className="sr-only"> pendientes</span>
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="relative w-full sm:w-80">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+            aria-hidden="true"
+          />
+          <BareInput
+            id="search"
+            aria-label="Buscar"
+            placeholder={tabPrincipal === 'COBROS' ? 'Buscar apartamento o residente' : 'Buscar por apartamento, residente o referencia'}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
       </div>
 
       {tabPrincipal === 'COBROS' ? (
         <>
-          <div className="card-grid-3" style={{ marginBottom: '20px' }}>
-            <StatCard icon="receipt_long" value={formatCurrency(kpis.cuotasPendientes)} label="Cuotas pendientes" color="primary" />
-            <StatCard icon="gavel" value={formatCurrency(kpis.multasPendientes)} label="Multas pendientes" color="amber" />
-            <StatCard icon="apartment" value={kpis.aptosConSaldo} label="Aptos con saldo" color="blue" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <MetricCard
+              icon={Receipt}
+              value={loadingCuotas ? '…' : errorCuotas ? '—' : formatCurrency(kpis.cuotasPendientes)}
+              label="Cuotas pendientes"
+              subtitle="Saldo por recaudar"
+              variant="primary"
+            />
+            <MetricCard
+              icon={Gavel}
+              value={loadingMultas ? '…' : errorMultas ? '—' : formatCurrency(kpis.multasPendientes)}
+              label="Multas pendientes"
+              subtitle="Multas sin pago registrado"
+              variant="warning"
+            />
+            <MetricCard
+              icon={Building2}
+              value={loading ? '…' : cobrosError ? '—' : kpis.aptosConSaldo}
+              label="Apartamentos con saldo"
+              subtitle="Seleccione uno para registrar un pago"
+              variant="secondary"
+            />
           </div>
-          <DataTable
-            columns={columns}
-            rows={residentes}
-            loading={loading}
-            empty={{ icon: 'payments', title: 'No hay pagos pendientes', subtitle: 'Todos los pagos al día. Los nuevos aparecerán aquí.' }}
-            error={fetchError?.message}
-            keyField="numeroApartamento"
-            onRowClick={setDetalle}
-          />
+          {cobrosError ? (
+            <ErrorState
+              title="No se pudieron cargar los saldos"
+              message={cobrosError?.message || 'Revise su conexión e intente de nuevo.'}
+              onRetry={() => {
+                quiet(refetchCuotas)();
+                quiet(refetchMultas)();
+              }}
+            />
+          ) : (
+            <DataTable
+              columns={columns}
+              rows={residentes}
+              loading={loading}
+              empty={{
+                icon: Receipt,
+                title: search ? 'No hay pagos pendientes que coincidan con la búsqueda' : 'No hay pagos pendientes',
+                subtitle: search
+                  ? 'Pruebe con otro apartamento o nombre.'
+                  : 'Todos los apartamentos están al día. Los nuevos saldos aparecerán aquí.',
+              }}
+              keyField="numeroApartamento"
+              onRowClick={setDetalle}
+            />
+          )}
         </>
       ) : (
-        /* Bandeja de Aprobación de Pagos Manuales (GAP-F6-05) */
-        <div>
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-            {[
-              { id: 'PENDIENTE_APROBACION', label: `Pendientes (${pagosPendientesCount})` },
-              { id: 'APROBADO', label: 'Aprobados' },
-              { id: 'RECHAZADO', label: 'Rechazados' },
-              { id: 'TODOS', label: `Todos (${pagos.length})` },
-            ].map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setFiltroEstadoPago(f.id)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  border: filtroEstadoPago === f.id ? '1px solid var(--primary, #0f172a)' : '1px solid var(--border-color, #e2e8f0)',
-                  background: filtroEstadoPago === f.id ? 'var(--muted, #f1f5f9)' : '#fff',
-                  color: filtroEstadoPago === f.id ? 'var(--primary, #0f172a)' : 'var(--text-muted, #64748b)',
-                }}
-              >
-                {f.label}
-              </button>
-            ))}
+        /* Manual payment approval inbox (GAP-F6-05) */
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por estado del pago">
+            {filtrosPago.map((f) => {
+              const active = filtroEstadoPago === f.id;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setFiltroEstadoPago(f.id)}
+                  className={cn(
+                    'inline-flex min-h-10 items-center gap-1.5 rounded-md border px-3 text-[13px] font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-8',
+                    active
+                      ? 'border-primary-text/40 bg-tint-primary-bg text-primary-text'
+                      : 'border-border bg-surface text-text-secondary hover:bg-surface-container hover:text-on-surface'
+                  )}
+                >
+                  {f.label}
+                  {f.count != null && <span className="tabular-nums">({f.count})</span>}
+                </button>
+              );
+            })}
           </div>
 
-          <div className="table-container" style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Apto / Residente</th>
-                  <th>Concepto Cuota</th>
-                  <th>Monto</th>
-                  <th>Método / Ref</th>
-                  <th>Fecha Pago</th>
-                  <th>Comprobante</th>
-                  <th>Estado</th>
-                  <th style={{ textAlign: 'right' }}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredPagos.map((p) => {
-                  const esPendiente = p.estado === 'PENDIENTE_APROBACION';
-                  const esAprobado = p.estado === 'APROBADO';
-                  const esRechazado = p.estado === 'RECHAZADO';
-                  return (
-                    <tr key={p.idPago}>
-                      <td style={{ fontWeight: 600 }}>#{p.idPago}</td>
-                      <td>
-                        <div style={{ fontWeight: 600 }}>Apto {p.numeroApartamento || `Unidad #${p.idUnidad}`}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{p.nombreResidente}</div>
-                      </td>
-                      <td>
-                        <div>{p.conceptoCuota || 'Cuota de Administración'}</div>
-                        {p.periodoCuota && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Período: {p.periodoCuota}</div>}
-                      </td>
-                      <td style={{ fontWeight: 700, fontSize: '14px' }}>{formatCurrency(p.montoTotal)}</td>
-                      <td>
-                        <div>{p.metodoPago}</div>
-                        {p.referenciaComprobante && (
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Ref: {p.referenciaComprobante}</div>
-                        )}
-                      </td>
-                      <td>{formatDate(p.fechaPago)}</td>
-                      <td>
-                        {p.comprobanteUrl ? (
-                          <button
-                            type="button"
-                            onClick={() => setComprobanteModal(p)}
-                            style={{
-                              padding: '3px 8px',
-                              fontSize: '11px',
-                              borderRadius: '4px',
-                              border: '1px solid #cbd5e1',
-                              background: '#f8fafc',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Ver Soporte
-                          </button>
-                        ) : (
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Sin soporte</span>
-                        )}
-                      </td>
-                      <td>
-                        {esPendiente && (
-                          <span style={{ background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600 }}>
-                            Pendiente Aprobación
-                          </span>
-                        )}
-                        {esAprobado && (
-                          <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600 }}>
-                            Aprobado
-                          </span>
-                        )}
-                        {esRechazado && (
-                          <div>
-                            <span style={{ background: '#fee2e2', color: '#991b1b', padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600 }}>
-                              Rechazado
-                            </span>
-                            {p.observaciones && (
-                              <div style={{ fontSize: '10px', color: '#b91c1c', marginTop: '2px' }}>
-                                Motivo: {p.observaciones}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        {esPendiente && (
-                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                            <Button
-                              onClick={() => handleAprobarPago(p.idPago)}
-                              disabled={accionandoPago}
-                              style={{ padding: '4px 10px', fontSize: '11px', background: '#059669', color: '#fff' }}
-                            >
-                              Aprobar
-                            </Button>
-                            <Button
-                              onClick={() => {
-                                setRechazoModal(p);
-                                setMotivoRechazo('');
-                              }}
-                              disabled={accionandoPago}
-                              variant="outline"
-                              style={{ padding: '4px 10px', fontSize: '11px', borderColor: '#ef4444', color: '#ef4444' }}
-                            >
-                              Rechazar
-                            </Button>
-                          </div>
-                        )}
-                        {esAprobado && p.nombreAprobador && (
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                            Por: {p.nombreAprobador}
-                          </div>
-                        )}
-                        {esRechazado && p.nombreRechazador && (
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                            Por: {p.nombreRechazador}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-                {filteredPagos.length === 0 && (
+          {errorPagos ? (
+            <ErrorState
+              title="No se pudieron cargar los pagos"
+              message={errorPagos?.message || 'Revise su conexión e intente de nuevo.'}
+              onRetry={quiet(refetchPagos)}
+            />
+          ) : loadingPagos ? (
+            <div className="table-container space-y-3 p-4" role="status" aria-label="Cargando pagos">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-9 w-full" />
+              ))}
+            </div>
+          ) : filteredPagos.length === 0 ? (
+            <div className="table-container">
+              <EmptyState
+                icon={Receipt}
+                title="No hay pagos en este estado"
+                subtitle={
+                  filtroEstadoPago === 'PENDIENTE_APROBACION'
+                    ? 'Los pagos manuales registrados quedarán aquí hasta su aprobación.'
+                    : 'Cambie el filtro para ver otros pagos.'
+                }
+              />
+            </div>
+          ) : (
+            <div className="table-container max-h-[70vh] overflow-auto">
+              <table className="data-table">
+                <caption className="sr-only">Pagos manuales registrados</caption>
+                <thead>
                   <tr>
-                    <td colSpan={9} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-                      No hay pagos en este estado
-                    </td>
+                    <th scope="col">ID</th>
+                    <th scope="col">Apartamento y residente</th>
+                    <th scope="col">Concepto</th>
+                    <th scope="col" className="text-right">Monto</th>
+                    <th scope="col">Método y referencia</th>
+                    <th scope="col">Fecha de pago</th>
+                    <th scope="col">Soporte</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col" className="text-right">Acciones</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filteredPagos.map((p) => {
+                    const esPendiente = p.estado === 'PENDIENTE_APROBACION';
+                    const esAprobado = p.estado === 'APROBADO';
+                    const esRechazado = p.estado === 'RECHAZADO';
+                    const meta = ESTADO_PAGO[p.estado] || { variant: 'secondary', label: p.estado };
+                    return (
+                      <tr key={p.idPago}>
+                        <td className="tabular-nums font-semibold">#{p.idPago}</td>
+                        <td className="min-w-[10rem]">
+                          <div className="font-semibold">Apto {p.numeroApartamento || `Unidad #${p.idUnidad}`}</div>
+                          <div className="text-xs text-text-muted">{p.nombreResidente}</div>
+                        </td>
+                        <td className="min-w-[10rem]">
+                          <div>{p.conceptoCuota || 'Cuota de administración'}</div>
+                          {p.periodoCuota && (
+                            <div className="text-xs tabular-nums text-text-muted">Periodo: {p.periodoCuota}</div>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap text-right text-sm font-bold tabular-nums">
+                          {formatCurrency(p.montoTotal)}
+                        </td>
+                        <td>
+                          <div>{p.metodoPago}</div>
+                          {p.referenciaComprobante && (
+                            <div className="text-xs tabular-nums text-text-muted">Ref: {p.referenciaComprobante}</div>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap tabular-nums">{formatDate(p.fechaPago)}</td>
+                        <td>
+                          {p.comprobanteUrl ? (
+                            <Button variant="outline" size="sm" onClick={() => setComprobanteModal(p)}>
+                              Ver soporte
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-text-muted">Sin soporte</span>
+                          )}
+                        </td>
+                        <td className="min-w-[9rem]">
+                          <Badge variant={meta.variant}>{meta.label}</Badge>
+                          {esRechazado && p.observaciones && (
+                            <div className="mt-1 text-xs text-tint-red-fg">Motivo: {p.observaciones}</div>
+                          )}
+                        </td>
+                        <td className="text-right">
+                          {esPendiente && (
+                            <div className="flex justify-end gap-1.5">
+                              <Button size="sm" onClick={() => handleAprobarPago(p.idPago)} disabled={accionandoPago}>
+                                Aprobar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-destructive"
+                                onClick={() => {
+                                  setRechazoModal(p);
+                                  setMotivoRechazo('');
+                                }}
+                                disabled={accionandoPago}
+                              >
+                                Rechazar
+                              </Button>
+                            </div>
+                          )}
+                          {esAprobado && p.nombreAprobador && (
+                            <div className="text-xs text-text-muted">Por: {p.nombreAprobador}</div>
+                          )}
+                          {esRechazado && p.nombreRechazador && (
+                            <div className="text-xs text-text-muted">Por: {p.nombreRechazador}</div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Modal para Visualizar Comprobante */}
+      {/* Payment receipt viewer */}
       <Modal
         open={!!comprobanteModal}
         onClose={() => setComprobanteModal(null)}
-        title={`Comprobante de Pago #${comprobanteModal?.idPago || ''} — Apto ${comprobanteModal?.numeroApartamento || ''}`}
+        title={`Comprobante de pago #${comprobanteModal?.idPago || ''} · Apto ${comprobanteModal?.numeroApartamento || ''}`}
         size="lg"
       >
         {comprobanteModal && (
-          <div style={{ textAlign: 'center', padding: '12px' }}>
-            <div style={{ marginBottom: '12px', fontSize: '13px', color: 'var(--text-muted)' }}>
-              Monto: <strong>{formatCurrency(comprobanteModal.montoTotal)}</strong> | Método: <strong>{comprobanteModal.metodoPago}</strong> | Referencia: <strong>{comprobanteModal.referenciaComprobante || 'N/A'}</strong>
+          <div className="space-y-4">
+            <dl className="grid grid-cols-1 gap-2 rounded-md border border-border bg-surface-container p-3 text-sm sm:grid-cols-3">
+              <div>
+                <dt className="text-xs text-text-muted">Monto</dt>
+                <dd className="font-bold tabular-nums">{formatCurrency(comprobanteModal.montoTotal)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-text-muted">Método</dt>
+                <dd className="font-semibold">{comprobanteModal.metodoPago}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-text-muted">Referencia</dt>
+                <dd className="font-semibold tabular-nums">{comprobanteModal.referenciaComprobante || 'N/A'}</dd>
+              </div>
+            </dl>
+            <div className="flex justify-center overflow-hidden rounded-md border border-border bg-surface-dim">
+              {comprobanteModal.comprobanteUrl?.toLowerCase().endsWith('.pdf') ? (
+                <iframe
+                  src={`/api/v1/pagos/${comprobanteModal.idPago}/comprobante`}
+                  title="Comprobante PDF"
+                  className="h-[480px] w-full border-0"
+                />
+              ) : (
+                <img
+                  src={`/api/v1/pagos/${comprobanteModal.idPago}/comprobante`}
+                  alt="Comprobante de pago"
+                  className="mx-auto max-h-[480px] max-w-full object-contain"
+                />
+              )}
             </div>
-            {comprobanteModal.comprobanteUrl?.toLowerCase().endsWith('.pdf') ? (
-              <iframe
-                src={`/api/v1/pagos/${comprobanteModal.idPago}/comprobante`}
-                title="Comprobante PDF"
-                style={{ width: '100%', height: '480px', border: 'none', borderRadius: '8px' }}
-              />
-            ) : (
-              <img
-                src={`/api/v1/pagos/${comprobanteModal.idPago}/comprobante`}
-                alt="Comprobante de pago"
-                style={{ maxWidth: '100%', maxHeight: '480px', margin: '0 auto', borderRadius: '8px', objectFit: 'contain' }}
-              />
-            )}
-            <div style={{ marginTop: '16px' }}>
+            <div className="flex justify-end">
               <a
                 href={`/api/v1/pagos/${comprobanteModal.idPago}/comprobante`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium rounded-lg border border-border bg-card text-foreground hover:bg-muted transition-colors"
-                style={{ textDecoration: 'none' }}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-input/60 bg-surface px-3.5 text-sm font-semibold text-on-surface no-underline transition-colors hover:border-primary/70 hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                Descargar Comprobante Original
+                Descargar comprobante original
               </a>
             </div>
           </div>
         )}
       </Modal>
 
-      {/* Modal de Rechazo de Pago */}
+      {/* Payment rejection */}
       <Modal
         open={!!rechazoModal}
         onClose={() => {
           if (!accionandoPago) setRechazoModal(null);
         }}
-        title={`Rechazar Pago #${rechazoModal?.idPago || ''}`}
+        title={`Rechazar pago #${rechazoModal?.idPago || ''}`}
         footer={
           <>
             <Button variant="outline" onClick={() => setRechazoModal(null)} disabled={accionandoPago}>
               Cancelar
             </Button>
             <Button
+              variant="danger"
               onClick={handleRechazarPago}
               disabled={accionandoPago || !motivoRechazo.trim()}
-              style={{ background: '#ef4444', color: '#fff' }}
+              loading={accionandoPago}
             >
-              {accionandoPago ? 'Rechazando...' : 'Confirmar Rechazo'}
+              {accionandoPago ? 'Rechazando…' : 'Confirmar rechazo'}
             </Button>
           </>
         }
       >
         {rechazoModal && (
-          <div style={{ padding: '8px 0' }}>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-              Por favor indique la razón del rechazo del pago de <strong>{formatCurrency(rechazoModal.montoTotal)}</strong> para el Apto <strong>{rechazoModal.numeroApartamento}</strong>. El residente será notificado.
+          <div className="space-y-3">
+            <p className="text-sm text-text-secondary">
+              Indique la razón del rechazo del pago de{' '}
+              <strong className="tabular-nums text-on-surface">{formatCurrency(rechazoModal.montoTotal)}</strong> del
+              Apto <strong className="text-on-surface">{rechazoModal.numeroApartamento}</strong>. El residente será
+              notificado.
             </p>
-            <div className="form-group">
-              <label htmlFor="motivoRechazo" style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                Motivo de Rechazo (Obligatorio)
-              </label>
-              <textarea
-                id="motivoRechazo"
-                rows={3}
-                placeholder="Ej. El número de aprobación no coincide con los extractos de la cuenta bancaria..."
-                value={motivoRechazo}
-                onChange={(e) => setMotivoRechazo(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  borderRadius: '6px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13px',
-                }}
-              />
-            </div>
+            <Textarea
+              id="motivoRechazo"
+              label="Motivo del rechazo"
+              required
+              rows={3}
+              placeholder="Ej. El número de aprobación no coincide con el extracto de la cuenta bancaria"
+              value={motivoRechazo}
+              onChange={(e) => setMotivoRechazo(e.target.value)}
+            />
           </div>
         )}
       </Modal>
 
+      {/* Apartment balance detail */}
       <Modal
         open={!!detalle}
         onClose={() => setDetalle(null)}
-        title={`Apto ${detalle?.numeroApartamento || ''} — ${detalle?.nombreResidente || ''}`}
+        title={`Apto ${detalle?.numeroApartamento || ''}${detalle?.nombreResidente ? ` · ${detalle.nombreResidente}` : ''}`}
         size="lg"
       >
         {detalle && (
-          <>
-                <h4 className="mb-2 text-[13px] font-bold">Cuotas</h4>
-            <div className="table-container" style={{ marginBottom: '16px' }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Período</th>
-                    <th>Monto</th>
-                    <th>Vencimiento</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {detalle.cuotas.map((c) => (
-                    <tr key={c.idCuota || c.id}>
-                      <td>{periodoLabel(c.anio, c.mes)}</td>
-                      <td>{formatCurrency(c.saldoPendiente ?? c.valorTotal)}</td>
-                      <td>{formatDate(c.fechaLimite)}</td>
-                      <td>
-                        <Button onClick={() => abrirPagoCuota(c)} style={{ padding: '4px 10px', fontSize: '11px' }}>
-                          Pagar
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                  {detalle.cuotas.length === 0 && (
+          <div className="space-y-5">
+            <section>
+              <h3 className="mb-2 text-[13px] font-bold text-on-surface">Cuotas</h3>
+              <div className="table-container overflow-x-auto">
+                <table className="data-table">
+                  <thead>
                     <tr>
-                      <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-                        Sin cuotas pendientes
-                      </td>
+                      <th scope="col">Periodo</th>
+                      <th scope="col" className="text-right">Saldo</th>
+                      <th scope="col">Vencimiento</th>
+                      <th scope="col"><span className="sr-only">Acción</span></th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-                <h4 className="mb-2 text-[13px] font-bold">Multas</h4>
-            <div className="table-container">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Motivo</th>
-                    <th>Monto</th>
-                    <th>Fecha</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {detalle.multas.map((m) => (
-                    <tr key={m.idMulta}>
-                      <td>{m.tipo}</td>
-                      <td>{formatCurrency(m.monto)}</td>
-                      <td>{formatDate(m.fechaCreacion)}</td>
-                      <td>
-                        <Button onClick={() => abrirPagoMulta(m)} style={{ padding: '4px 10px', fontSize: '11px' }}>
-                          Pagar
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                  {detalle.multas.length === 0 && (
+                  </thead>
+                  <tbody>
+                    {detalle.cuotas.map((c) => (
+                      <tr key={c.idCuota || c.id}>
+                        <td className="tabular-nums">{periodoLabel(c.anio, c.mes)}</td>
+                        <td className="whitespace-nowrap text-right font-semibold tabular-nums">
+                          {formatCurrency(saldoDe(c))}
+                        </td>
+                        <td className="whitespace-nowrap tabular-nums">{formatDate(c.fechaLimite)}</td>
+                        <td className="text-right">
+                          <Button size="sm" onClick={() => abrirPagoCuota(c)}>
+                            Registrar pago
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                    {detalle.cuotas.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="text-center text-text-muted">
+                          Sin cuotas pendientes
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+            <section>
+              <h3 className="mb-2 text-[13px] font-bold text-on-surface">Multas</h3>
+              <div className="table-container overflow-x-auto">
+                <table className="data-table">
+                  <thead>
                     <tr>
-                      <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-                        Sin multas pendientes
-                      </td>
+                      <th scope="col">Motivo</th>
+                      <th scope="col" className="text-right">Monto</th>
+                      <th scope="col">Fecha</th>
+                      <th scope="col"><span className="sr-only">Acción</span></th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </>
+                  </thead>
+                  <tbody>
+                    {detalle.multas.map((m) => (
+                      <tr key={m.idMulta}>
+                        <td>{m.tipo}</td>
+                        <td className="whitespace-nowrap text-right font-semibold tabular-nums">
+                          {formatCurrency(m.monto)}
+                        </td>
+                        <td className="whitespace-nowrap tabular-nums">{formatDate(m.fechaCreacion)}</td>
+                        <td className="text-right">
+                          <Button size="sm" onClick={() => abrirPagoMulta(m)}>
+                            Registrar pago
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                    {detalle.multas.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="text-center text-text-muted">
+                          Sin multas pendientes
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
         )}
       </Modal>
 
+      {/* Manual payment registration */}
       <Modal
         open={!!pagoModal}
         onClose={() => {
           setPagoModal(null);
           resetTouched();
         }}
-        title={pagoModal?.tipo === 'cuota' ? 'Registrar Pago de Cuota' : 'Registrar Pago de Multa'}
+        title={pagoModal?.tipo === 'cuota' ? 'Registrar pago de cuota' : 'Registrar pago de multa'}
         footer={
           <>
             <Button
@@ -693,15 +743,30 @@ export default function PagosPage() {
             >
               Cancelar
             </Button>
-            <Button onClick={confirmarPago} disabled={saving}>
-              {saving ? 'Guardando...' : 'Confirmar'}
+            <Button onClick={confirmarPago} disabled={saving} loading={saving}>
+              {saving ? 'Guardando…' : 'Confirmar'}
             </Button>
           </>
         }
       >
-        {pagoModal?.tipo === 'cuota' && (
-          <>
-            <div className="form-row">
+        <div className="grid gap-4">
+          {pagoModal && (
+            <p className="rounded-md border border-border bg-surface-container px-3 py-2 text-sm text-text-secondary">
+              {pagoModal.tipo === 'cuota' ? (
+                <>
+                  Saldo pendiente de la cuota:{' '}
+                  <strong className="tabular-nums text-on-surface">{formatCurrency(saldoDe(pagoModal.item))}</strong>
+                </>
+              ) : (
+                <>
+                  Valor de la multa:{' '}
+                  <strong className="tabular-nums text-on-surface">{formatCurrency(pagoModal.item?.monto)}</strong>
+                </>
+              )}
+            </p>
+          )}
+          {pagoModal?.tipo === 'cuota' && (
+            <div className="grid gap-4 sm:grid-cols-2">
               <Input
                 id="fecha"
                 label="Fecha de pago"
@@ -716,6 +781,7 @@ export default function PagosPage() {
                 label="Valor pagado"
                 placeholder="Ej. 250.000"
                 inputMode="numeric"
+                className="tabular-nums"
                 value={pagoForm.valor}
                 onChange={(e) => setPagoForm((f) => ({ ...f, valor: formatMiles(e.target.value) }))}
                 onBlur={() => touch('valor')}
@@ -724,17 +790,22 @@ export default function PagosPage() {
                     'valor',
                     parseMiles(pagoForm.valor) <= 0
                       ? { ok: false, mensaje: 'El valor pagado debe ser mayor que 0' }
-                      : pagoModal?.tipo === 'cuota' && parseMiles(pagoForm.valor) > Number(pagoModal.item.saldoPendiente ?? pagoModal.item.valorTotal ?? 0)
-                        ? { ok: false, mensaje: `No puede superar el saldo pendiente (${formatCurrency(Number(pagoModal.item.saldoPendiente ?? pagoModal.item.valorTotal ?? 0))})` }
-                        : { ok: true }
+                      : pagoModal?.tipo === 'cuota' &&
+                        parseMiles(pagoForm.valor) >
+                          Number(pagoModal.item.saldoPendiente ?? pagoModal.item.valorTotal ?? 0)
+                      ? {
+                          ok: false,
+                          mensaje: `No puede superar el saldo pendiente (${formatCurrency(
+                            Number(pagoModal.item.saldoPendiente ?? pagoModal.item.valorTotal ?? 0)
+                          )})`,
+                        }
+                      : { ok: true }
                   ) || undefined
                 }
                 required
               />
             </div>
-          </>
-        )}
-        <div className="form-group">
+          )}
           <Select
             id="metodo"
             label="Método de pago"
@@ -744,9 +815,7 @@ export default function PagosPage() {
             <option value="EFECTIVO">Efectivo</option>
             <option value="TRANSFERENCIA">Transferencia</option>
           </Select>
-        </div>
-        {pagoModal?.tipo === 'cuota' && pagoForm.metodo === 'TRANSFERENCIA' && (
-          <div className="form-group">
+          {pagoModal?.tipo === 'cuota' && pagoForm.metodo === 'TRANSFERENCIA' && (
             <Input
               id="referencia"
               label="Referencia de transferencia"
@@ -759,15 +828,16 @@ export default function PagosPage() {
                   'referencia',
                   /^[A-Za-z0-9-]{4,50}$/.test(pagoForm.referencia.trim())
                     ? { ok: true }
-                    : { ok: false, mensaje: 'La referencia debe tener entre 4 y 50 caracteres (letras, números o guiones)' }
+                    : {
+                        ok: false,
+                        mensaje: 'La referencia debe tener entre 4 y 50 caracteres (letras, números o guiones)',
+                      }
                 ) || undefined
               }
               required
             />
-          </div>
-        )}
-        {pagoModal?.tipo === 'cuota' && (
-          <div className="form-group">
+          )}
+          {pagoModal?.tipo === 'cuota' && (
             <Input
               id="notas"
               label="Notas (opcional)"
@@ -775,8 +845,8 @@ export default function PagosPage() {
               value={pagoForm.notas}
               onChange={(e) => setPagoForm((f) => ({ ...f, notas: e.target.value }))}
             />
-          </div>
-        )}
+          )}
+        </div>
       </Modal>
     </div>
   );

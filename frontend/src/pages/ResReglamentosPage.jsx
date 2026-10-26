@@ -1,10 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { PageContainer } from '../components/layout/PageContainer';
 import { PageHeader } from '../components/ui/PageHeader';
-import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
 import EmptyState from '../components/ui/EmptyState';
+import ErrorState from '../components/ui/ErrorState.jsx';
 import LoadingState from '../components/ui/LoadingState';
 import { useFetch } from '../lib/hooks';
 import api from '../lib/api';
@@ -20,10 +19,6 @@ import {
   CheckCircle2,
   FileText,
   Copy,
-  Info,
-  Layers,
-  Sparkles,
-  ExternalLink,
 } from 'lucide-react';
 
 const TIPOS_LABELS = {
@@ -104,10 +99,28 @@ export default function ResReglamentosPage() {
     toast.success('Huella digital SHA-256 copiada al portapapeles');
   };
 
+  if (!loading && error) {
+    return (
+      <PageContainer>
+        <PageHeader
+          title="Reglamentos y normativa de la copropiedad"
+          description="Consulta los reglamentos internos, manuales de convivencia y estatutos vigentes."
+        />
+        <ErrorState
+          title="No se pudieron cargar los reglamentos"
+          message="Revisa tu conexión e intenta de nuevo."
+          onRetry={() => refetch().catch(() => {})}
+        />
+      </PageContainer>
+    );
+  }
+
   if (loading) {
     return (
       <PageContainer>
-        <LoadingState message="Cargando reglamentos y normativa vigente..." />
+        <div className="rounded-lg border border-border bg-surface shadow-sm">
+          <LoadingState message="Cargando reglamentos y normativa vigente…" />
+        </div>
       </PageContainer>
     );
   }
@@ -116,44 +129,44 @@ export default function ResReglamentosPage() {
     <PageContainer>
       <div className="space-y-6">
         <PageHeader
-          title="Reglamentos y Normativa de la Copropiedad"
-          description="Consulte los reglamentos internos, manuales de convivencia y estatutos oficiales legalmente vigentes."
+          title="Reglamentos y normativa de la copropiedad"
+          description="Consulta los reglamentos internos, manuales de convivencia y estatutos vigentes."
         />
 
         {/* Hero Cards for Key Regulations */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Main Reglamento Interno */}
-          <div className="relative overflow-hidden rounded-2xl border border-blue-500/20 bg-gradient-to-br from-blue-50/60 via-card to-blue-50/30 dark:from-slate-900 dark:via-slate-800 dark:to-blue-950/40 p-6 shadow-sm">
+          {/* Main Reglamento Interno - Deep Ink #1D2942 & Indigo #5267DA Gradient */}
+          <div className="rounded-lg border border-border bg-surface p-5 shadow-sm sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/30">
-                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  Norma Principal
+                <span className="inline-flex items-center gap-1.5 rounded-[3px] bg-tint-purple-bg px-2 py-0.5 text-xs font-bold text-tint-purple-fg">
+                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                  Norma principal (Ley 675)
                 </span>
-                <h3 className="text-xl font-bold text-foreground">
-                  {mainReglamento ? mainReglamento.titulo : 'Reglamento Interno de Copropiedad'}
+                <h3 className="app-display text-lg leading-snug text-on-surface">
+                  {mainReglamento ? mainReglamento.titulo : 'Reglamento de Propiedad Horizontal'}
                 </h3>
-                <p className="text-xs text-muted-foreground line-clamp-2">
+                <p className="line-clamp-2 text-[13px] leading-relaxed text-text-secondary">
                   {mainReglamento?.descripcion ||
                     'Régimen legal de propiedad horizontal, derechos, deberes y coexistencia condominal.'}
                 </p>
               </div>
-              <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400">
-                <BookOpen className="w-7 h-7" />
+              <div className="shrink-0 rounded-md bg-tint-purple-bg p-2.5 text-tint-purple-fg">
+                <BookOpen className="h-5 w-5" aria-hidden="true" />
               </div>
             </div>
 
-            <div className="mt-5 pt-4 border-t border-border flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-xs">
               {mainReglamento ? (
                 <>
-                  <div className="flex items-center gap-4 text-muted-foreground">
-                    <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-tint-green-bg text-tint-green-fg font-semibold">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Vigente
                     </span>
                     {mainReglamento.fechaEntradaEnVigor && (
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="flex items-center gap-1 text-text-muted">
+                        <Calendar className="w-3.5 h-3.5" />
                         Desde {formatDate(mainReglamento.fechaEntradaEnVigor)}
                       </span>
                     )}
@@ -162,68 +175,69 @@ export default function ResReglamentosPage() {
                     size="sm"
                     onClick={() => handleDownload(mainReglamento)}
                     disabled={downloadingId === mainReglamento.idReglamento}
-                    className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2 shadow-sm"
+                    className="min-h-10 sm:min-h-8"
                   >
-                    <Download className="w-4 h-4" />
-                    {downloadingId === mainReglamento.idReglamento ? 'Descargando...' : 'Descargar PDF'}
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    {downloadingId === mainReglamento.idReglamento ? 'Descargando…' : 'Descargar PDF'}
                   </Button>
                 </>
               ) : (
-                <div className="text-muted-foreground text-xs italic">
+                <div className="text-xs text-text-muted">
                   Aún no se ha publicado el reglamento interno oficial.
                 </div>
               )}
             </div>
           </div>
 
-          {/* Main Manual de Convivencia */}
-          <div className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-50/60 via-card to-emerald-50/30 dark:from-slate-900 dark:via-slate-800 dark:to-emerald-950/40 p-6 shadow-sm">
+          {/* Main Manual de Convivencia - Lavender #EEE8FF & Pastel Blue #DFEBFF Gradient */}
+          <div className="rounded-lg border border-border bg-surface p-5 shadow-sm sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                  Manual Esencial
+                <span className="inline-flex items-center gap-1.5 rounded-[3px] border border-tint-green-fg/25 bg-tint-green-bg px-2 py-0.5 text-xs font-bold text-tint-green-fg">
+                  <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                  Manual esencial
                 </span>
-                <h3 className="text-xl font-bold text-foreground">
+                <h3 className="app-display text-lg leading-snug text-on-surface">
                   {mainManualConvivencia ? mainManualConvivencia.titulo : 'Manual de Convivencia y Vecindad'}
                 </h3>
-                <p className="text-xs text-muted-foreground line-clamp-2">
+                <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
                   {mainManualConvivencia?.descripcion ||
                     'Pautas para una convivencia armónica: ruidos, mascotas, mudanzas y zonas comunes.'}
                 </p>
               </div>
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-                <FileText className="w-7 h-7" />
+              <div className="shrink-0 rounded-md bg-tint-green-bg p-2.5 text-tint-green-fg">
+                <FileText className="h-5 w-5" aria-hidden="true" />
               </div>
             </div>
 
             <div className="mt-5 pt-4 border-t border-border flex flex-wrap items-center justify-between gap-3 text-xs">
               {mainManualConvivencia ? (
                 <>
-                  <div className="flex items-center gap-4 text-muted-foreground">
-                    <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                  <div className="flex items-center gap-3 text-text-secondary">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-tint-green-bg text-tint-green-fg font-semibold">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Vigente
                     </span>
                     {mainManualConvivencia.fechaEntradaEnVigor && (
                       <span className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                        <Calendar className="w-3.5 h-3.5 text-primary-text" />
                         Desde {formatDate(mainManualConvivencia.fechaEntradaEnVigor)}
                       </span>
                     )}
                   </div>
                   <Button
                     size="sm"
+                    variant="primary"
                     onClick={() => handleDownload(mainManualConvivencia)}
                     disabled={downloadingId === mainManualConvivencia.idReglamento}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-2 shadow-sm"
+                    className="flex items-center gap-2 shadow-sm"
                   >
                     <Download className="w-4 h-4" />
-                    {downloadingId === mainManualConvivencia.idReglamento ? 'Descargando...' : 'Descargar PDF'}
+                    {downloadingId === mainManualConvivencia.idReglamento ? 'Descargando…' : 'Descargar PDF'}
                   </Button>
                 </>
               ) : (
-                <div className="text-muted-foreground text-xs italic">
+                <div className="text-text-muted text-xs italic">
                   Aún no se ha publicado el manual de convivencia oficial.
                 </div>
               )}
@@ -232,18 +246,18 @@ export default function ResReglamentosPage() {
         </div>
 
         {/* Filter bar */}
-        <div className="flex items-center justify-between gap-4 pt-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-xl bg-surface-container border border-border">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-text-muted" />
             <input
               type="text"
               placeholder="Buscar normativas o reglamentos por palabra clave..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm rounded-xl bg-background border border-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full pl-9 pr-4 py-2 text-sm rounded-xl bg-surface border border-border text-on-surface placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary"
             />
           </div>
-          <div className="text-xs text-muted-foreground font-medium">
+          <div className="text-xs text-on-surface font-semibold px-2">
             {filteredReglamentos.length} documento{filteredReglamentos.length !== 1 ? 's' : ''} disponible{filteredReglamentos.length !== 1 ? 's' : ''}
           </div>
         </div>
@@ -264,58 +278,60 @@ export default function ResReglamentosPage() {
             {filteredReglamentos.map((reg) => (
               <div
                 key={reg.idReglamento}
-                className="flex flex-col justify-between p-5 rounded-xl border border-border bg-card text-card-foreground hover:shadow-md transition-all duration-200"
+                className="flex flex-col justify-between p-5 rounded-xl border border-border bg-surface hover:border-primary/50 hover:shadow-md transition-all duration-200"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-tint-purple-bg text-primary-text border border-border">
                       {TIPOS_LABELS[reg.tipoNormativa] || reg.tipoNormativa}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-tint-green-bg text-tint-green-fg font-semibold">
                       <CheckCircle2 className="w-3 h-3" />
                       Vigente
                     </span>
                   </div>
 
                   <div>
-                    <h4 className="font-semibold text-foreground text-base line-clamp-2">{reg.titulo}</h4>
+                    <h4 className="font-bold text-on-surface text-base line-clamp-2">{reg.titulo}</h4>
                     {reg.descripcion && (
-                      <p className="mt-1 text-xs text-muted-foreground line-clamp-3">{reg.descripcion}</p>
+                      <p className="mt-1 text-xs text-text-muted line-clamp-3 leading-relaxed">
+                        {reg.descripcion}
+                      </p>
                     )}
                   </div>
 
-                  <div className="space-y-1.5 pt-2 border-t border-border text-xs text-muted-foreground">
+                  <div className="space-y-2 pt-2.5 border-t border-border text-xs text-text-muted">
                     {reg.fechaEntradaEnVigor && (
                       <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                        <Calendar className="w-3.5 h-3.5 text-primary-text" />
                         <span>En vigor desde: {formatDate(reg.fechaEntradaEnVigor)}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-1.5 text-foreground font-medium">
-                      <FileText className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <div className="flex items-center gap-1.5 text-on-surface font-medium">
+                      <FileText className="w-3.5 h-3.5 text-primary-text" />
                       <span className="truncate max-w-[220px]" title={reg.archivoNombreOrig}>
                         {reg.archivoNombreOrig || 'Documento oficial'}
                       </span>
                       {reg.archivoTamanoBytes > 0 && (
-                        <span className="text-[11px] text-muted-foreground">
+                        <span className="text-[11px] text-text-muted">
                           ({formatFileSize(reg.archivoTamanoBytes)})
                         </span>
                       )}
                     </div>
 
                     {reg.archivoSha256 && (
-                      <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono bg-muted/50 p-1.5 rounded border border-border">
-                        <div className="flex items-center gap-1 truncate" title={reg.archivoSha256}>
-                          <Hash className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                          <span className="truncate">SHA: {reg.archivoSha256.substring(0, 16)}...</span>
+                      <div className="flex items-center justify-between text-[10px] font-mono bg-tint-purple-bg text-on-surface p-2 rounded-lg border border-border">
+                        <div className="flex items-center gap-1.5 truncate" title={reg.archivoSha256}>
+                          <Hash className="w-3.5 h-3.5 text-primary-text flex-shrink-0" />
+                          <span className="truncate font-semibold">SHA-256: {reg.archivoSha256.substring(0, 14)}...</span>
                         </div>
                         <button
                           type="button"
                           onClick={() => copySha256(reg.archivoSha256)}
-                          className="hover:text-foreground text-muted-foreground p-0.5 rounded transition-colors"
-                          title="Copiar huella digital"
+                          className="hover:text-primary-text text-text-muted p-0.5 rounded transition-colors"
+                          title="Copiar huella digital SHA-256"
                         >
-                          <Copy className="w-3 h-3" />
+                          <Copy className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     )}
@@ -328,10 +344,10 @@ export default function ResReglamentosPage() {
                     size="sm"
                     onClick={() => handleDownload(reg)}
                     disabled={downloadingId === reg.idReglamento}
-                    className="w-full flex items-center justify-center gap-2 text-xs border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-800 dark:hover:text-emerald-200"
+                    className="w-full flex items-center justify-center gap-2 text-xs font-semibold border-border text-primary-text hover:bg-surface-selected hover:border-primary/50"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    {downloadingId === reg.idReglamento ? 'Descargando...' : 'Descargar Documento Oficial (PDF)'}
+                    {downloadingId === reg.idReglamento ? 'Descargando…' : 'Descargar Documento Oficial (PDF)'}
                   </Button>
                 </div>
               </div>

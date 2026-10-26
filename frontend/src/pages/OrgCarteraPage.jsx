@@ -6,6 +6,10 @@ import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Button } from '../components/ui/Button.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import { Input } from '../components/ui/input.tsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
 import { Wallet, AlertTriangle, TrendingUp, Search, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 export default function OrgCarteraPage() {
@@ -14,14 +18,21 @@ export default function OrgCarteraPage() {
   const [dashboardData, setDashboardData] = useState(null);
   const [carteraDetalle, setCarteraDetalle] = useState([]);
   const [search, setSearch] = useState('');
+  const [detalleError, setDetalleError] = useState(false);
 
   async function loadData() {
     try {
       setLoading(true);
       setError(null);
+      setDetalleError(false);
       const [dashRes, carteraRes] = await Promise.all([
         api.get('/org/dashboard'),
-        api.get('/org/dashboard/cartera-detalle').catch(() => ({ data: [] })),
+        api.get('/org/dashboard/cartera-detalle').catch((err) => {
+          // The detail is optional, but its failure must be visible instead of reading as "no data".
+          console.error('Error cargando detalle de cartera:', err);
+          setDetalleError(true);
+          return { data: [] };
+        }),
       ]);
       setDashboardData(dashRes?.data || dashRes || {});
       const list = carteraRes?.data || carteraRes?.items || carteraRes || [];
@@ -62,197 +73,157 @@ export default function OrgCarteraPage() {
     );
   }, [carteraDetalle, search]);
 
+  const header = (
+    <PageHeader
+      title="Supervisión de cartera consolidada"
+      subtitle="Recaudo, cuentas por cobrar y morosidad agregados de todas las propiedades de la organización."
+      action={
+        <Button variant="outline" size="sm" onClick={loadData} loading={loading}>
+          {!loading && <RefreshCw className="h-4 w-4" aria-hidden="true" />}
+          Actualizar
+        </Button>
+      }
+    />
+  );
+
   if (loading) {
     return (
-      <div className="p-6 space-y-6 animate-fadeIn">
-        <Skeleton className="h-10 w-72" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-28 rounded-xl" />
-          ))}
+      <PageContainer>
+        {header}
+        <div role="status" aria-busy="true" aria-label="Cargando cartera" className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-28 rounded-lg" />
+            ))}
+          </div>
+          <Skeleton className="h-96 w-full rounded-lg" />
         </div>
-        <Skeleton className="h-96 w-full rounded-xl" />
-      </div>
+      </PageContainer>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6">
-        <div className="bg-destructive/15 border border-destructive text-destructive p-4 rounded-xl flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 shrink-0" />
-            <p className="text-sm font-medium">{error}</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={loadData}>
-            Reintentar
-          </Button>
-        </div>
-      </div>
+      <PageContainer>
+        {header}
+        <ErrorState title="No se pudo cargar la cartera" message={error} onRetry={loadData} />
+      </PageContainer>
     );
   }
 
+  const hayBaseRecaudo = (finanzas.totalRecaudado || 0) + (finanzas.carteraPendiente || 0) > 0;
+
   return (
-    <div className="p-6 space-y-6 animate-fadeIn">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Supervisión de Cartera Consolidada
-            </h1>
-            <Badge variant="outline" className="text-xs">
-              GERENCIAL
-            </Badge>
-          </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Control agregado de recaudo, cuentas por cobrar y morosidad de todas las propiedades de la organización.
-          </p>
-        </div>
+    <PageContainer>
+      {header}
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={loadData} className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4" />
-            <span>Actualizar</span>
-          </Button>
-        </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          label="Cartera pendiente"
+          value={formatCOP(finanzas.carteraPendiente)}
+          context="Total por cobrar"
+          icon={Wallet}
+        />
+        <MetricCard
+          label="Recaudo aprobado"
+          value={formatCOP(finanzas.totalRecaudado)}
+          context="Pagos aprobados registrados"
+          icon={CheckCircle2}
+          variant="success"
+        />
+        <MetricCard
+          label="Cartera en mora"
+          value={formatCOP(totalCarteraMora)}
+          context="Saldos vencidos por propiedad"
+          icon={AlertTriangle}
+          variant={totalCarteraMora > 0 ? 'danger' : 'secondary'}
+        />
+        <MetricCard
+          label="Efectividad de recaudo"
+          value={hayBaseRecaudo ? `${tasaRecaudo}%` : '—'}
+          context={hayBaseRecaudo ? 'Recaudo frente a cartera total' : 'Sin movimientos registrados'}
+          icon={TrendingUp}
+          variant="info"
+        />
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-border/80 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-              <span>Cartera Pendiente</span>
-              <Wallet className="h-4 w-4 text-primary" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tracking-tight text-foreground">
-              {formatCOP(finanzas.carteraPendiente)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Total por cobrar en la cartera</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/80 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-              <span>Recaudo Aprobado</span>
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
-              {formatCOP(finanzas.totalRecaudado)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Pagos aprobados registrados</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/80 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-              <span>Cartera en Mora</span>
-              <AlertTriangle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tracking-tight text-rose-600 dark:text-rose-400">
-              {formatCOP(totalCarteraMora)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Saldos vencidos críticos</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/80 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-              <span>Efectividad de Recaudo</span>
-              <TrendingUp className="h-4 w-4 text-sky-600 dark:text-sky-400" />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold tracking-tight text-sky-600 dark:text-sky-400">
-              {tasaRecaudo}%
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Recaudo vs Cartera total</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tabla de Detalle por Propiedad */}
-      <Card className="border-border/80 shadow-xs">
-        <CardHeader className="pb-3 border-b border-border/60">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <Card>
+        <CardHeader className="border-b border-border pb-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="text-base font-bold">Estado de Cartera por Propiedad</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Desglose financiero consolidado por copropiedad administrada.
-              </p>
+              <CardTitle className="text-[15px]">Estado de cartera por propiedad</CardTitle>
+              <p className="mt-0.5 text-xs text-text-muted">Desglose consolidado por copropiedad administrada.</p>
             </div>
 
             <div className="relative w-full sm:w-64">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <input
-                type="text"
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+                aria-hidden="true"
+              />
+              <Input
+                type="search"
+                aria-label="Filtrar por propiedad o ciudad"
                 placeholder="Filtrar por propiedad o ciudad..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="h-10 pl-9 text-sm"
               />
             </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-4">
+        <CardContent className="space-y-3 pt-4">
+          {detalleError && (
+            <ErrorState
+              compact
+              title="No se pudo cargar el detalle por propiedad"
+              message="Los totales superiores sí están actualizados. Reintenta para ver el desglose."
+              onRetry={loadData}
+            />
+          )}
           <DataTable
             columns={[
               {
                 key: 'nombre',
                 label: 'Propiedad',
                 render: (r) => (
-                  <div>
-                    <span className="font-semibold text-foreground text-sm">{r.NOMBRE || r.nombre}</span>
-                    <span className="block text-xs text-muted-foreground">{r.CIUDAD || r.ciudad || 'Sin ciudad'}</span>
+                  <div className="min-w-[10rem]">
+                    <span className="text-sm font-semibold text-on-surface">{r.NOMBRE || r.nombre}</span>
+                    <span className="block text-xs text-text-muted">{r.CIUDAD || r.ciudad || 'Sin ciudad'}</span>
                   </div>
                 ),
               },
               {
                 key: 'unidades',
                 label: 'Unidades',
-                render: (r) => (
-                  <Badge variant="outline" className="font-mono text-xs">
-                    {r.TOTAL_UNIDADES || r.total_unidades || 0}
-                  </Badge>
-                ),
+                render: (r) => <span className="app-numeral text-sm">{r.TOTAL_UNIDADES || r.total_unidades || 0}</span>,
               },
               {
                 key: 'recaudo',
-                label: 'Recaudo Aprobado',
+                label: 'Recaudo aprobado',
                 render: (r) => (
-                  <span className="font-mono font-medium text-xs text-emerald-600 dark:text-emerald-400">
+                  <span className="whitespace-nowrap text-sm font-semibold tabular-nums text-tint-green-fg">
                     {formatCOP(r.TOTAL_RECAUDADO || r.total_recaudado)}
                   </span>
                 ),
               },
               {
                 key: 'pendiente',
-                label: 'Cartera Pendiente',
+                label: 'Cartera pendiente',
                 render: (r) => (
-                  <span className="font-mono font-medium text-xs text-foreground">
+                  <span className="whitespace-nowrap text-sm tabular-nums text-on-surface">
                     {formatCOP(r.CARTERA_PENDIENTE || r.cartera_pendiente)}
                   </span>
                 ),
               },
               {
                 key: 'mora',
-                label: 'Cartera en Mora',
+                label: 'Cartera en mora',
                 render: (r) => {
                   const mora = Number(r.CARTERA_MORA || r.cartera_mora) || 0;
                   return (
                     <span
-                      className={`font-mono font-medium text-xs ${
-                        mora > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground'
+                      className={`whitespace-nowrap text-sm tabular-nums ${
+                        mora > 0 ? 'font-semibold text-destructive' : 'text-text-muted'
                       }`}
                     >
                       {formatCOP(mora)}
@@ -263,18 +234,21 @@ export default function OrgCarteraPage() {
               {
                 key: 'estado',
                 label: 'Estado',
-                render: (r) => (
-                  <Badge variant={(r.ESTADO || r.estado) === 'ACTIVA' ? 'success' : 'secondary'} className="text-[10px]">
-                    {r.ESTADO || r.estado || 'ACTIVA'}
-                  </Badge>
-                ),
+                render: (r) => {
+                  const estado = r.ESTADO || r.estado || 'ACTIVA';
+                  return (
+                    <Badge variant={estado === 'ACTIVA' ? 'success' : 'secondary'}>
+                      {estado === 'ACTIVA' ? 'Activa' : estado}
+                    </Badge>
+                  );
+                },
               },
             ]}
             rows={filtered}
             pageSize={10}
             empty={{
-              icon: 'account_balance_wallet',
-              title: 'No hay datos de cartera',
+              icon: Wallet,
+              title: search ? 'Sin coincidencias' : 'No hay datos de cartera',
               subtitle: search
                 ? 'Ninguna propiedad coincide con la búsqueda.'
                 : 'No se encontraron copropiedades con movimientos de cartera registrados.',
@@ -283,6 +257,6 @@ export default function OrgCarteraPage() {
           />
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

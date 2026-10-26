@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { PageHeader } from '../components/ui/PageHeader';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { DataTable } from '../components/ui/DataTable';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
 import { useFetch } from '../lib/hooks';
 import api from '../lib/api';
 import { formatDate } from '../lib/utils';
@@ -24,12 +26,12 @@ import {
 } from 'lucide-react';
 
 export const TIPOS_NORMATIVA = [
-  { value: 'REGLAMENTO_INTERNO', label: 'Reglamento Interno', color: 'border-blue-500/30 text-blue-700 dark:text-blue-300 bg-blue-500/10' },
-  { value: 'MANUAL_CONVIVENCIA', label: 'Manual de Convivencia', color: 'border-emerald-500/30 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10' },
-  { value: 'MANUAL_ZONAS_COMUNES', label: 'Manual de Zonas Comunes', color: 'border-purple-500/30 text-purple-700 dark:text-purple-300 bg-purple-500/10' },
-  { value: 'MANUAL_POLITICA_MASCOTAS', label: 'Política de Mascotas', color: 'border-amber-500/30 text-amber-700 dark:text-amber-300 bg-amber-500/10' },
-  { value: 'ESTATUTO_COPROPIEDAD', label: 'Estatuto de Copropiedad', color: 'border-indigo-500/30 text-indigo-700 dark:text-indigo-300 bg-indigo-500/10' },
-  { value: 'OTRO', label: 'Otro Documento Normativo', color: 'border-slate-500/30 text-slate-700 dark:text-slate-300 bg-slate-500/10' },
+  { value: 'REGLAMENTO_INTERNO', label: 'Reglamento Interno', color: 'border-tint-blue-fg/25 text-tint-blue-fg bg-tint-blue-bg' },
+  { value: 'MANUAL_CONVIVENCIA', label: 'Manual de Convivencia', color: 'border-tint-green-fg/25 text-tint-green-fg bg-tint-green-bg' },
+  { value: 'MANUAL_ZONAS_COMUNES', label: 'Manual de Zonas Comunes', color: 'border-tint-purple-fg/25 text-tint-purple-fg bg-tint-purple-bg' },
+  { value: 'MANUAL_POLITICA_MASCOTAS', label: 'Política de Mascotas', color: 'border-tint-amber-fg/25 text-tint-amber-fg bg-tint-amber-bg' },
+  { value: 'ESTATUTO_COPROPIEDAD', label: 'Estatuto de Copropiedad', color: 'border-tint-primary-fg/25 text-primary-text bg-tint-primary-bg' },
+  { value: 'OTRO', label: 'Otro Documento Normativo', color: 'border-border text-on-surface bg-tint-neutral-bg' },
 ];
 
 export const TIPOS_MAP = Object.fromEntries(TIPOS_NORMATIVA.map((t) => [t.value, t.label]));
@@ -278,7 +280,7 @@ export default function ReglamentosAdminPage() {
               </span>
             </div>
             <div className="font-semibold text-foreground flex items-center gap-1.5">
-              <BookOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+              <BookOpen className="w-4 h-4 text-tint-green-fg flex-shrink-0" />
               <span>{item.titulo}</span>
             </div>
             {item.descripcion && (
@@ -289,14 +291,14 @@ export default function ReglamentosAdminPage() {
       },
     },
     {
-      header: 'Documento Base (F10-01)',
+      header: 'Documento base',
       accessorKey: 'archivoNombreOrig',
       cell: (info) => {
         const item = info.row.original;
         return (
           <div className="space-y-1 text-xs">
             <div className="flex items-center gap-1.5 text-foreground font-medium truncate max-w-xs">
-              <FileText className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+              <FileText className="w-3.5 h-3.5 text-tint-blue-fg flex-shrink-0" />
               <span className="truncate" title={item.archivoNombreOrig}>
                 {item.archivoNombreOrig || 'Documento sin versión'}
               </span>
@@ -308,7 +310,7 @@ export default function ReglamentosAdminPage() {
               <span>{formatFileSize(item.archivoTamanoBytes)}</span>
             </div>
             {item.archivoSha256 && (
-              <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono" title={item.archivoSha256}>
+              <div className="flex items-center gap-1 text-[11.5px] text-muted-foreground font-mono" title={item.archivoSha256}>
                 <Hash className="w-3 h-3 text-muted-foreground" />
                 <span>{item.archivoSha256.substring(0, 12)}...</span>
               </div>
@@ -327,11 +329,11 @@ export default function ReglamentosAdminPage() {
         let Icon = Clock;
 
         if (estado === 'PUBLICADO') {
-          badgeColor = 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30';
+          badgeColor = 'bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25';
           label = 'Vigente';
           Icon = CheckCircle2;
         } else if (estado === 'BORRADOR') {
-          badgeColor = 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30';
+          badgeColor = 'bg-tint-amber-bg text-tint-amber-fg border-tint-amber-fg/25';
           label = 'Borrador';
           Icon = Clock;
         } else if (estado === 'REEMPLAZADO') {
@@ -339,7 +341,7 @@ export default function ReglamentosAdminPage() {
           label = 'Reemplazado';
           Icon = History;
         } else if (estado === 'INACTIVO') {
-          badgeColor = 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30';
+          badgeColor = 'bg-tint-red-bg text-tint-red-fg border-tint-red-fg/25';
           label = 'Inactivo';
           Icon = AlertCircle;
         }
@@ -394,7 +396,7 @@ export default function ReglamentosAdminPage() {
               onClick={() => handleDownload(reg)}
               disabled={isDownloading}
               title="Descargar documento (PDF)"
-              className="text-xs flex items-center gap-1 text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+              className="text-xs flex items-center gap-1 text-tint-blue-fg border-tint-blue-fg/25 hover:bg-tint-blue-bg"
             >
               <Download className="w-3.5 h-3.5" />
               {isDownloading ? 'Descargando...' : 'Descargar'}
@@ -407,7 +409,7 @@ export default function ReglamentosAdminPage() {
                   size="sm"
                   onClick={() => handleOpenEdit(reg)}
                   title="Editar borrador"
-                  className="text-xs flex items-center gap-1 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                  className="text-xs flex items-center gap-1 text-tint-amber-fg border-tint-amber-fg/25 hover:bg-tint-amber-bg"
                 >
                   <Edit3 className="w-3.5 h-3.5" />
                   Editar
@@ -417,7 +419,7 @@ export default function ReglamentosAdminPage() {
                   size="sm"
                   onClick={() => handleOpenPublish(reg)}
                   title="Publicar y hacer vigente"
-                  className="text-xs flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white"
+                  className="text-xs flex items-center gap-1 bg-btn-success hover:bg-btn-success/90 text-white"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   Publicar
@@ -431,7 +433,7 @@ export default function ReglamentosAdminPage() {
                 size="sm"
                 onClick={() => handleInactivate(reg)}
                 title="Inactivar normativa"
-                className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                className="text-xs text-tint-red-fg hover:text-tint-red-fg hover:bg-tint-red-bg"
               >
                 <Power className="w-3.5 h-3.5" />
               </Button>
@@ -442,47 +444,58 @@ export default function ReglamentosAdminPage() {
     },
   ];
 
+  // DataTable calls render(row); adapt the TanStack-style cell(info) definitions, which it never invoked
+  // (cells fell back to raw values and the actions column rendered empty).
+  const tableColumns = columns.map((c) => ({
+    ...c,
+    key: c.accessorKey || c.id,
+    render: c.cell ? (row) => c.cell({ row: { original: row }, getValue: () => row[c.accessorKey] }) : undefined,
+  }));
+
   return (
-    <div className="space-y-6">
+    <PageContainer className="pb-12">
       <PageHeader
-        title="Reglamentos y Normativa (F10-02)"
+        title="Reglamentos y Normativa"
         description="Gestión oficial de estatutos, reglamentos internos y manuales de convivencia de la copropiedad."
-      >
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="flex items-center gap-2">
-            <RefreshCw className="w-4 h-4" />
-            Actualizar
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setCreateModalOpen(true)}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white"
-          >
-            <Plus className="w-4 h-4" />
-            Nuevo Reglamento
-          </Button>
-        </div>
-      </PageHeader>
+      action={
+        <>
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" onClick={() => refetch().catch(() => {})} className="flex items-center gap-2">
+                <RefreshCw className="w-4 h-4" />
+                Actualizar
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setCreateModalOpen(true)}
+                className="flex items-center gap-2 bg-btn-success hover:bg-btn-success/90 text-white"
+              >
+                <Plus className="w-4 h-4" />
+                Nuevo Reglamento
+              </Button>
+            </div>
+        </>
+      }
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="p-4 rounded-xl border border-border bg-card text-card-foreground shadow-sm space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
             <span>Normativas Vigentes</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <CheckCircle2 className="w-4 h-4 text-tint-green-fg" />
           </div>
           <div className="text-2xl font-bold text-foreground">{kpis.vigentes}</div>
-          <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Publicadas para residentes</div>
+          <div className="text-[11.5px] text-tint-green-fg font-medium">Publicadas para residentes</div>
         </div>
 
         <div className="p-4 rounded-xl border border-border bg-card text-card-foreground shadow-sm space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
             <span>Borradores en Revisión</span>
-            <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <Clock className="w-4 h-4 text-tint-amber-fg" />
           </div>
           <div className="text-2xl font-bold text-foreground">{kpis.borradores}</div>
-          <div className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">Pendientes de publicación</div>
+          <div className="text-[11.5px] text-tint-amber-fg font-medium">Pendientes de publicación</div>
         </div>
 
         <div className="p-4 rounded-xl border border-border bg-card text-card-foreground shadow-sm space-y-1">
@@ -491,16 +504,16 @@ export default function ReglamentosAdminPage() {
             <History className="w-4 h-4 text-muted-foreground" />
           </div>
           <div className="text-2xl font-bold text-foreground">{kpis.reemplazados}</div>
-          <div className="text-[11px] text-muted-foreground font-medium">Versiones normativas previas</div>
+          <div className="text-[11.5px] text-muted-foreground font-medium">Versiones normativas previas</div>
         </div>
 
         <div className="p-4 rounded-xl border border-border bg-card text-card-foreground shadow-sm space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
             <span>Total Registros</span>
-            <BookOpen className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <BookOpen className="w-4 h-4 text-tint-blue-fg" />
           </div>
           <div className="text-2xl font-bold text-foreground">{kpis.total}</div>
-          <div className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">En el repositorio</div>
+          <div className="text-[11.5px] text-tint-blue-fg font-medium">En el repositorio</div>
         </div>
       </div>
 
@@ -512,7 +525,7 @@ export default function ReglamentosAdminPage() {
             placeholder="Buscar por título, descripción o archivo..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-tint-green-fg"
           />
         </div>
 
@@ -520,7 +533,7 @@ export default function ReglamentosAdminPage() {
           <select
             value={tipoFiltro}
             onChange={(e) => setTipoFiltro(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-tint-green-fg"
           >
             <option value="TODOS">Todos los Tipos</option>
             {TIPOS_NORMATIVA.map((t) => (
@@ -535,7 +548,7 @@ export default function ReglamentosAdminPage() {
           <select
             value={estadoFiltro}
             onChange={(e) => setEstadoFiltro(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-tint-green-fg"
           >
             <option value="TODOS">Todos los Estados</option>
             <option value="PUBLICADO">Vigente (Publicado)</option>
@@ -547,13 +560,24 @@ export default function ReglamentosAdminPage() {
       </div>
 
       {/* Main Table */}
-      <DataTable
-        columns={columns}
-        data={filteredReglamentos}
-        loading={loading}
-        error={error}
-        emptyMessage="No se encontraron reglamentos registrados para la copropiedad."
-      />
+      {error && !data ? (
+        <ErrorState
+          title="No se pudieron cargar los reglamentos"
+          message={error?.message || 'Verifique su conexión e intente nuevamente.'}
+          onRetry={() => refetch().catch(() => {})}
+        />
+      ) : (
+        <DataTable
+          columns={tableColumns}
+          data={filteredReglamentos}
+          loading={loading && !data}
+          empty={{
+            icon: 'gavel',
+            title: 'Sin reglamentos',
+            subtitle: 'No se encontraron reglamentos registrados para la copropiedad.',
+          }}
+        />
+      )}
 
       {/* MODAL 1: Create Draft */}
       <Modal
@@ -567,7 +591,7 @@ export default function ReglamentosAdminPage() {
             <select
               value={createForm.tipoNormativa}
               onChange={(e) => setCreateForm({ ...createForm, tipoNormativa: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-tint-green-fg"
               required
             >
               {TIPOS_NORMATIVA.map((t) => (
@@ -585,7 +609,7 @@ export default function ReglamentosAdminPage() {
               placeholder="Ej: Reglamento Interno de Propiedad Horizontal 2026"
               value={createForm.titulo}
               onChange={(e) => setCreateForm({ ...createForm, titulo: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-tint-green-fg"
               required
               maxLength={255}
             />
@@ -598,7 +622,7 @@ export default function ReglamentosAdminPage() {
               value={createForm.descripcion}
               onChange={(e) => setCreateForm({ ...createForm, descripcion: e.target.value })}
               rows={3}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-tint-green-fg"
               maxLength={1000}
             />
           </div>
@@ -608,7 +632,7 @@ export default function ReglamentosAdminPage() {
             <select
               value={createForm.idDocumento}
               onChange={(e) => setCreateForm({ ...createForm, idDocumento: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-tint-green-fg"
               required
             >
               <option value="">Seleccione un documento del repositorio...</option>
@@ -618,7 +642,7 @@ export default function ReglamentosAdminPage() {
                 </option>
               ))}
             </select>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-[11.5px] text-muted-foreground">
               El reglamento reutiliza la infraestructura de almacenamiento y hash SHA-256 de F10-01.
             </p>
           </div>
@@ -627,7 +651,7 @@ export default function ReglamentosAdminPage() {
             <Button variant="outline" type="button" onClick={() => setCreateModalOpen(false)}>
               Cancelar
             </Button>
-            <Button variant="primary" type="submit" disabled={submitting} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+            <Button variant="primary" type="submit" disabled={submitting} className="bg-btn-success hover:bg-btn-success/90 text-white">
               {submitting ? 'Creando...' : 'Crear Borrador'}
             </Button>
           </div>
@@ -646,7 +670,7 @@ export default function ReglamentosAdminPage() {
             <select
               value={editForm.tipoNormativa}
               onChange={(e) => setEditForm({ ...editForm, tipoNormativa: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-tint-green-fg"
               required
             >
               {TIPOS_NORMATIVA.map((t) => (
@@ -663,7 +687,7 @@ export default function ReglamentosAdminPage() {
               type="text"
               value={editForm.titulo}
               onChange={(e) => setEditForm({ ...editForm, titulo: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-tint-green-fg"
               required
               maxLength={255}
             />
@@ -675,7 +699,7 @@ export default function ReglamentosAdminPage() {
               value={editForm.descripcion}
               onChange={(e) => setEditForm({ ...editForm, descripcion: e.target.value })}
               rows={3}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-tint-green-fg"
               maxLength={1000}
             />
           </div>
@@ -685,7 +709,7 @@ export default function ReglamentosAdminPage() {
             <select
               value={editForm.idDocumento}
               onChange={(e) => setEditForm({ ...editForm, idDocumento: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-tint-green-fg"
               required
             >
               {availableDocs.map((doc) => (
@@ -700,7 +724,7 @@ export default function ReglamentosAdminPage() {
             <Button variant="outline" type="button" onClick={() => setEditModalOpen(false)}>
               Cancelar
             </Button>
-            <Button variant="primary" type="submit" disabled={submitting} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+            <Button variant="primary" type="submit" disabled={submitting} className="bg-btn-success hover:bg-btn-success/90 text-white">
               {submitting ? 'Guardando...' : 'Guardar Cambios'}
             </Button>
           </div>
@@ -714,8 +738,8 @@ export default function ReglamentosAdminPage() {
         title="Publicar y Poner en Vigor"
       >
         <form onSubmit={handlePublish} className="space-y-4">
-          <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200 text-xs space-y-1.5">
-            <div className="font-semibold flex items-center gap-1.5 text-amber-900 dark:text-amber-300">
+          <div className="p-3 rounded-lg border border-tint-amber-fg/25 bg-tint-amber-bg text-tint-amber-fg text-xs space-y-1.5">
+            <div className="font-semibold flex items-center gap-1.5 text-tint-amber-fg">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>Regla de Unicidad Normativa Vigente</span>
             </div>
@@ -733,7 +757,7 @@ export default function ReglamentosAdminPage() {
               type="date"
               value={publishForm.fechaEntradaEnVigor}
               onChange={(e) => setPublishForm({ ...publishForm, fechaEntradaEnVigor: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-tint-green-fg"
               required
             />
           </div>
@@ -742,12 +766,12 @@ export default function ReglamentosAdminPage() {
             <Button variant="outline" type="button" onClick={() => setPublishModalOpen(false)}>
               Cancelar
             </Button>
-            <Button variant="primary" type="submit" disabled={submitting} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+            <Button variant="primary" type="submit" disabled={submitting} className="bg-btn-success hover:bg-btn-success/90 text-white">
               {submitting ? 'Publicando...' : 'Confirmar y Publicar'}
             </Button>
           </div>
         </form>
       </Modal>
-    </div>
+    </PageContainer>
   );
 }

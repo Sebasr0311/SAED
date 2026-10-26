@@ -17,24 +17,33 @@ export const Button = memo(function Button({
   children,
   className = '',
   icon,
+  ...rest
 }) {
+  // Every other prop (aria-*, title, style, form, data-*, ...) reaches the DOM button.
   const variantMap = {
     primary: 'default',
     accent: 'default',
     outline: 'outline',
     danger: 'destructive',
+    destructive: 'destructive',
     ghost: 'ghost',
+    secondary: 'secondary',
+    link: 'link',
+    default: 'default',
   };
   const sizeMap = {
     sm: 'sm',
     md: 'default',
     lg: 'lg',
+    icon: 'icon',
+    default: 'default',
   };
   const accentBg = variant === 'accent' ? '!bg-btn-accent hover:!bg-btn-accent-hover' : '';
   // WCAG 2.5.8: touch target >=44px en movil; compacto en desktop (igual que el kit anterior).
   const touchTarget = size === 'sm' ? 'min-h-11 min-w-11 sm:min-h-8' : 'min-h-11 sm:min-h-9';
   return (
     <ShadcnButton
+      {...rest}
       type={type}
       disabled={disabled || loading}
       onClick={onClick}

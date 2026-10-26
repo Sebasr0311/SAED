@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -56,6 +56,7 @@ import NotificationBell from '../ui/NotificationBell.jsx';
 import BreadcrumbNav from '../ui/Breadcrumb.jsx';
 import TenantSwitcher from './TenantSwitcher.jsx';
 import ChangePasswordModal from '../ui/ChangePasswordModal.jsx';
+import LoadingState from '../ui/LoadingState.jsx';
 import { cn } from '../../lib/utils.js';
 import {
   Dialog,
@@ -66,6 +67,30 @@ import {
   DialogTitle,
 } from '../ui/dialog.tsx';
 import { Button } from '../ui/button.tsx';
+
+/**
+ * Etiquetas legibles por rol para evitar guiones bajos crudos en la interfaz.
+ */
+export const ROLE_DISPLAY_LABELS = {
+  RESIDENTE_CONVIVENCIA: 'Residente Conviviente',
+  RESIDENTE: 'Residente Titular',
+  PROPIETARIO: 'Propietario',
+  ADMIN_EDIFICIO: 'Administrador',
+  ADMIN_PROPIEDAD: 'Administrador',
+  ADMIN_ORGANIZACION: 'Admin Organización',
+  SUPER_ADMIN: 'Super Admin',
+  SUPERADMIN: 'Super Admin',
+  PORTERO: 'Portería & Seguridad',
+  CONTADOR: 'Contabilidad',
+  AUDITOR: 'Auditoría',
+  COMITE_CONVIVENCIA: 'Comité de Convivencia',
+};
+
+function formatRoleLabel(rol) {
+  if (!rol) return 'Rol';
+  const upper = String(rol).toUpperCase();
+  return ROLE_DISPLAY_LABELS[rol] || ROLE_DISPLAY_LABELS[upper] || String(rol).replace(/_/g, ' ');
+}
 
 /**
  * Navegación agrupada por relación funcional, por rol (SAED 2.0).
@@ -376,6 +401,7 @@ const NAV_BY_ROLE = {
         { path: '/res-quejas', label: 'PQRS', icon: 'support_agent' },
         { path: '/res-reservas', label: 'Zonas Comunes', icon: 'event' },
         { path: '/res-incidentes', label: 'Mis Incidentes', icon: 'warning' },
+        { path: '/res-sanciones', label: 'Mis sanciones', icon: 'gavel' },
         { path: '/res-asambleas', label: 'Asambleas Copropietarios', icon: 'groups' },
         { path: '/res-documentos', label: 'Documentos', icon: 'description' },
         { path: '/res-reglamentos', label: 'Reglamentos y Normativa', icon: 'gavel' },
@@ -436,6 +462,18 @@ function renderNavIcon(iconKey, className = 'h-4 w-4') {
 }
 
 const COLLAPSED_KEY = 'saed_sidebar_collapsed';
+const DESKTOP_QUERY = '(min-width: 1024px)';
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+// Active nav item: the Índigo "piece" (light) / luminous Índigo glass (dark).
+const NAV_ACTIVE_PIECE =
+  'font-semibold text-white bg-[#5267DA] ring-1 ring-inset ring-white/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_14px_-10px_rgba(0,0,0,0.7)] dark:bg-[rgba(98,116,232,0.72)] dark:ring-[#A3B0FF]/70';
+const HEADER_ICON_BUTTON =
+  'items-center justify-center h-10 w-10 min-h-[44px] min-w-[44px] rounded-md border border-border bg-surface text-text-secondary hover:text-on-surface hover:border-keyline/50 transition-colors';
+const USER_PILL = 'items-center gap-2.5 h-11 pl-1.5 pr-3 rounded-md border border-border bg-surface text-left transition-colors';
+const USER_PILL_AVATAR =
+  'app-stamp h-8 w-8 flex-shrink-0 rounded-[4px] bg-[#EEE8FF] text-[#1D2942] dark:bg-[#1f2a4d] dark:text-[#C2CAFF] flex items-center justify-center text-[13px]';
 
 /** La ruta activa es la ruta exacta o un prefijo de segmento (evita /visitas vs /historial-visitas). */
 function isItemActive(pathname, path) {
@@ -446,6 +484,7 @@ export default function AppShell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const displayRole = useMemo(() => formatRoleLabel(user?.rol), [user?.rol]);
 
   const groups = useMemo(() => {
     let role = normalizeRole(user?.rol);
@@ -465,7 +504,7 @@ export default function AppShell() {
   }, [user?.rol, user?.tipoResidente, user?.tipoRelacion, user?.idUnidad, user?.identificadorUnidad]);
   const allItems = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 
-  // Tema: localStorage gana; si no hay preferencia, se sigue la del sistema.
+  // Tema: localStorage gana; por defecto identidad clara SAED 2.0.
   const [dark, setDark] = useState(() => getInitialTheme() === 'dark');
   useEffect(() => {
     applyTheme(dark ? 'dark' : 'light');
@@ -529,8 +568,14 @@ export default function AppShell() {
   function toggleTheme() {
     setDark((prev) => {
       const next = !prev;
-      applyTheme(next ? 'dark' : 'light');
-      persistTheme(next ? 'dark' : 'light');
+      const nextTheme = next ? 'dark' : 'light';
+      applyTheme(nextTheme);
+      persistTheme(nextTheme);
+      try {
+        localStorage.setItem('saed_landing_theme', nextTheme);
+      } catch {
+        /* almacenamiento no disponible */
+      }
       return next;
     });
   }
@@ -570,6 +615,62 @@ export default function AppShell() {
   useEffect(() => {
     document.title = currentTitle === 'SAED' ? 'SAED — Administración Residencial' : `${currentTitle} — SAED`;
   }, [currentTitle]);
+
+  // Drawer móvil: el aside es diálogo modal solo por debajo de 1024px.
+  const asideRef = useRef(null);
+  const menuButtonRef = useRef(null);
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(DESKTOP_QUERY).matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(DESKTOP_QUERY);
+    function onChange(e) {
+      setIsDesktop(e.matches);
+      if (e.matches) setMobileOpen(false);
+    }
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  const drawerMode = !isDesktop && mobileOpen;
+
+  // Fuera de pantalla en móvil, la barra lateral no recibe foco ni lectores de pantalla.
+  useEffect(() => {
+    if (asideRef.current) asideRef.current.inert = !isDesktop && !mobileOpen;
+  }, [isDesktop, mobileOpen]);
+
+  // Trampa de foco + bloqueo de scroll mientras el drawer está abierto; al cerrar vuelve al botón de menú.
+  useEffect(() => {
+    if (!drawerMode) return undefined;
+    const aside = asideRef.current;
+    if (!aside) return undefined;
+    const getFocusables = () =>
+      Array.from(aside.querySelectorAll(FOCUSABLE_SELECTOR)).filter((el) => el.offsetParent !== null);
+    const raf = requestAnimationFrame(() => getFocusables()[0]?.focus());
+    function onKeyDown(e) {
+      if (e.key !== 'Tab') return;
+      const items = getFocusables();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    aside.addEventListener('keydown', onKeyDown);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const trigger = menuButtonRef.current;
+    return () => {
+      cancelAnimationFrame(raf);
+      aside.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = prevOverflow;
+      trigger?.focus();
+    };
+  }, [drawerMode]);
 
   // Cerrar el drawer móvil con Escape
   useEffect(() => {
@@ -624,27 +725,37 @@ export default function AppShell() {
       currentTitle !== 'Inicio' &&
       currentTitle !== 'Dashboard' &&
       currentTitle !== 'Dashboard Plataforma' &&
-      currentTitle !== 'Mi Panel'
+      currentTitle !== 'Mi Panel' &&
+      items[items.length - 1]?.label.toLowerCase() !== currentTitle.toLowerCase()
     ) {
       items.push({ label: currentTitle });
     }
     return items;
   }, [activeGroup, currentTitle, groups]);
 
+  const expanded = !collapsed || mobileOpen;
+  const brandSubtitle =
+    user?.rol === 'SUPERADMIN'
+      ? 'Plataforma SaaS'
+      : user?.rol === 'ADMIN_ORGANIZACION'
+      ? 'Gestión Organizacional'
+      : 'Administración Residencial';
+  const userInitial = user?.username?.[0]?.toUpperCase() || 'U';
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col antialiased">
       {/* Skip link accesible (WCAG 2.4.1) */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-lg focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring font-medium text-xs"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:px-4 focus:py-2 focus:bg-btn-primary focus:text-white focus:rounded-md focus:shadow-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 font-semibold text-xs"
       >
         Saltar al contenido principal
       </a>
 
-      {/* Drawer overlay en móvil */}
+      {/* Drawer overlay en móvil (vidrio esmerilado sobre el contenido) */}
       <div
         className={cn(
-          'fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 lg:hidden',
+          'app-overlay fixed inset-0 z-40 transition-opacity duration-200 ease-out lg:hidden',
           mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         )}
         onClick={() => setMobileOpen(false)}
@@ -653,52 +764,52 @@ export default function AppShell() {
 
       {/* SIDEBAR */}
       <aside
+        ref={asideRef}
+        id="app-sidebar"
+        data-open={mobileOpen ? 'true' : 'false'}
+        role={drawerMode ? 'dialog' : undefined}
+        aria-modal={drawerMode ? 'true' : undefined}
+        aria-label={drawerMode ? 'Menú principal' : undefined}
         className={cn(
-          'fixed top-0 bottom-0 left-0 z-50 flex flex-col bg-[#0A1628] text-slate-200 border-r border-[#1E293B] transition-all duration-300 ease-in-out select-none shadow-2xl lg:shadow-none',
+          'app-sidebar fixed top-0 bottom-0 left-0 z-50 flex flex-col bg-sidebar text-[#C9D3EA] border-r border-white/10 select-none',
           // Mobile: drawer deslizante
-          mobileOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0',
+          mobileOpen ? 'translate-x-0 w-72 shadow-xl' : '-translate-x-full lg:translate-x-0',
           // Desktop: expandido o colapsado
-          collapsed && !mobileOpen ? 'lg:w-[72px] group/sidebar' : 'lg:w-64'
+          collapsed && !mobileOpen ? 'lg:w-[72px]' : 'lg:w-64'
         )}
       >
-        {/* Encabezado / Logo */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-[#1E293B]/80 flex-shrink-0">
-          <div
-            className={cn(
-              'flex items-center gap-3 transition-opacity duration-200',
-              collapsed && !mobileOpen ? 'lg:justify-center lg:w-full' : ''
-            )}
-          >
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-primary to-blue-500 p-0.5 shadow-md flex-shrink-0 flex items-center justify-center">
-              <img
-                src={`${import.meta.env.BASE_URL}imagenes/saed_logo_emblem_only.png`}
-                alt="SAED"
-                className="w-7 h-7 object-contain"
-              />
-            </div>
-            {(!collapsed || mobileOpen) && (
-              <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-sm tracking-tight text-white">SAED</span>
-                  <span className="px-1.5 py-0.2 text-[10px] font-bold rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    2.0
-                  </span>
-                </div>
-                <span className="text-[11px] text-slate-400 truncate">
-                  {user?.rol === 'SUPERADMIN'
-                    ? 'Plataforma SaaS'
-                    : user?.rol === 'ADMIN_ORGANIZACION'
-                    ? 'Gestión Organizacional'
-                    : 'Administración Residencial'}
+        {/* Encabezado / Marca */}
+        <div
+          className={cn(
+            'h-16 flex items-center gap-3 px-4 border-b border-white/10 flex-shrink-0',
+            !expanded && 'lg:justify-center lg:px-0'
+          )}
+        >
+          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[6px] bg-white shadow-slab ring-1 ring-white/70">
+            <img
+              src={`${import.meta.env.BASE_URL}imagenes/saed_logo_emblem_only.png`}
+              alt="SAED"
+              className="w-7 h-7 object-contain"
+            />
+          </span>
+          {expanded && (
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="app-display text-[17px] leading-none text-white [font-variation-settings:'wdth'_118,'wght'_820]">
+                  SAED
+                </span>
+                <span className="app-stamp rounded-[2px] border border-white/40 px-1 text-[10.5px] leading-[16px] text-[#DCF4EB]">
+                  2.0
                 </span>
               </div>
-            )}
-          </div>
+              <span className="mt-1 text-[11.5px] leading-none text-[#B4C0DC] truncate">{brandSubtitle}</span>
+            </div>
+          )}
 
           {/* Botón de cierre en drawer móvil */}
           <button
             type="button"
-            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors"
+            className="lg:hidden ml-auto inline-flex h-10 w-10 items-center justify-center rounded-md text-[#C9D3EA] hover:text-white hover:bg-white/10 transition-colors"
             onClick={() => setMobileOpen(false)}
             aria-label="Cerrar menú"
           >
@@ -708,65 +819,65 @@ export default function AppShell() {
 
         {/* Selector de Tenant en drawer móvil */}
         {mobileOpen && (
-          <div className="px-3 py-2 border-b border-[#1E293B]/60 lg:hidden">
+          <div className="px-3 py-2.5 border-b border-white/10 lg:hidden">
             <TenantSwitcher className="w-full justify-between" />
           </div>
         )}
 
         {/* Área de Navegación */}
         <nav
-          className="flex-1 overflow-y-auto px-3 py-4 space-y-3 custom-scrollbar"
+          className={cn('app-sidebar-scroll flex-1 overflow-y-auto py-4', expanded ? 'px-3' : 'px-2')}
           aria-label="Navegación principal"
         >
-          {groups.map((group) => {
+          {groups.map((group, groupIndex) => {
             const isOpen = openGroupsDisplay.has(group.id);
             const isGroupActive = activeGroup?.id === group.id;
 
             return (
-              <div key={group.id} className="space-y-1">
+              <div key={group.id} className={cn(groupIndex > 0 && (expanded ? 'mt-4' : 'mt-2'))}>
                 {/* Botón de grupo / categoría */}
-                {(!collapsed || mobileOpen) ? (
+                {expanded ? (
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.id)}
                     className={cn(
-                      'w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold tracking-wider text-slate-400 hover:text-slate-200 transition-colors group/header',
-                      isGroupActive && 'text-slate-200'
+                      'w-full flex items-center justify-between h-8 px-2 rounded-[4px] text-[12px] font-semibold text-[#8F9BB8] hover:text-white transition-colors group/header',
+                      isGroupActive && 'text-[#DFEBFF]'
                     )}
                     aria-expanded={isOpen}
                   >
-                    <div className="flex items-center gap-2">
-                      {renderNavIcon(group.icon, 'h-3.5 w-3.5 text-slate-400 group-hover/header:text-slate-200')}
-                      <span className="uppercase text-[11px] tracking-wider">{group.label}</span>
-                    </div>
+                    <span className="flex items-center gap-2 min-w-0">
+                      {renderNavIcon(group.icon, 'h-3.5 w-3.5 flex-shrink-0')}
+                      <span className="truncate">{group.label}</span>
+                    </span>
                     <ChevronRight
-                      className={cn(
-                        'h-3.5 w-3.5 text-slate-400 transition-transform duration-200',
-                        isOpen && 'rotate-90'
-                      )}
+                      className={cn('h-3.5 w-3.5 flex-shrink-0 transition-transform duration-200 ease-out', isOpen && 'rotate-90')}
                       aria-hidden="true"
                     />
                   </button>
                 ) : (
-                  // Ícono indicador en modo rail colapsado: botón interactivo para expandir
+                  // Rail colapsado: separador punteado con el ícono del grupo (expande la barra)
                   <button
                     type="button"
                     onClick={() => {
                       setCollapsed(false);
                       toggleGroup(group.id);
                     }}
-                    className="w-full flex justify-center py-1.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg transition-colors"
+                    className="w-full flex flex-col items-center gap-1.5 pt-1 pb-1 text-[#6F7C9C] hover:text-white transition-colors"
                     title={`Expandir categoría: ${group.label}`}
                     aria-label={`Expandir categoría: ${group.label}`}
                   >
-                    {renderNavIcon(group.icon, 'h-4 w-4')}
+                    {groupIndex > 0 && (
+                      <span className="block h-0 w-8 border-0 border-t border-dashed border-white/20" aria-hidden="true" />
+                    )}
+                    {renderNavIcon(group.icon, 'h-3 w-3')}
                   </button>
                 )}
 
                 {/* Sub-items del grupo */}
-                {(!collapsed || mobileOpen) ? (
+                {expanded ? (
                   isOpen && (
-                    <div className="space-y-0.5 pl-1">
+                    <div className="mt-1 space-y-0.5">
                       {group.items.map((item) => {
                         const active = isItemActive(location.pathname, item.path);
 
@@ -779,26 +890,16 @@ export default function AppShell() {
                               setMobileOpen(false);
                             }}
                             className={cn(
-                              'relative w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all group/item',
-                              active
-                                ? 'bg-primary/20 text-white font-semibold shadow-sm'
-                                : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                              'relative w-full flex items-center gap-3 h-9 px-2.5 rounded-[6px] text-[13px] transition-[background-color,color,box-shadow] duration-150 ease-out group/item',
+                              active ? NAV_ACTIVE_PIECE : 'font-medium text-[#C9D3EA] hover:text-white hover:bg-white/[0.06]'
                             )}
                             title={item.label}
                             aria-current={active ? 'page' : undefined}
                           >
-                            {/* Indicador de activo */}
-                            {active && (
-                              <span
-                                className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-primary"
-                                aria-hidden="true"
-                              />
-                            )}
-
                             <span
                               className={cn(
                                 'flex-shrink-0 transition-colors',
-                                active ? 'text-primary' : 'text-slate-400 group-hover/item:text-slate-200'
+                                active ? 'text-white' : 'text-[#8F9BB8] group-hover/item:text-white'
                               )}
                             >
                               {renderNavIcon(item.icon, 'h-4 w-4')}
@@ -811,7 +912,7 @@ export default function AppShell() {
                     </div>
                   )
                 ) : (
-                  // Modo rail colapsado: siempre muestra todos los ítems como botones de íconos con tooltip
+                  // Modo rail colapsado: todos los ítems como botones de íconos con tooltip
                   <div className="space-y-1">
                     {group.items.map((item) => {
                       const active = isItemActive(location.pathname, item.path);
@@ -825,29 +926,14 @@ export default function AppShell() {
                             setMobileOpen(false);
                           }}
                           className={cn(
-                            'relative w-full flex items-center justify-center p-2 rounded-lg text-xs font-medium transition-all group/item',
-                            active
-                              ? 'bg-primary/20 text-white font-semibold shadow-sm'
-                              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                            'relative mx-auto flex h-10 w-10 items-center justify-center rounded-[6px] transition-[background-color,color,box-shadow] duration-150 ease-out group/item',
+                            active ? NAV_ACTIVE_PIECE : 'text-[#8F9BB8] hover:text-white hover:bg-white/[0.08]'
                           )}
                           title={item.label}
                           aria-label={item.label}
                           aria-current={active ? 'page' : undefined}
                         >
-                          {active && (
-                            <span
-                              className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-primary"
-                              aria-hidden="true"
-                            />
-                          )}
-                          <span
-                            className={cn(
-                              'flex-shrink-0 transition-colors',
-                              active ? 'text-primary' : 'text-slate-400 group-hover/item:text-slate-200'
-                            )}
-                          >
-                            {renderNavIcon(item.icon, 'h-4 w-4')}
-                          </span>
+                          {renderNavIcon(item.icon, 'h-4 w-4')}
                         </button>
                       );
                     })}
@@ -859,56 +945,57 @@ export default function AppShell() {
         </nav>
 
         {/* Pie del Sidebar / Usuario y Logout */}
-        <div className="p-3 border-t border-[#1E293B]/80 flex-shrink-0 bg-[#07101E]/60 space-y-2">
+        <div className={cn('flex-shrink-0 border-t border-white/10 space-y-1', expanded ? 'p-3' : 'p-2')}>
           <div
             className={cn(
-              'flex items-center gap-3 p-2 rounded-xl bg-slate-800/40 border border-slate-700/40',
-              collapsed && !mobileOpen ? 'lg:justify-center lg:p-1.5' : ''
+              'flex items-center gap-3 rounded-[6px] bg-white/[0.04] ring-1 ring-inset ring-white/10',
+              expanded ? 'p-2 mb-1' : 'lg:justify-center lg:p-1.5 lg:mb-1'
             )}
           >
-            <div className="h-8 w-8 rounded-full bg-primary/20 text-primary border border-primary/30 font-bold flex items-center justify-center text-xs flex-shrink-0">
-              {user?.username?.[0]?.toUpperCase() || 'U'}
+            <div
+              className="app-stamp h-9 w-9 flex-shrink-0 rounded-[6px] bg-[#EEE8FF] text-[#1D2942] flex items-center justify-center text-sm"
+              aria-hidden="true"
+            >
+              {userInitial}
             </div>
-            {(!collapsed || mobileOpen) && (
+            {expanded && (
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-white truncate leading-tight">
+                <p className="text-[13px] font-semibold text-white truncate leading-tight">
                   {user?.username || 'Usuario'}
                 </p>
-                <span className="inline-block text-[10px] font-medium text-slate-400 uppercase tracking-wider mt-0.5 truncate">
-                  {user?.rol || 'Rol'}
-                </span>
+                <span className="block text-[11.5px] text-[#B4C0DC] mt-0.5 truncate">{displayRole}</span>
               </div>
             )}
           </div>
 
           {user?.rol !== 'PORTERO' && (
-          <button
-            type="button"
-            onClick={() => setShowChangePasswordModal(true)}
-            className={cn(
-              'w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors group/pwd',
-              collapsed && !mobileOpen ? 'lg:justify-center lg:px-2' : ''
-            )}
-            title="Cambiar contraseña"
-            aria-label="Cambiar contraseña"
-          >
-            <Key className="h-4 w-4 text-slate-400 group-hover/pwd:text-white transition-colors" aria-hidden="true" />
-            {(!collapsed || mobileOpen) && <span>Cambiar clave</span>}
-          </button>
+            <button
+              type="button"
+              onClick={() => setShowChangePasswordModal(true)}
+              className={cn(
+                'w-full flex items-center gap-2.5 h-9 px-2.5 rounded-[6px] text-[13px] font-medium text-[#C9D3EA] hover:text-white hover:bg-white/[0.06] transition-colors group/pwd',
+                !expanded && 'lg:justify-center lg:px-0'
+              )}
+              title="Cambiar contraseña"
+              aria-label="Cambiar contraseña"
+            >
+              <Key className="h-4 w-4 text-[#8F9BB8] group-hover/pwd:text-white transition-colors" aria-hidden="true" />
+              {expanded && <span>Cambiar clave</span>}
+            </button>
           )}
 
           <button
             type="button"
             onClick={handleLogout}
             className={cn(
-              'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors group/logout',
-              collapsed && !mobileOpen ? 'lg:justify-center lg:px-2' : ''
+              'w-full flex items-center gap-2.5 h-9 px-2.5 rounded-[6px] text-[13px] font-semibold text-[#C9D3EA] hover:text-[#FFB3C0] hover:bg-[#FF8FA3]/10 transition-colors group/logout',
+              !expanded && 'lg:justify-center lg:px-0'
             )}
             title="Cerrar sesión"
             aria-label="Cerrar sesión"
           >
-            <LogOut className="h-4 w-4 text-muted-foreground group-hover/logout:text-destructive transition-colors" aria-hidden="true" />
-            {(!collapsed || mobileOpen) && <span>Cerrar sesión</span>}
+            <LogOut className="h-4 w-4 text-[#8F9BB8] group-hover/logout:text-[#FFB3C0] transition-colors" aria-hidden="true" />
+            {expanded && <span>Cerrar sesión</span>}
           </button>
         </div>
       </aside>
@@ -916,28 +1003,33 @@ export default function AppShell() {
       {/* CONTENIDO Y TOPBAR */}
       <div
         className={cn(
-          'flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out',
+          'flex-1 flex flex-col min-w-0 transition-[padding] duration-200 ease-out',
           collapsed ? 'lg:pl-[72px]' : 'lg:pl-64'
         )}
       >
-        {/* TOPBAR */}
-        <header className="sticky top-0 z-30 h-16 border-b border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 sm:px-6 lg:px-8 flex items-center justify-between shadow-xs">
-          {/* Lado izquierdo: Toggles + Breadcrumbs en Desktop / Brand en Móvil */}
+        {/* TOPBAR: barra de vidrio fija sobre el contenido que se desplaza */}
+        <header className="app-glass-bar sticky top-0 z-30 h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
+          {/* Lado izquierdo: Toggles + Breadcrumbs en Desktop / Marca en Móvil */}
           <div className="flex items-center gap-3 min-w-0">
             {/* Toggle móvil */}
             <button
+              ref={menuButtonRef}
               type="button"
-              className="lg:hidden inline-flex items-center justify-center h-10 w-10 min-h-[44px] min-w-[44px] rounded-lg border border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+              className={cn('lg:hidden', HEADER_ICON_BUTTON)}
               onClick={() => setMobileOpen(true)}
               aria-label="Abrir menú"
+              aria-expanded={mobileOpen}
+              aria-controls="app-sidebar"
             >
               <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
 
-            {/* Marca en móvil (sección 15: [☰] SAED 2.0 ... [🔔]) */}
-            <div className="sm:hidden flex items-center gap-2">
-              <span className="font-bold text-sm tracking-tight text-foreground">SAED</span>
-              <span className="px-1.5 py-0.2 text-[10px] font-bold rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+            {/* Marca en móvil */}
+            <div className="sm:hidden flex items-center gap-1.5">
+              <span className="app-display text-[16px] leading-none text-on-surface [font-variation-settings:'wdth'_118,'wght'_820]">
+                SAED
+              </span>
+              <span className="app-stamp rounded-[2px] border border-keyline/40 px-1 text-[10.5px] leading-[16px] text-on-surface">
                 2.0
               </span>
             </div>
@@ -945,7 +1037,7 @@ export default function AppShell() {
             {/* Toggle desktop collapse */}
             <button
               type="button"
-              className="hidden lg:inline-flex items-center justify-center h-9 w-9 rounded-lg border border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+              className={cn('hidden lg:inline-flex', HEADER_ICON_BUTTON, 'h-9 w-9 min-h-0 min-w-0')}
               onClick={toggleCollapsed}
               aria-label={collapsed ? 'Expandir menú lateral' : 'Colapsar menú lateral'}
               title={collapsed ? 'Expandir menú lateral' : 'Colapsar menú lateral'}
@@ -959,12 +1051,12 @@ export default function AppShell() {
 
             {/* Breadcrumbs en Desktop */}
             <div className="hidden sm:block min-w-0">
-              <BreadcrumbNav items={breadcrumbs} className="text-xs" />
+              <BreadcrumbNav items={breadcrumbs} className="text-[13px]" />
             </div>
           </div>
 
           {/* Lado derecho: Tenant + Theme + Notif + User */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {/* Multi-tenant Context (Desktop / Tablet) */}
             <div className="hidden sm:inline-flex">
               <TenantSwitcher />
@@ -974,15 +1066,11 @@ export default function AppShell() {
             <button
               type="button"
               onClick={toggleTheme}
-              className="hidden sm:inline-flex items-center justify-center h-10 w-10 min-h-[44px] min-w-[44px] rounded-lg border border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+              className={cn('hidden sm:inline-flex', HEADER_ICON_BUTTON)}
               aria-label={dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
               title={dark ? 'Modo claro' : 'Modo oscuro'}
             >
-              {dark ? (
-                <Sun className="h-4 w-4 text-amber-500" aria-hidden="true" />
-              ) : (
-                <Moon className="h-4 w-4 text-slate-600" aria-hidden="true" />
-              )}
+              {dark ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
             </button>
 
             {/* Campana de Notificaciones (Siempre visible) */}
@@ -990,38 +1078,37 @@ export default function AppShell() {
 
             {/* Pastilla de Usuario en Desktop */}
             {user?.rol === 'PORTERO' ? (
-              <div className="hidden md:flex items-center gap-2 pl-2 pr-2.5 py-1 rounded-lg border border-border/60 text-left">
-                <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold flex items-center justify-center text-xs">
-                  {user?.username?.[0]?.toUpperCase() || 'U'}
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-xs font-semibold text-foreground leading-none">
+              <div className={cn('hidden md:flex', USER_PILL)}>
+                <span className={USER_PILL_AVATAR} aria-hidden="true">
+                  {userInitial}
+                </span>
+                <span className="flex flex-col text-left min-w-0">
+                  <span className="text-[13px] font-bold text-on-surface leading-none truncate max-w-[160px]">
                     {user?.username}
                   </span>
-                  <span className="text-[10px] text-muted-foreground font-medium uppercase mt-0.5">
-                    {user?.rol}
-                  </span>
-                </div>
+                  <span className="mt-1 text-[11.5px] leading-none text-text-muted truncate max-w-[160px]">{displayRole}</span>
+                </span>
               </div>
             ) : (
               <button
                 type="button"
                 onClick={() => setShowChangePasswordModal(true)}
-                className="hidden md:flex items-center gap-2 pl-2 pr-2.5 py-1 rounded-lg border border-border/60 hover:bg-muted/60 transition-colors text-left group"
+                className={cn('hidden md:flex group', USER_PILL, 'hover:border-keyline/50 hover:bg-surface-container')}
                 title="Mi Perfil / Cambiar Contraseña"
               >
-                <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold flex items-center justify-center text-xs group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                  {user?.username?.[0]?.toUpperCase() || 'U'}
-                </div>
-                <div className="flex flex-col text-left">
-                  <span className="text-xs font-semibold text-foreground leading-none">
+                <span className={USER_PILL_AVATAR} aria-hidden="true">
+                  {userInitial}
+                </span>
+                <span className="flex flex-col text-left min-w-0">
+                  <span className="text-[13px] font-bold text-on-surface leading-none truncate max-w-[160px]">
                     {user?.username}
                   </span>
-                  <span className="text-[10px] text-muted-foreground font-medium uppercase mt-0.5">
-                    {user?.rol}
-                  </span>
-                </div>
-                <Key className="w-3.5 h-3.5 text-muted-foreground ml-1 opacity-60 group-hover:opacity-100 group-hover:text-primary transition-opacity" />
+                  <span className="mt-1 text-[11.5px] leading-none text-text-muted truncate max-w-[160px]">{displayRole}</span>
+                </span>
+                <Key
+                  className="w-3.5 h-3.5 text-text-muted ml-1 group-hover:text-primary-text transition-colors"
+                  aria-hidden="true"
+                />
               </button>
             )}
 
@@ -1029,7 +1116,11 @@ export default function AppShell() {
             <button
               type="button"
               onClick={handleLogout}
-              className="hidden sm:inline-flex items-center justify-center h-10 w-10 min-h-[44px] min-w-[44px] rounded-lg border border-border/70 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 hover:border-rose-300 dark:hover:border-rose-900 transition-colors"
+              className={cn(
+                'hidden sm:inline-flex',
+                HEADER_ICON_BUTTON,
+                'hover:text-tint-red-fg hover:border-tint-red-fg/40 hover:bg-tint-red-bg'
+              )}
               aria-label="Cerrar sesión"
               title="Cerrar sesión"
             >
@@ -1041,16 +1132,11 @@ export default function AppShell() {
         {/* ÁREA DE CONTENIDO */}
         <main
           id="main-content"
-          className="flex-1 min-w-0 bg-background-subtle min-h-[calc(100vh-64px)] p-4 sm:p-6 lg:p-8"
+          className="flex-1 min-w-0 bg-background min-h-[calc(100vh-64px)] p-4 sm:p-6 lg:p-8"
         >
           <ErrorBoundary routeKey={location.pathname}>
             <Suspense
-              fallback={
-                <div className="flex items-center justify-center min-h-[300px] text-muted-foreground text-sm font-medium">
-                  <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin mr-3" />
-                  Cargando vista...
-                </div>
-              }
+              fallback={<LoadingState message="Cargando vista..." className="mx-auto max-w-3xl" />}
             >
               <Outlet />
             </Suspense>
@@ -1068,23 +1154,19 @@ export default function AppShell() {
       <Dialog open={showLogoutModal} onOpenChange={setShowLogoutModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-foreground font-semibold">
-              <LogOut className="h-5 w-5 text-rose-500" aria-hidden="true" />
+            <DialogTitle className="flex items-center gap-2">
+              <LogOut className="h-5 w-5 text-tint-red-fg" aria-hidden="true" />
               ¿Cerrar sesión?
             </DialogTitle>
-            <DialogDescription className="text-muted-foreground text-sm">
+            <DialogDescription className="text-text-secondary text-sm">
               ¿Estás seguro de que deseas salir del sistema? Se guardará tu sesión actual y tendrás que ingresar tus credenciales nuevamente.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+          <DialogFooter className="pt-2">
             <Button variant="outline" onClick={() => setShowLogoutModal(false)}>
               Cancelar
             </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmLogout}
-              className="bg-rose-600 hover:bg-rose-700 text-white"
-            >
+            <Button variant="destructive" onClick={confirmLogout}>
               Sí, cerrar sesión
             </Button>
           </DialogFooter>

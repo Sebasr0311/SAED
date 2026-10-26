@@ -14,6 +14,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { Badge } from '../components/ui/badge.tsx';
@@ -22,6 +23,7 @@ import { Input } from '../components/ui/Form.jsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import LoadingState from '../components/ui/LoadingState.jsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
 import { api } from '../lib/api.js';
 import { formatCurrency, formatDate } from '../lib/utils.js';
 import { toast } from 'sonner';
@@ -61,12 +63,16 @@ export default function ContratosProveedorPage() {
     }
   };
 
+  const [loadError, setLoadError] = useState(null);
+
   const cargar = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const res = await api.get('/contratos-admin/proveedores');
       setContratos(Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : []);
     } catch (e) {
+      setLoadError(e);
       toast.error('No se pudieron cargar los contratos de proveedor');
     } finally {
       setLoading(false);
@@ -185,7 +191,7 @@ export default function ContratosProveedorPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-12">
+    <PageContainer className="pb-12">
       {/* Header Principal */}
       <PageHeader
         title="Contratos de Proveedor"
@@ -214,7 +220,7 @@ export default function ContratosProveedorPage() {
           label="Contratos Vigentes"
           value={stats.vigentes}
           subtitle="En ejecución activa"
-          icon={<CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+          icon={<CheckCircle2 className="w-5 h-5 text-tint-green-fg" />}
           variant="success"
         />
         <MetricCard
@@ -228,7 +234,7 @@ export default function ContratosProveedorPage() {
           label="Compromiso Vigente"
           value={fmt(stats.valorComprometido)}
           subtitle="Valor total en ejecución"
-          icon={<DollarSign className="w-5 h-5 text-sky-500" />}
+          icon={<DollarSign className="w-5 h-5 text-tint-blue-fg" />}
           variant="info"
         />
       </div>
@@ -274,29 +280,35 @@ export default function ContratosProveedorPage() {
       </div>
 
       {/* Tabla Principal */}
-      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-        {filteredContratos.length === 0 ? (
+      <div className="bg-card border border-border rounded-lg shadow-sm overflow-hidden">
+        {loadError && contratos.length === 0 ? (
+          <ErrorState
+            className="m-4"
+            title="No se pudieron cargar los contratos de proveedor"
+            message={loadError?.message || 'Verifique su conexión e intente nuevamente.'}
+            onRetry={cargar}
+          />
+        ) : filteredContratos.length === 0 ? (
           <div className="py-12">
             <EmptyState
-              icon={<FileText className="w-12 h-12 text-muted-foreground" />}
+              icon={FileText}
               title="No hay contratos encontrados"
-              description={
+              subtitle={
                 searchTerm || filterTab !== 'TODOS'
                   ? 'No se encontraron resultados para los filtros seleccionados.'
                   : 'Aún no se han registrado contratos de proveedores.'
               }
-              action={
-                <Button variant="outline" size="sm" onClick={() => setDialog(true)}>
+            >
+              <div className="mt-4 flex justify-center empty:hidden"><Button variant="outline" size="sm" onClick={() => setDialog(true)}>
                   Registrar Primer Contrato
-                </Button>
-              }
-            />
+                </Button></div>
+            </EmptyState>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/30 text-muted-foreground font-semibold text-xs uppercase tracking-wider">
+                <tr className="border-b border-border bg-muted/30 text-muted-foreground font-semibold text-xs">
                   <th className="py-3 px-4">N° Contrato</th>
                   <th className="py-3 px-4">Objeto</th>
                   <th className="py-3 px-4 text-right">Valor Total</th>
@@ -333,7 +345,7 @@ export default function ContratosProveedorPage() {
                       </td>
                       <td className="py-3 px-4 text-xs whitespace-nowrap">
                         <div className="text-foreground font-medium">{formatDate(c.fechaInicio)}</div>
-                        <div className="text-muted-foreground text-[11px]">
+                        <div className="text-muted-foreground text-[11.5px]">
                           hasta {formatDate(c.fechaFin)}
                         </div>
                       </td>
@@ -408,8 +420,8 @@ export default function ContratosProveedorPage() {
                 <span>Cargando catálogo maestro de proveedores...</span>
               </div>
             ) : proveedores.length === 0 ? (
-              <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+              <div className="rounded-lg border border-tint-amber-fg/25 bg-tint-amber-bg p-3 text-xs text-tint-amber-fg flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-tint-amber-fg mt-0.5" />
                 <div>
                   <span className="font-semibold">No hay proveedores registrados para esta organización.</span>
                   <p className="mt-0.5 text-muted-foreground">Registre un proveedor en el catálogo maestro antes de vincular un contrato.</p>
@@ -544,7 +556,6 @@ export default function ContratosProveedorPage() {
         onConfirm={eliminar}
         onCancel={() => setDeleteTarget(null)}
       />
-    </div>
+    </PageContainer>
   );
 }
-

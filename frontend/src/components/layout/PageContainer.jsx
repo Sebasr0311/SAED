@@ -11,7 +11,7 @@ export const PageContainer = memo(function PageContainer({
   maxWidth = 'max-w-7xl',
 }) {
   return (
-    <div className={cn('w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6', maxWidth, className)}>
+    <div className={cn('w-full mx-auto px-0 py-2 lg:px-2 space-y-6', maxWidth, className)}>
       {children}
     </div>
   );

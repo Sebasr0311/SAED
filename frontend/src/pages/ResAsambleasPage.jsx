@@ -21,7 +21,12 @@ import {
   Download,
   Lock,
 } from 'lucide-react';
-import { PageHeader } from '../components/ui/PageHeader';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import LoadingState from '../components/ui/LoadingState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import { Button } from '../components/ui/button.tsx';
 import { Modal } from '../components/ui/Modal';
 import { useFetch } from '../lib/hooks';
 import { useTenant } from '../lib/TenantContext.jsx';
@@ -32,12 +37,12 @@ import { TOKEN_KEY } from '../lib/storage.js';
 import { toast } from 'sonner';
 
 const ESTADOS_ASAMBLEA = {
-  BORRADOR: { label: 'Borrador', color: 'bg-neutral-500/10 text-neutral-400 border border-neutral-500/20' },
-  CONVOCADA: { label: 'Convocada', color: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/30' },
-  EN_CURSO: { label: 'En Curso', color: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30' },
-  EN_RECESO: { label: 'En Receso', color: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30' },
-  FINALIZADA: { label: 'Finalizada', color: 'bg-gray-500/15 text-gray-700 dark:text-gray-400 border border-gray-500/20' },
-  CANCELADA: { label: 'Cancelada', color: 'bg-red-500/15 text-red-700 dark:text-red-400 border border-red-500/20' },
+  BORRADOR: { label: 'Borrador', color: 'bg-surface-dim text-text-muted border border-border' },
+  CONVOCADA: { label: 'Convocada', color: 'bg-tint-blue-bg text-tint-blue-fg border border-tint-blue-fg/25' },
+  EN_CURSO: { label: 'En Curso', color: 'bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25' },
+  EN_RECESO: { label: 'En Receso', color: 'bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25' },
+  FINALIZADA: { label: 'Finalizada', color: 'bg-surface-dim text-text-secondary border border-border' },
+  CANCELADA: { label: 'Cancelada', color: 'bg-tint-red-bg text-tint-red-fg border border-tint-red-fg/25' },
 };
 
 const MODALIDADES = {
@@ -71,6 +76,7 @@ export default function ResAsambleasPage() {
   const {
     data: asambleasRaw,
     loading: loadingAsambleas,
+    error: errorAsambleas,
     refetch: refetchAsambleas,
   } = useFetch(
     useCallback(() => tenantApi.get('/asambleas'), [tenant.activeAssignmentId])
@@ -354,71 +360,79 @@ export default function ResAsambleasPage() {
   );
 
   return (
-    <div className="space-y-6 pb-12">
+    <PageContainer className="pb-12">
       <PageHeader
-        title="Asambleas y Gobernanza"
-        subtitle="Consulte convocatorias oficiales, siga el quórum en tiempo real y radique poderes de representación para su copropiedad."
-      >
-        <button
-          onClick={() => {
-            refetchAsambleas();
-            refetchQuorum();
-            refetchPoderes();
-            refetchVotaciones();
-            toast.info('Datos de asambleas actualizados.');
-          }}
-          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-        >
-          <RefreshCw className="w-4 h-4 text-neutral-500" />
-          Actualizar
-        </button>
-      </PageHeader>
+        title="Asambleas y gobernanza"
+        subtitle="Consulta las convocatorias, sigue el quórum en tiempo real y radica poderes de representación."
+        action={
+          <Button
+            variant="outline"
+            onClick={() => {
+              const quiet = () => {};
+              refetchAsambleas().catch(quiet);
+              refetchQuorum().catch(quiet);
+              refetchPoderes().catch(quiet);
+              refetchVotaciones().catch(quiet);
+              toast.info('Datos de asambleas actualizados.');
+            }}
+            className="min-h-10"
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            Actualizar
+          </Button>
+        }
+      />
 
       {/* Tabs */}
-      <div className="flex border-b border-neutral-200 dark:border-neutral-800">
+      <div className="flex overflow-x-auto border-b border-border" role="tablist" aria-label="Asambleas">
         <button
           onClick={() => setTabActiva('proximas')}
-          className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${
+          role="tab"
+          aria-selected={tabActiva === 'proximas'}
+          className={`min-h-10 shrink-0 border-b-2 px-4 pb-2.5 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
             tabActiva === 'proximas'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+              ? 'border-primary text-primary-text'
+              : 'border-transparent text-text-muted hover:text-on-surface'
           }`}
         >
-          Convocatorias Activas ({asambleasProximas.length})
+          Convocatorias activas <span className="tabular-nums">({asambleasProximas.length})</span>
         </button>
         <button
           onClick={() => setTabActiva('historial')}
-          className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 ${
+          role="tab"
+          aria-selected={tabActiva === 'historial'}
+          className={`min-h-10 shrink-0 border-b-2 px-4 pb-2.5 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
             tabActiva === 'historial'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
+              ? 'border-primary text-primary-text'
+              : 'border-transparent text-text-muted hover:text-on-surface'
           }`}
         >
-          Historial y Actas ({asambleasHistorial.length})
+          Historial y actas <span className="tabular-nums">({asambleasHistorial.length})</span>
         </button>
       </div>
 
       {loadingAsambleas ? (
-        <div className="p-8 text-center text-neutral-500 flex flex-col items-center justify-center gap-2">
-          <RefreshCw className="w-6 h-6 animate-spin text-primary" />
-          <p>Cargando información de asambleas...</p>
+        <div className="rounded-lg border border-border bg-surface shadow-sm">
+          <LoadingState message="Cargando asambleas…" />
         </div>
+      ) : errorAsambleas ? (
+        <ErrorState
+          title="No se pudieron cargar las asambleas"
+          message="Revisa tu conexión e intenta de nuevo."
+          onRetry={() => refetchAsambleas().catch(() => {})}
+        />
       ) : asambleas.length === 0 ? (
-        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-8 text-center">
-          <Calendar className="w-12 h-12 text-neutral-400 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-neutral-800 dark:text-neutral-100">
-            No hay asambleas registradas
-          </h3>
-          <p className="text-sm text-neutral-500 mt-1 max-w-md mx-auto">
-            La administración de su copropiedad no ha convocado asambleas ordinarias ni extraordinarias en este momento.
-          </p>
-        </div>
+        <EmptyState
+          icon={Calendar}
+          title="No hay asambleas registradas"
+          subtitle="La administración no ha convocado asambleas ordinarias ni extraordinarias por ahora."
+        />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Lista de asambleas en columna izquierda */}
           <div className="lg:col-span-1 space-y-3">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 px-1">
-              {tabActiva === 'proximas' ? 'Asambleas Activas' : 'Historial de Asambleas'}
+            <h3 className="text-sm font-semibold text-text-muted px-1">
+              {tabActiva === 'proximas' ? 'Asambleas activas' : 'Historial de asambleas'}
             </h3>
 
             {(tabActiva === 'proximas' ? asambleasProximas : asambleasHistorial).map((item) => {
@@ -430,10 +444,19 @@ export default function ResAsambleasPage() {
                 <div
                   key={item.idAsamblea}
                   onClick={() => setAsambleaSeleccionadaId(item.idAsamblea)}
-                  className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={esSeleccionada}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setAsambleaSeleccionadaId(item.idAsamblea);
+                    }
+                  }}
+                  className={`cursor-pointer rounded-lg border p-4 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                     esSeleccionada
-                      ? 'border-primary bg-primary/5 shadow-sm'
-                      : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 bg-white dark:bg-neutral-900'
+                      ? 'border-primary bg-tint-purple-bg shadow-sm'
+                      : 'border-border hover:border-primary/50 bg-surface'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
@@ -442,16 +465,16 @@ export default function ResAsambleasPage() {
                     >
                       {estadoConfig.label}
                     </span>
-                    <span className="text-xs text-neutral-400">
+                    <span className="text-xs text-text-muted">
                       Conv. #{item.convocatoriaNumero || 1}
                     </span>
                   </div>
 
-                  <h4 className="font-semibold text-sm text-neutral-900 dark:text-neutral-100 line-clamp-2">
+                  <h4 className="font-semibold text-sm text-on-surface line-clamp-2">
                     {item.titulo}
                   </h4>
 
-                  <div className="mt-3 space-y-1.5 text-xs text-neutral-500">
+                  <div className="mt-3 space-y-1.5 text-xs text-text-muted">
                     <div className="flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5" />
                       <span>{formatearFecha(item.fechaHoraPrimeraConv)}</span>
@@ -471,8 +494,8 @@ export default function ResAsambleasPage() {
             {asambleaActiva ? (
               <>
                 {/* Tarjeta Principal de Detalle */}
-                <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-6 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-4 border-b border-neutral-100 dark:border-neutral-800 pb-4 mb-4">
+                <div className="bg-surface border border-border rounded-lg shadow-sm p-4 sm:p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-4 mb-4">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <span
@@ -482,11 +505,11 @@ export default function ResAsambleasPage() {
                         >
                           {ESTADOS_ASAMBLEA[asambleaActiva.estado]?.label || asambleaActiva.estado}
                         </span>
-                        <span className="text-xs text-neutral-400">
+                        <span className="text-xs text-text-muted">
                           {asambleaActiva.tipo} • Convocatoria #{asambleaActiva.convocatoriaNumero || 1}
                         </span>
                       </div>
-                      <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
+                      <h2 className="text-xl font-bold text-on-surface">
                         {asambleaActiva.titulo}
                       </h2>
                     </div>
@@ -498,47 +521,47 @@ export default function ResAsambleasPage() {
                         className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors shadow-sm"
                       >
                         <ShieldCheck className="w-4 h-4" />
-                        Radicar Poder
+                        Radicar poder
                       </button>
                     )}
                   </div>
 
                   {/* Grid de Metadatos Clave */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-6">
-                    <div className="p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg">
-                      <span className="text-xs font-medium text-neutral-500 uppercase tracking-wider block mb-1">
-                        Primera Convocatoria
+                    <div className="p-3 bg-surface-container rounded-lg">
+                      <span className="text-xs font-medium text-text-muted block mb-1">
+                        Primera convocatoria
                       </span>
-                      <p className="font-semibold text-neutral-800 dark:text-neutral-200">
+                      <p className="font-semibold text-on-surface">
                         {formatearFecha(asambleaActiva.fechaHoraPrimeraConv)}
                       </p>
                     </div>
 
-                    <div className="p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg">
-                      <span className="text-xs font-medium text-neutral-500 uppercase tracking-wider block mb-1">
-                        Segunda Convocatoria (Ley 675)
+                    <div className="p-3 bg-surface-container rounded-lg">
+                      <span className="text-xs font-medium text-text-muted block mb-1">
+                        Segunda convocatoria (Ley 675)
                       </span>
-                      <p className="font-semibold text-neutral-800 dark:text-neutral-200">
+                      <p className="font-semibold text-on-surface">
                         {asambleaActiva.fechaHoraSegundaConv
                           ? formatearFecha(asambleaActiva.fechaHoraSegundaConv)
                           : 'No requerida'}
                       </p>
                     </div>
 
-                    <div className="p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg">
-                      <span className="text-xs font-medium text-neutral-500 uppercase tracking-wider block mb-1">
-                        Modalidad y Lugar / Enlace
+                    <div className="p-3 bg-surface-container rounded-lg">
+                      <span className="text-xs font-medium text-text-muted block mb-1">
+                        Modalidad y lugar / enlace
                       </span>
-                      <p className="font-semibold text-neutral-800 dark:text-neutral-200 break-words">
+                      <p className="font-semibold text-on-surface break-words">
                         {asambleaActiva.modalidad}: {asambleaActiva.lugarOEnlace}
                       </p>
                     </div>
 
-                    <div className="p-3 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg">
-                      <span className="text-xs font-medium text-neutral-500 uppercase tracking-wider block mb-1">
-                        Quórum Legal Requerido
+                    <div className="p-3 bg-surface-container rounded-lg">
+                      <span className="text-xs font-medium text-text-muted block mb-1">
+                        Quórum legal requerido
                       </span>
-                      <p className="font-semibold text-neutral-800 dark:text-neutral-200">
+                      <p className="font-semibold text-on-surface">
                         {asambleaActiva.quorumRequeridoPct || 50.01}% de coeficiente de copropiedad
                       </p>
                     </div>
@@ -546,14 +569,14 @@ export default function ResAsambleasPage() {
 
                   {/* Documento Convocatoria Oficial (F10-01 integration) */}
                   {asambleaActiva.idDocumento && (
-                    <div className="mb-6 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 flex items-center justify-between">
+                    <div className="mb-6 p-4 rounded-xl border border-tint-blue-fg/25 bg-tint-blue-bg flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 text-blue-600" />
+                        <FileText className="w-5 h-5 text-tint-blue-fg" />
                         <div>
-                          <p className="text-sm font-semibold text-blue-900 dark:text-blue-300">
-                            Convocatoria Oficial Adjunta
+                          <p className="text-sm font-semibold text-tint-blue-fg">
+                            Convocatoria oficial adjunta
                           </p>
-                          <p className="text-xs text-neutral-500">
+                          <p className="text-xs text-text-muted">
                             Documento oficial F10-01 con anexos y estados financieros
                           </p>
                         </div>
@@ -562,7 +585,7 @@ export default function ResAsambleasPage() {
                         href={`/api/v1/documentos/${asambleaActiva.idDocumento}/descargar`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-tint-blue-fg text-tint-blue-fg hover:bg-tint-blue-fg hover:text-white transition-colors"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
                         Descargar PDF
@@ -572,23 +595,23 @@ export default function ResAsambleasPage() {
 
                   {/* Acta Oficial Publicada (F10-05 integration - Art. 47 Ley 675) */}
                   {actaOficial && actaOficial.estado === 'PUBLICADA_OFICIAL' && (
-                    <div className="mb-6 p-5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-500/20 pb-3">
+                    <div className="mb-6 p-5 rounded-xl border border-tint-green-fg/25 bg-tint-green-bg space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-tint-green-fg/25 pb-3">
                         <div className="flex items-center gap-3">
-                          <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-600">
+                          <div className="p-2.5 rounded-lg bg-tint-green-bg text-tint-green-fg">
                             <FileCheck className="w-6 h-6" />
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-base text-emerald-950 dark:text-emerald-200">
+                              <span className="font-bold text-base text-tint-green-fg">
                                 Acta Oficial Nº {actaOficial.numeroActa}
                               </span>
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-tint-green-bg text-tint-green-fg">
                                 <Lock className="w-3 h-3" /> Publicada Oficialmente
                               </span>
                             </div>
-                            <p className="text-xs text-neutral-500">
-                              Aprobada por comisión verificadora • Conforme a Ley 675 de 2001
+                            <p className="text-xs text-text-muted">
+                              Aprobada por comisión verificadora • conforme a Ley 675 de 2001
                             </p>
                           </div>
                         </div>
@@ -596,37 +619,37 @@ export default function ResAsambleasPage() {
                         {(actaOficial.idDocumento || actaOficial.documentoFirmadoUrl) && (
                           <button
                             onClick={() => handleDescargarDocumentoActa(actaOficial)}
-                            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm"
+                            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-btn-success hover:bg-btn-success/90 text-white transition-colors shadow-sm"
                           >
                             <Download className="w-4 h-4" />
-                            Descargar Acta Oficial (PDF)
+                            Descargar acta oficial (PDF)
                           </button>
                         )}
                       </div>
 
                       {/* Resumen de Gobernanza del Acta */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                        <div className="p-2.5 bg-white/70 dark:bg-neutral-800/70 rounded-lg border border-emerald-500/10">
-                          <span className="text-neutral-500 block">Asistentes</span>
-                          <span className="font-bold text-neutral-800 dark:text-neutral-200">
+                        <div className="p-2.5 bg-white/70 rounded-lg border border-tint-green-fg/25">
+                          <span className="text-text-muted block">Asistentes</span>
+                          <span className="font-bold text-on-surface">
                             {actaOficial.totalAsistentes || 0} personas
                           </span>
                         </div>
-                        <div className="p-2.5 bg-white/70 dark:bg-neutral-800/70 rounded-lg border border-emerald-500/10">
-                          <span className="text-neutral-500 block">Coeficiente Total</span>
-                          <span className="font-bold text-neutral-800 dark:text-neutral-200">
+                        <div className="p-2.5 bg-white/70 rounded-lg border border-tint-green-fg/25">
+                          <span className="text-text-muted block">Coeficiente total</span>
+                          <span className="font-bold text-on-surface">
                             {Number(actaOficial.totalCoeficienteAsistentes || 0).toFixed(4)}
                           </span>
                         </div>
-                        <div className="p-2.5 bg-white/70 dark:bg-neutral-800/70 rounded-lg border border-emerald-500/10">
-                          <span className="text-neutral-500 block">Poderes Validados</span>
-                          <span className="font-bold text-neutral-800 dark:text-neutral-200">
+                        <div className="p-2.5 bg-white/70 rounded-lg border border-tint-green-fg/25">
+                          <span className="text-text-muted block">Poderes validados</span>
+                          <span className="font-bold text-on-surface">
                             {actaOficial.totalPoderesAprobados || 0}
                           </span>
                         </div>
-                        <div className="p-2.5 bg-white/70 dark:bg-neutral-800/70 rounded-lg border border-emerald-500/10">
-                          <span className="text-neutral-500 block">Votaciones</span>
-                          <span className="font-bold text-neutral-800 dark:text-neutral-200">
+                        <div className="p-2.5 bg-white/70 rounded-lg border border-tint-green-fg/25">
+                          <span className="text-text-muted block">Votaciones</span>
+                          <span className="font-bold text-on-surface">
                             {actaOficial.totalVotaciones || 0} puntos
                           </span>
                         </div>
@@ -635,10 +658,10 @@ export default function ResAsambleasPage() {
                       {/* Texto del Acta */}
                       {actaOficial.contenidoTexto && (
                         <details className="text-xs group">
-                          <summary className="cursor-pointer font-semibold text-emerald-800 dark:text-emerald-300 hover:underline flex items-center gap-1">
+                          <summary className="cursor-pointer font-semibold text-tint-green-fg hover:underline flex items-center gap-1">
                             Ver texto íntegro del acta
                           </summary>
-                          <div className="mt-2 p-3 bg-white/80 dark:bg-neutral-800/80 rounded-lg border border-neutral-200 dark:border-neutral-700 font-mono text-[11px] whitespace-pre-wrap max-h-60 overflow-y-auto leading-relaxed text-neutral-700 dark:text-neutral-300">
+                          <div className="mt-2 p-3 bg-white/80 rounded-lg border border-border font-mono text-[11px] whitespace-pre-wrap max-h-60 overflow-y-auto leading-relaxed text-text-secondary">
                             {actaOficial.contenidoTexto}
                           </div>
                         </details>
@@ -648,33 +671,33 @@ export default function ResAsambleasPage() {
 
                   {/* Aviso si la asamblea finalizó pero el acta aún está en trámite */}
                   {asambleaActiva.estado === 'FINALIZADA' && (!actaOficial || actaOficial.estado !== 'PUBLICADA_OFICIAL') && (
-                    <div className="mb-6 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 flex items-start gap-3">
-                      <Clock className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                    <div className="mb-6 p-4 rounded-xl border border-tint-amber-fg/25 bg-tint-amber-bg flex items-start gap-3">
+                      <Clock className="w-5 h-5 text-tint-amber-fg mt-0.5 shrink-0" />
                       <div className="text-xs">
-                        <p className="font-semibold text-amber-900 dark:text-amber-300">
-                          Acta en Proceso de Redacción y Revisión
+                        <p className="font-semibold text-tint-amber-fg">
+                          Acta en proceso de redacción y revisión
                         </p>
-                        <p className="text-neutral-500 mt-0.5 leading-relaxed">
-                          Conforme al Artículo 47 de la Ley 675 de 2001, la comisión verificadora dispone de un plazo de hasta veinte (20) días hábiles para revisar, firmar y publicar el acta oficial de esta asamblea. Una vez publicada, estará disponible para consulta y descarga aquí.
+                        <p className="text-text-muted mt-0.5 leading-relaxed">
+                          Conforme al artículo 47 de la Ley 675 de 2001, la comisión verificadora dispone de un plazo de hasta veinte (20) días hábiles para revisar, firmar y publicar el acta oficial de esta asamblea. Una vez publicada, estará disponible para consulta y descarga aquí.
                         </p>
                       </div>
                     </div>
                   )}
 
                   {/* Quórum en Tiempo Real (Live Gauge) */}
-                  <div className="mb-6 p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/30">
+                  <div className="mb-6 p-5 rounded-xl border border-border bg-surface-container">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <Percent className="w-5 h-5 text-primary" />
-                        <h4 className="font-semibold text-sm text-neutral-900 dark:text-neutral-100">
-                          Quórum Deliberatorio y Decisorio
+                        <h4 className="font-semibold text-sm text-on-surface">
+                          Quórum deliberatorio y decisorio
                         </h4>
                       </div>
                       <span
                         className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                           quorumLive?.tieneQuorum
-                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                            : 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                            ? 'bg-tint-green-bg text-tint-green-fg'
+                            : 'bg-tint-amber-bg text-tint-amber-fg'
                         }`}
                       >
                         {quorumLive?.tieneQuorum ? (
@@ -691,10 +714,10 @@ export default function ResAsambleasPage() {
 
                     {/* Progress Bar */}
                     <div className="space-y-2">
-                      <div className="w-full bg-neutral-200 dark:bg-neutral-700 h-3 rounded-full overflow-hidden relative">
+                      <div className="w-full bg-surface-dim h-3 rounded-full overflow-hidden relative">
                         {/* Target line at quorumRequeridoPct */}
                         <div
-                          className="absolute top-0 bottom-0 w-0.5 bg-neutral-900 dark:bg-neutral-100 z-10"
+                          className="absolute top-0 bottom-0 w-0.5 bg-neutral-900 z-10"
                           style={{
                             left: `${Math.min(asambleaActiva.quorumRequeridoPct || 50.01, 100)}%`,
                           }}
@@ -702,7 +725,7 @@ export default function ResAsambleasPage() {
                         />
                         <div
                           className={`h-full transition-all duration-500 rounded-full ${
-                            quorumLive?.tieneQuorum ? 'bg-emerald-500' : 'bg-primary'
+                            quorumLive?.tieneQuorum ? 'bg-tint-green-fg' : 'bg-primary'
                           }`}
                           style={{
                             width: `${Math.min(quorumLive?.quorumAlcanzadoPct || 0, 100)}%`,
@@ -710,10 +733,10 @@ export default function ResAsambleasPage() {
                         />
                       </div>
 
-                      <div className="flex items-center justify-between text-xs text-neutral-500">
+                      <div className="flex items-center justify-between text-xs text-text-muted">
                         <span>
                           Alcanzado:{' '}
-                          <strong className="text-neutral-800 dark:text-neutral-200">
+                          <strong className="text-on-surface">
                             {Number(quorumLive?.quorumAlcanzadoPct || 0).toFixed(2)}%
                           </strong>
                         </span>
@@ -723,16 +746,16 @@ export default function ResAsambleasPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700/50 text-xs">
+                    <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border text-xs">
                       <div>
-                        <span className="text-neutral-500 block">Unidades Registradas</span>
-                        <span className="font-bold text-sm text-neutral-800 dark:text-neutral-200">
+                        <span className="text-text-muted block">Unidades registradas</span>
+                        <span className="font-bold text-sm text-on-surface">
                           {quorumLive?.totalUnidadesRegistradas || 0}
                         </span>
                       </div>
                       <div>
-                        <span className="text-neutral-500 block">Coeficiente Total Presente</span>
-                        <span className="font-bold text-sm text-neutral-800 dark:text-neutral-200">
+                        <span className="text-text-muted block">Coeficiente total presente</span>
+                        <span className="font-bold text-sm text-on-surface">
                           {Number(quorumLive?.totalCoeficienteRegistrado || 0).toFixed(4)}
                         </span>
                       </div>
@@ -741,33 +764,33 @@ export default function ResAsambleasPage() {
 
                   {/* Orden del Día */}
                   <div>
-                    <h4 className="font-semibold text-sm text-neutral-900 dark:text-neutral-100 mb-2">
-                      Orden del Día Propuesto
+                    <h4 className="font-semibold text-sm text-on-surface mb-2">
+                      Orden del día propuesto
                     </h4>
-                    <div className="bg-neutral-50 dark:bg-neutral-800/40 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 text-sm whitespace-pre-wrap text-neutral-700 dark:text-neutral-300 font-sans leading-relaxed">
+                    <div className="bg-surface-container p-4 rounded-xl border border-border text-sm whitespace-pre-wrap text-text-secondary font-sans leading-relaxed">
                       {asambleaActiva.ordenDelDia}
                     </div>
                   </div>
                 </div>
 
                 {/* Votaciones en Asamblea */}
-                <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-6 shadow-sm">
+                <div className="bg-surface border border-border rounded-lg shadow-sm p-4 sm:p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <Vote className="w-5 h-5 text-primary" />
-                      <h3 className="font-bold text-base text-neutral-900 dark:text-neutral-100">
-                        Votaciones y Decisiones
+                      <h3 className="font-bold text-base text-on-surface">
+                        Votaciones y decisiones
                       </h3>
                     </div>
-                    <span className="text-xs text-neutral-400">
+                    <span className="text-xs text-text-muted">
                       {votaciones.length} punto(s) de votación
                     </span>
                   </div>
 
                   {loadingVotaciones ? (
-                    <div className="p-4 text-center text-xs text-neutral-400">Cargando votaciones...</div>
+                    <div className="p-4 text-center text-xs text-text-muted">Cargando votaciones...</div>
                   ) : votaciones.length === 0 ? (
-                    <div className="text-center py-6 text-neutral-400 text-sm">
+                    <div className="text-center py-6 text-text-muted text-sm">
                       No hay puntos de votación activos o registrados para esta asamblea.
                     </div>
                   ) : (
@@ -775,22 +798,22 @@ export default function ResAsambleasPage() {
                       {votaciones.map((v) => (
                         <div
                           key={v.idVotacion}
-                          className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 space-y-3"
+                          className="p-4 rounded-xl border border-border space-y-3"
                         >
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
-                              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
+                              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-surface-dim text-text-secondary">
                                 Punto #{v.puntoOrdenDia}
                               </span>
-                              <h5 className="font-semibold text-sm text-neutral-900 dark:text-neutral-100">
+                              <h5 className="font-semibold text-sm text-on-surface">
                                 {v.titulo}
                               </h5>
                             </div>
                             <span
                               className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                                 v.estado === 'ABIERTA'
-                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                                  : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400'
+                                  ? 'bg-tint-green-bg text-tint-green-fg'
+                                  : 'bg-surface-dim text-text-secondary'
                               }`}
                             >
                               {v.estado}
@@ -798,33 +821,33 @@ export default function ResAsambleasPage() {
                           </div>
 
                           {v.descripcion && (
-                            <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                            <p className="text-xs text-text-secondary">
                               {v.descripcion}
                             </p>
                           )}
 
                           {/* Emisión interactiva de voto si la votación está ABIERTA */}
                           {v.estado === 'ABIERTA' && (
-                            <div className="p-3 bg-neutral-50 dark:bg-neutral-800/40 rounded-lg space-y-2 border border-neutral-200 dark:border-neutral-800">
+                            <div className="p-3 bg-surface-container rounded-lg space-y-2 border border-border">
                               <div className="flex items-center justify-between">
-                                <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
-                                  Emitir Voto
+                                <span className="text-xs font-semibold text-text-secondary">
+                                  Emitir voto
                                 </span>
                                 {unidadVoto && votoExitosoMap[`${v.idVotacion}:${unidadVoto.idUnidad}`] && (
-                                  <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                                  <span className="text-xs font-semibold text-tint-green-fg flex items-center gap-1">
                                     <CheckCircle2 className="w-3.5 h-3.5" /> Voto registrado: {votoExitosoMap[`${v.idVotacion}:${unidadVoto.idUnidad}`]}
                                   </span>
                                 )}
                               </div>
                               {unidadesVoto.length === 0 ? (
-                                <p className="text-xs text-amber-700 dark:text-amber-400">
+                                <p className="text-xs text-tint-amber-fg">
                                   No tiene una unidad propia ni poderes aprobados para votar.
                                 </p>
                               ) : (
                                 <div>
                                   <label
                                     htmlFor={`unidad-voto-${v.idVotacion}`}
-                                    className="block text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-1"
+                                    className="block text-[11px] font-semibold text-text-muted mb-1"
                                   >
                                     Votar por la unidad
                                   </label>
@@ -832,7 +855,7 @@ export default function ResAsambleasPage() {
                                     id={`unidad-voto-${v.idVotacion}`}
                                     value={unidadVoto ? String(unidadVoto.idUnidad) : ''}
                                     onChange={(e) => setUnidadVotoSel(e.target.value)}
-                                    className="w-full px-3 py-1.5 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900"
+                                    className="w-full px-3 py-1.5 text-sm rounded-lg border border-border bg-surface"
                                   >
                                     {unidadesVoto.map((u) => (
                                       <option key={u.idUnidad} value={u.idUnidad}>
@@ -847,7 +870,7 @@ export default function ResAsambleasPage() {
                                   type="button"
                                   disabled={votingId === v.idVotacion || !unidadVoto || !!votoExitosoMap[`${v.idVotacion}:${unidadVoto?.idUnidad}`]}
                                   onClick={() => handleVotar(v.idVotacion, 'SI')}
-                                  className="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-1 shadow-sm"
+                                  className="px-3 py-2 text-xs font-semibold rounded-lg bg-btn-success hover:bg-btn-success/90 text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-1 shadow-sm"
                                 >
                                   <CheckCircle2 className="w-3.5 h-3.5" /> SÍ
                                 </button>
@@ -855,7 +878,7 @@ export default function ResAsambleasPage() {
                                   type="button"
                                   disabled={votingId === v.idVotacion || !unidadVoto || !!votoExitosoMap[`${v.idVotacion}:${unidadVoto?.idUnidad}`]}
                                   onClick={() => handleVotar(v.idVotacion, 'NO')}
-                                  className="px-3 py-2 text-xs font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-1 shadow-sm"
+                                  className="px-3 py-2 text-xs font-semibold rounded-lg bg-btn-danger hover:bg-btn-danger-hover text-white transition-colors disabled:opacity-50 flex items-center justify-center gap-1 shadow-sm"
                                 >
                                   NO
                                 </button>
@@ -863,7 +886,7 @@ export default function ResAsambleasPage() {
                                   type="button"
                                   disabled={votingId === v.idVotacion || !unidadVoto || !!votoExitosoMap[`${v.idVotacion}:${unidadVoto?.idUnidad}`]}
                                   onClick={() => handleVotar(v.idVotacion, 'BLANCO')}
-                                  className="px-3 py-2 text-xs font-semibold rounded-lg bg-neutral-200 dark:bg-neutral-700 hover:bg-neutral-300 dark:hover:bg-neutral-600 text-neutral-800 dark:text-neutral-200 transition-colors disabled:opacity-50 shadow-sm"
+                                  className="px-3 py-2 text-xs font-semibold rounded-lg bg-surface-dim hover:bg-neutral-300 text-on-surface transition-colors disabled:opacity-50 shadow-sm"
                                 >
                                   BLANCO
                                 </button>
@@ -871,7 +894,7 @@ export default function ResAsambleasPage() {
                                   type="button"
                                   disabled={votingId === v.idVotacion || !unidadVoto || !!votoExitosoMap[`${v.idVotacion}:${unidadVoto?.idUnidad}`]}
                                   onClick={() => handleVotar(v.idVotacion, 'ABSTENCION')}
-                                  className="px-3 py-2 text-xs font-semibold rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-800 dark:text-amber-300 border border-amber-500/30 transition-colors disabled:opacity-50 shadow-sm"
+                                  className="px-3 py-2 text-xs font-semibold rounded-lg bg-tint-amber-bg hover:bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25 transition-colors disabled:opacity-50 shadow-sm"
                                 >
                                   ABSTENCIÓN
                                 </button>
@@ -881,34 +904,34 @@ export default function ResAsambleasPage() {
 
                           {/* Resultados si está cerrada */}
                           {v.estado === 'CERRADA' && (
-                            <div className="p-3 bg-neutral-50 dark:bg-neutral-800/60 rounded-lg text-xs space-y-1">
+                            <div className="p-3 bg-surface-container rounded-lg text-xs space-y-1">
                               <div className="flex justify-between font-medium">
                                 <span>Resultado:</span>
                                 <span
-                                  className={v.aprobada ? 'text-emerald-600 font-bold' : 'text-red-600 font-bold'}
+                                  className={v.aprobada ? 'text-tint-green-fg font-bold' : 'text-tint-red-fg font-bold'}
                                 >
                                   {v.aprobada ? 'APROBADA' : 'NO APROBADA'}
                                 </span>
                               </div>
                               <div className="grid grid-cols-4 gap-2 text-center pt-2">
-                                <div className="bg-emerald-500/10 p-1.5 rounded">
-                                  <span className="block text-neutral-400">SÍ</span>
-                                  <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                                <div className="bg-tint-green-bg p-1.5 rounded">
+                                  <span className="block text-text-muted">SÍ</span>
+                                  <span className="font-bold text-tint-green-fg">
                                     {v.votosSi || 0}
                                   </span>
                                 </div>
-                                <div className="bg-red-500/10 p-1.5 rounded">
-                                  <span className="block text-neutral-400">NO</span>
-                                  <span className="font-bold text-red-700 dark:text-red-400">
+                                <div className="bg-tint-red-bg p-1.5 rounded">
+                                  <span className="block text-text-muted">NO</span>
+                                  <span className="font-bold text-tint-red-fg">
                                     {v.votosNo || 0}
                                   </span>
                                 </div>
-                                <div className="bg-neutral-500/10 p-1.5 rounded">
-                                  <span className="block text-neutral-400">BLANCO</span>
+                                <div className="bg-surface-dim p-1.5 rounded">
+                                  <span className="block text-text-muted">BLANCO</span>
                                   <span className="font-bold">{v.votosBlanco || 0}</span>
                                 </div>
-                                <div className="bg-neutral-500/10 p-1.5 rounded">
-                                  <span className="block text-neutral-400">ABSTENCIÓN</span>
+                                <div className="bg-surface-dim p-1.5 rounded">
+                                  <span className="block text-text-muted">ABSTENCIÓN</span>
                                   <span className="font-bold">{v.votosAbstencion || 0}</span>
                                 </div>
                               </div>
@@ -921,34 +944,34 @@ export default function ResAsambleasPage() {
                 </div>
 
                 {/* Poderes Radicados para esta Asamblea */}
-                <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-6 shadow-sm">
+                <div className="bg-surface border border-border rounded-lg shadow-sm p-4 sm:p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="w-5 h-5 text-primary" />
-                      <h3 className="font-bold text-base text-neutral-900 dark:text-neutral-100">
-                        Poderes de Representación Registrados
+                      <h3 className="font-bold text-base text-on-surface">
+                        Poderes de representación registrados
                       </h3>
                     </div>
-                    <span className="text-xs text-neutral-400">
+                    <span className="text-xs text-text-muted">
                       {poderes.length} poder(es) registrado(s)
                     </span>
                   </div>
 
                   {loadingPoderes ? (
-                    <div className="p-4 text-center text-xs text-neutral-400">Cargando poderes...</div>
+                    <div className="p-4 text-center text-xs text-text-muted">Cargando poderes...</div>
                   ) : poderes.length === 0 ? (
-                    <div className="text-center py-6 text-neutral-400 text-sm">
+                    <div className="text-center py-6 text-text-muted text-sm">
                       No hay poderes radicados para esta asamblea.
                     </div>
                   ) : (
-                    <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                    <div className="divide-y divide-border-subtle ">
                       {poderes.map((p) => (
                         <div key={p.idPoder} className="py-3 flex items-center justify-between text-sm">
                           <div>
-                            <span className="font-semibold text-neutral-800 dark:text-neutral-200">
+                            <span className="font-semibold text-on-surface">
                               Unidad {p.unidadIdentificador || `ID ${p.idUnidad}`}
                             </span>
-                            <p className="text-xs text-neutral-500">
+                            <p className="text-xs text-text-muted">
                               Otorgante: {p.nombrePropietario || `ID ${p.idPersonaPropietario}`} →
                               Apoderado: {p.nombreApoderado || `ID ${p.idPersonaApoderado}`}
                             </p>
@@ -956,10 +979,10 @@ export default function ResAsambleasPage() {
                           <span
                             className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                               p.estado === 'APROBADO'
-                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                                ? 'bg-tint-green-bg text-tint-green-fg'
                                 : p.estado === 'RECHAZADO'
-                                ? 'bg-red-500/15 text-red-700 dark:text-red-400'
-                                : 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                                ? 'bg-tint-red-bg text-tint-red-fg'
+                                : 'bg-tint-amber-bg text-tint-amber-fg'
                             }`}
                           >
                             {p.estado}
@@ -971,8 +994,8 @@ export default function ResAsambleasPage() {
                 </div>
               </>
             ) : (
-              <div className="p-8 text-center text-neutral-400 border border-neutral-200 dark:border-neutral-800 rounded-xl">
-                Seleccione una asamblea del listado lateral para ver su detalle y quórum.
+              <div className="p-8 text-center text-text-muted border border-border rounded-xl">
+                Selecciona una asamblea del listado para ver su detalle y quórum.
               </div>
             )}
           </div>
@@ -984,19 +1007,19 @@ export default function ResAsambleasPage() {
         <Modal
           open={modalPoderOpen}
           onClose={() => setModalPoderOpen(false)}
-          title="Radicar Poder de Representación (Ley 675)"
+          title="Radicar poder de representación (Ley 675)"
         >
           <form onSubmit={handleRadicarPoder} className="space-y-4">
-            <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-xs text-blue-900 dark:text-blue-300">
+            <div className="p-3 bg-tint-blue-bg border border-tint-blue-fg/25 rounded-lg text-xs text-tint-blue-fg">
               Conforme a la Ley 675 y el reglamento de la copropiedad, todo copropietario puede hacerse
               representar mediante poder debidamente conferido. No se permite la auto-representación.
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">
-                Unidad / Inmueble
+              <label className="block text-xs font-semibold text-text-muted mb-1">
+                Unidad / inmueble
               </label>
-              <div className="px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/40">
+              <div className="px-3 py-2 text-sm rounded-lg border border-border bg-surface-container">
                 {ownUnitId ? `Unidad ${ownUnitLabel}` : 'No tiene una unidad asignada activa.'}
               </div>
             </div>
@@ -1004,7 +1027,7 @@ export default function ResAsambleasPage() {
             <div>
               <label
                 htmlFor="poder-propietario"
-                className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1"
+                className="block text-xs font-semibold text-text-muted mb-1"
               >
                 Propietario (Poderdante) *
               </label>
@@ -1013,9 +1036,9 @@ export default function ResAsambleasPage() {
                 required
                 value={formPoder.idPersonaPropietario}
                 onChange={(e) => setFormPoder({ ...formPoder, idPersonaPropietario: e.target.value })}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="">Seleccione...</option>
+                <option value="">Selecciona…</option>
                 {propietariosUnidad.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.nombre}
@@ -1027,7 +1050,7 @@ export default function ResAsambleasPage() {
             <div>
               <label
                 htmlFor="poder-apoderado"
-                className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1"
+                className="block text-xs font-semibold text-text-muted mb-1"
               >
                 Apoderado (Representante) *
               </label>
@@ -1036,9 +1059,9 @@ export default function ResAsambleasPage() {
                 required
                 value={formPoder.idPersonaApoderado}
                 onChange={(e) => setFormPoder({ ...formPoder, idPersonaApoderado: e.target.value })}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="">Seleccione...</option>
+                <option value="">Selecciona…</option>
                 {personasUnidad
                   .filter((p) => String(p.id) !== String(formPoder.idPersonaPropietario))
                   .map((p) => (
@@ -1050,8 +1073,8 @@ export default function ResAsambleasPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">
-                Enlace / URL de Carta Poder Escaneada (Opcional)
+              <label className="block text-xs font-semibold text-text-muted mb-1">
+                Enlace / URL de carta poder escaneada (opcional)
               </label>
               <input
                 type="url"
@@ -1059,16 +1082,16 @@ export default function ResAsambleasPage() {
                 onChange={(e) =>
                   setFormPoder({ ...formPoder, documentoPoderUrl: e.target.value })
                 }
-                className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="https://..."
               />
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
               <button
                 type="button"
                 onClick={() => setModalPoderOpen(false)}
-                className="px-4 py-2 text-sm font-medium rounded-lg border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-border hover:bg-surface-dim transition-colors"
               >
                 Cancelar
               </button>
@@ -1083,6 +1106,6 @@ export default function ResAsambleasPage() {
           </form>
         </Modal>
       )}
-    </div>
+    </PageContainer>
   );
 }

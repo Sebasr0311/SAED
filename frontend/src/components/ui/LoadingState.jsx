@@ -1,9 +1,16 @@
 import { memo } from 'react';
 import { cn } from '../../lib/utils.js';
 
+const SIZE_MAP = {
+  sm: { container: 'p-3 gap-2', rows: ['w-3/4', 'w-1/2'], text: 'text-xs' },
+  md: { container: 'p-6 gap-2.5', rows: ['w-2/3', 'w-full', 'w-5/6'], text: 'text-xs' },
+  lg: { container: 'p-8 gap-3', rows: ['w-1/2', 'w-full', 'w-11/12', 'w-4/5'], text: 'text-sm' },
+};
+
 /**
- * LoadingState — Componente accesible de estado de carga para vistas y secciones.
- * Cumple WCAG con role="status" y aria-live="polite".
+ * LoadingState — skeleton placeholder for views and sections (no spinner in the content).
+ * WCAG: role="status" + aria-live="polite"; the message stays readable as a caption.
+ * API kept stable: message | description | size | className.
  */
 export const LoadingState = memo(function LoadingState({
   message = 'Cargando...',
@@ -11,48 +18,24 @@ export const LoadingState = memo(function LoadingState({
   size = 'md',
   className = '',
 }) {
-  const sizeMap = {
-    sm: {
-      container: 'p-4 gap-2',
-      spinner: 'h-5 w-5 border-2',
-      text: 'text-xs',
-    },
-    md: {
-      container: 'p-8 gap-3',
-      spinner: 'h-8 w-8 border-2',
-      text: 'text-sm',
-    },
-    lg: {
-      container: 'p-12 gap-4',
-      spinner: 'h-10 w-10 border-3',
-      text: 'text-base',
-    },
-  };
-
-  const currentSize = sizeMap[size] || sizeMap.md;
+  const current = SIZE_MAP[size] || SIZE_MAP.md;
 
   return (
     <div
       role="status"
       aria-live="polite"
-      className={cn(
-        'flex flex-col items-center justify-center text-center text-muted-foreground',
-        currentSize.container,
-        className
-      )}
+      aria-busy="true"
+      className={cn('flex w-full flex-col', current.container, className)}
     >
-      <div
-        className={cn(
-          'animate-spin rounded-full border-primary border-t-transparent',
-          currentSize.spinner
-        )}
-        aria-hidden="true"
-      />
-      <div className="space-y-0.5">
-        <p className={cn('font-medium text-foreground', currentSize.text)}>{message}</p>
-        {description && <p className="text-xs text-muted-foreground">{description}</p>}
+      <div className="flex flex-col gap-2" aria-hidden="true">
+        {current.rows.map((width, idx) => (
+          <div key={idx} className={cn('app-skeleton h-3', idx === 0 ? 'h-3.5' : '', width)} />
+        ))}
       </div>
-      <span className="sr-only">{message}</span>
+      <div className="pt-1">
+        <p className={cn('font-semibold text-text-secondary', current.text)}>{message}</p>
+        {description && <p className="mt-0.5 text-xs text-text-muted">{description}</p>}
+      </div>
     </div>
   );
 });

@@ -1,81 +1,554 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-25T00:00:00Z",
+  "generatedAt": "2026-10-26T00:00:00Z",
   "title": "Design System: SAED 2.0",
   "scope": {
     "selector": ".saed-manual",
     "source": "src/components/landing/manual.css",
-    "covers": ["src/pages/LandingPage.jsx", "src/components/landing/*", "LandingNavbar and LandingFooter on src/pages/SuscripcionesPage.jsx"],
-    "excludes": ["authenticated app UI (AppShell, src/components/ui/*, src/index.css, Tailwind theme)", "SuscripcionesPage body and LandingPricing (not yet migrated)"]
+    "covers": [
+      "src/pages/LandingPage.jsx",
+      "src/components/landing/*",
+      "LandingNavbar and LandingFooter on src/pages/SuscripcionesPage.jsx"
+    ],
+    "appSurfaces": {
+      "mode": "operate",
+      "source": [
+        "src/index.css (:root, [data-theme=dark], .dark, App surfaces block)",
+        "tailwind.config.js"
+      ],
+      "covers": [
+        "src/components/layout/AppShell.jsx",
+        "src/components/ui/*",
+        "all authenticated pages (every role)"
+      ],
+      "note": "Operate-mode extension of the manual: palette, Archivo display/numerals, keylines and the Índigo active piece; standard web controls; no --m-* tokens."
+    },
+    "excludes": [
+      "SuscripcionesPage body and LandingPricing (not yet migrated)"
+    ]
   },
   "extensions": {
     "colorMeta": {
-      "blanco": { "role": "neutral", "displayName": "Blanco", "canonical": "#FFFFFF", "cssVar": "--m-paper", "tonalRamp": ["#1D2942", "#3A4766", "#6B7896", "#9AA5BE", "#C4CCDC", "#E3E8F1", "#F4F6FA", "#FFFFFF"] },
-      "perla": { "role": "neutral", "displayName": "Perla", "canonical": "#F7F9FE", "cssVar": "--m-page", "tonalRamp": ["#232B3D", "#3E4860", "#646F88", "#8E98AF", "#B8C0D2", "#DCE1EC", "#EEF1F9", "#F7F9FE"] },
-      "azul-pastel": { "role": "neutral", "displayName": "Azul pastel", "canonical": "#DFEBFF", "cssVar": "--m-ground", "tonalRamp": ["#14223D", "#22385F", "#3A5585", "#5D78A8", "#88A0C9", "#B4C8E8", "#DFEBFF", "#F1F6FF"] },
-      "lavanda": { "role": "secondary", "displayName": "Lavanda", "canonical": "#EEE8FF", "cssVar": "--m-lav (82% alpha)", "tonalRamp": ["#21183F", "#372965", "#53428F", "#7663B5", "#9C8DD5", "#C6BCEF", "#EEE8FF", "#F7F4FF"] },
-      "menta": { "role": "secondary", "displayName": "Menta", "canonical": "#DCF4EB", "cssVar": "--m-mint (82% alpha), --m-ok-bg", "tonalRamp": ["#0B2B21", "#0F4A38", "#0F6B4F", "#3C8E72", "#6FB39A", "#A6D6C4", "#DCF4EB", "#F0FBF7"] },
-      "indigo-saed": { "role": "primary", "displayName": "Índigo SAED", "canonical": "#5267DA", "cssVar": "--m-indigo", "tonalRamp": ["#161D45", "#25306F", "#33449D", "#4155C6", "#5267DA", "#7F8FE5", "#B3BDF1", "#E3E7FB"] },
-      "indigo-deep": { "role": "primary", "displayName": "Índigo profundo", "canonical": "#4155C6", "cssVar": "--m-indigo-hover, --m-indigo-text, --m-new-line" },
-      "azul-tinta": { "role": "neutral", "displayName": "Azul tinta", "canonical": "#1D2942", "cssVar": "--m-ink, --m-keyline", "tonalRamp": ["#0B111D", "#1D2942", "#3A4766", "#5B6785", "#828CA6", "#AAB2C6", "#D2D7E3", "#EEF0F5"] },
-      "tinta-suave": { "role": "neutral", "displayName": "Tinta suave", "canonical": "#3A4766", "cssVar": "--m-ink-2" },
-      "verde-ok": { "role": "secondary", "displayName": "Verde ok", "canonical": "#0F6B4F", "cssVar": "--m-ok" },
-      "noche-ground": { "role": "neutral", "displayName": "Noche", "canonical": "#070B14", "cssVar": "--m-ground (dark)" },
-      "noche-page": { "role": "neutral", "displayName": "Noche página", "canonical": "#0B1222", "cssVar": "--m-page (dark)" },
-      "noche-paper": { "role": "neutral", "displayName": "Noche papel", "canonical": "#0F172A", "cssVar": "--m-paper (dark)" },
-      "noche-ink": { "role": "neutral", "displayName": "Tinta luminosa", "canonical": "#EEF3FF", "cssVar": "--m-ink (dark)" },
-      "noche-ink-2": { "role": "neutral", "displayName": "Tinta luminosa suave", "canonical": "#B4C0DC", "cssVar": "--m-ink-2 (dark)" },
-      "indigo-luminoso": { "role": "primary", "displayName": "Índigo luminoso", "canonical": "#A3B0FF", "cssVar": "--m-indigo-text, --m-new-line, --m-focus (dark)" },
-      "menta-luminosa": { "role": "secondary", "displayName": "Menta luminosa", "canonical": "#86E3C1", "cssVar": "--m-ok (dark)" }
+      "blanco": {
+        "role": "neutral",
+        "displayName": "Blanco",
+        "canonical": "#FFFFFF",
+        "cssVar": "--m-paper",
+        "tonalRamp": [
+          "#1D2942",
+          "#3A4766",
+          "#6B7896",
+          "#9AA5BE",
+          "#C4CCDC",
+          "#E3E8F1",
+          "#F4F6FA",
+          "#FFFFFF"
+        ]
+      },
+      "perla": {
+        "role": "neutral",
+        "displayName": "Perla",
+        "canonical": "#F7F9FE",
+        "cssVar": "--m-page",
+        "tonalRamp": [
+          "#232B3D",
+          "#3E4860",
+          "#646F88",
+          "#8E98AF",
+          "#B8C0D2",
+          "#DCE1EC",
+          "#EEF1F9",
+          "#F7F9FE"
+        ]
+      },
+      "azul-pastel": {
+        "role": "neutral",
+        "displayName": "Azul pastel",
+        "canonical": "#DFEBFF",
+        "cssVar": "--m-ground",
+        "tonalRamp": [
+          "#14223D",
+          "#22385F",
+          "#3A5585",
+          "#5D78A8",
+          "#88A0C9",
+          "#B4C8E8",
+          "#DFEBFF",
+          "#F1F6FF"
+        ]
+      },
+      "lavanda": {
+        "role": "secondary",
+        "displayName": "Lavanda",
+        "canonical": "#EEE8FF",
+        "cssVar": "--m-lav (82% alpha)",
+        "tonalRamp": [
+          "#21183F",
+          "#372965",
+          "#53428F",
+          "#7663B5",
+          "#9C8DD5",
+          "#C6BCEF",
+          "#EEE8FF",
+          "#F7F4FF"
+        ]
+      },
+      "menta": {
+        "role": "secondary",
+        "displayName": "Menta",
+        "canonical": "#DCF4EB",
+        "cssVar": "--m-mint (82% alpha), --m-ok-bg",
+        "tonalRamp": [
+          "#0B2B21",
+          "#0F4A38",
+          "#0F6B4F",
+          "#3C8E72",
+          "#6FB39A",
+          "#A6D6C4",
+          "#DCF4EB",
+          "#F0FBF7"
+        ]
+      },
+      "indigo-saed": {
+        "role": "primary",
+        "displayName": "Índigo SAED",
+        "canonical": "#5267DA",
+        "cssVar": "--m-indigo",
+        "tonalRamp": [
+          "#161D45",
+          "#25306F",
+          "#33449D",
+          "#4155C6",
+          "#5267DA",
+          "#7F8FE5",
+          "#B3BDF1",
+          "#E3E7FB"
+        ]
+      },
+      "indigo-deep": {
+        "role": "primary",
+        "displayName": "Índigo profundo",
+        "canonical": "#4155C6",
+        "cssVar": "--m-indigo-hover, --m-indigo-text, --m-new-line"
+      },
+      "azul-tinta": {
+        "role": "neutral",
+        "displayName": "Azul tinta",
+        "canonical": "#1D2942",
+        "cssVar": "--m-ink, --m-keyline",
+        "tonalRamp": [
+          "#0B111D",
+          "#1D2942",
+          "#3A4766",
+          "#5B6785",
+          "#828CA6",
+          "#AAB2C6",
+          "#D2D7E3",
+          "#EEF0F5"
+        ]
+      },
+      "tinta-suave": {
+        "role": "neutral",
+        "displayName": "Tinta suave",
+        "canonical": "#3A4766",
+        "cssVar": "--m-ink-2"
+      },
+      "verde-ok": {
+        "role": "secondary",
+        "displayName": "Verde ok",
+        "canonical": "#0F6B4F",
+        "cssVar": "--m-ok"
+      },
+      "noche-ground": {
+        "role": "neutral",
+        "displayName": "Noche",
+        "canonical": "#070B14",
+        "cssVar": "--m-ground (dark)"
+      },
+      "noche-page": {
+        "role": "neutral",
+        "displayName": "Noche página",
+        "canonical": "#0B1222",
+        "cssVar": "--m-page (dark)"
+      },
+      "noche-paper": {
+        "role": "neutral",
+        "displayName": "Noche papel",
+        "canonical": "#0F172A",
+        "cssVar": "--m-paper (dark)"
+      },
+      "noche-ink": {
+        "role": "neutral",
+        "displayName": "Tinta luminosa",
+        "canonical": "#EEF3FF",
+        "cssVar": "--m-ink (dark)"
+      },
+      "noche-ink-2": {
+        "role": "neutral",
+        "displayName": "Tinta luminosa suave",
+        "canonical": "#B4C0DC",
+        "cssVar": "--m-ink-2 (dark)"
+      },
+      "indigo-luminoso": {
+        "role": "primary",
+        "displayName": "Índigo luminoso",
+        "canonical": "#A3B0FF",
+        "cssVar": "--m-indigo-text, --m-new-line, --m-focus (dark)"
+      },
+      "menta-luminosa": {
+        "role": "secondary",
+        "displayName": "Menta luminosa",
+        "canonical": "#86E3C1",
+        "cssVar": "--m-ok (dark)"
+      }
     },
     "alphaTokens": [
-      { "name": "keyline-soft", "light": "rgba(29, 41, 66, 0.22)", "dark": "rgba(214, 227, 255, 0.2)", "purpose": "Row dividers inside a container only." },
-      { "name": "keyline-dark", "dark": "rgba(214, 227, 255, 0.8)", "purpose": "Luminous keyline in dark mode." },
-      { "name": "glass", "light": "rgba(255, 255, 255, 0.6)", "dark": "rgba(15, 23, 42, 0.58)", "purpose": "Default piece and film-screen glass." },
-      { "name": "glass-strong", "light": "rgba(255, 255, 255, 0.86)", "dark": "rgba(15, 23, 42, 0.9)", "purpose": "Glass button and base plate." },
-      { "name": "glass-callout", "light": "rgba(255, 255, 255, 0.45)", "dark": "rgba(15, 23, 42, 0.55)", "purpose": "Glass call-outs overlapping the model." },
-      { "name": "new-fill", "light": "rgba(82, 103, 218, 0.82)", "dark": "rgba(98, 116, 232, 0.72)", "purpose": "The new piece of the current step." },
-      { "name": "ghost-line", "light": "rgba(29, 41, 66, 0.7)", "dark": "rgba(214, 227, 255, 0.55)", "purpose": "Dashed keyline and studs of ghosted pieces; done ticks." },
-      { "name": "dot", "light": "rgba(29, 41, 66, 0.12)", "dark": "rgba(214, 227, 255, 0.1)", "purpose": "Stud-dot grid on the root ground (1.3px dot, 24px pitch)." },
-      { "name": "dot-strong", "light": "rgba(29, 41, 66, 0.24)", "dark": "rgba(214, 227, 255, 0.2)", "purpose": "Stud-dense frames: model pages, parts tray, step frames." }
+      {
+        "name": "keyline-soft",
+        "light": "rgba(29, 41, 66, 0.22)",
+        "dark": "rgba(214, 227, 255, 0.2)",
+        "purpose": "Row dividers inside a container only."
+      },
+      {
+        "name": "keyline-dark",
+        "dark": "rgba(214, 227, 255, 0.8)",
+        "purpose": "Luminous keyline in dark mode."
+      },
+      {
+        "name": "glass",
+        "light": "rgba(255, 255, 255, 0.6)",
+        "dark": "rgba(15, 23, 42, 0.58)",
+        "purpose": "Default piece and film-screen glass."
+      },
+      {
+        "name": "glass-strong",
+        "light": "rgba(255, 255, 255, 0.86)",
+        "dark": "rgba(15, 23, 42, 0.9)",
+        "purpose": "Glass button and base plate."
+      },
+      {
+        "name": "glass-callout",
+        "light": "rgba(255, 255, 255, 0.45)",
+        "dark": "rgba(15, 23, 42, 0.55)",
+        "purpose": "Glass call-outs overlapping the model."
+      },
+      {
+        "name": "new-fill",
+        "light": "rgba(82, 103, 218, 0.82)",
+        "dark": "rgba(98, 116, 232, 0.72)",
+        "purpose": "The new piece of the current step."
+      },
+      {
+        "name": "ghost-line",
+        "light": "rgba(29, 41, 66, 0.7)",
+        "dark": "rgba(214, 227, 255, 0.55)",
+        "purpose": "Dashed keyline and studs of ghosted pieces; done ticks."
+      },
+      {
+        "name": "dot",
+        "light": "rgba(29, 41, 66, 0.12)",
+        "dark": "rgba(214, 227, 255, 0.1)",
+        "purpose": "Stud-dot grid on the root ground (1.3px dot, 24px pitch)."
+      },
+      {
+        "name": "dot-strong",
+        "light": "rgba(29, 41, 66, 0.24)",
+        "dark": "rgba(214, 227, 255, 0.2)",
+        "purpose": "Stud-dense frames: model pages, parts tray, step frames."
+      }
     ],
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Hero headline only; balanced, max 15ch." },
-      "headline": { "displayName": "Headline", "purpose": "Section titles." },
-      "title": { "displayName": "Title", "purpose": "Sub-section titles." },
-      "numeral": { "displayName": "Step numeral", "purpose": "Giant step numerals and the live unit count (2rem small cut)." },
-      "lede": { "displayName": "Lede", "purpose": "Hero offer line, max 46ch, Tinta suave." },
-      "body": { "displayName": "Body", "purpose": "Section copy, max 62ch, Tinta suave." },
-      "label": { "displayName": "Label", "purpose": "Buttons and strip links." },
-      "caption": { "displayName": "Caption", "purpose": "Model captions, call-out body, parts labels." },
-      "stamp": { "displayName": "Stamp", "purpose": "1:1 scale marks, Próximamente, version tag, part counts." }
+      "display": {
+        "displayName": "Display",
+        "purpose": "Hero headline only; balanced, max 15ch."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Sub-section titles."
+      },
+      "numeral": {
+        "displayName": "Step numeral",
+        "purpose": "Giant step numerals and the live unit count (2rem small cut)."
+      },
+      "lede": {
+        "displayName": "Lede",
+        "purpose": "Hero offer line, max 46ch, Tinta suave."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Section copy, max 62ch, Tinta suave."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Buttons and strip links."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Model captions, call-out body, parts labels."
+      },
+      "stamp": {
+        "displayName": "Stamp",
+        "purpose": "1:1 scale marks, Próximamente, version tag, part counts."
+      }
     },
     "shadows": [
-      { "name": "slab", "value": "0 10px 18px -12px rgba(29, 41, 66, 0.5), 0 2px 4px -1px rgba(29, 41, 66, 0.12)", "dark": "0 12px 22px -12px rgba(0, 0, 0, 0.9), 0 2px 4px -1px rgba(0, 0, 0, 0.5)", "purpose": "Under pieces, primary button, call-outs, units control, step cards, spec table, FAQ." },
-      { "name": "page", "value": "0 28px 48px -28px rgba(29, 41, 66, 0.55), 0 6px 12px -6px rgba(29, 41, 66, 0.14)", "dark": "0 30px 50px -28px rgba(0, 0, 0, 0.95), 0 6px 12px -6px rgba(0, 0, 0, 0.5)", "purpose": "Under hero spread, parts page, sticky stage, film screen, final step." },
-      { "name": "glass-highlight", "value": "inset 0 1px 0 rgba(255, 255, 255, 0.7)", "dark": "inset 0 1px 0 rgba(214, 227, 255, 0.2)", "purpose": "Top-edge highlight on glass call-outs; bottom inset on the strip." }
+      {
+        "name": "slab",
+        "value": "0 10px 18px -12px rgba(29, 41, 66, 0.5), 0 2px 4px -1px rgba(29, 41, 66, 0.12)",
+        "dark": "0 12px 22px -12px rgba(0, 0, 0, 0.9), 0 2px 4px -1px rgba(0, 0, 0, 0.5)",
+        "purpose": "Under pieces, primary button, call-outs, units control, step cards, spec table, FAQ."
+      },
+      {
+        "name": "page",
+        "value": "0 28px 48px -28px rgba(29, 41, 66, 0.55), 0 6px 12px -6px rgba(29, 41, 66, 0.14)",
+        "dark": "0 30px 50px -28px rgba(0, 0, 0, 0.95), 0 6px 12px -6px rgba(0, 0, 0, 0.5)",
+        "purpose": "Under hero spread, parts page, sticky stage, film screen, final step."
+      },
+      {
+        "name": "glass-highlight",
+        "value": "inset 0 1px 0 rgba(255, 255, 255, 0.7)",
+        "dark": "inset 0 1px 0 rgba(214, 227, 255, 0.2)",
+        "purpose": "Top-edge highlight on glass call-outs; bottom inset on the strip."
+      }
     ],
     "blur": [
-      { "name": "piece", "value": "blur(6px) saturate(1.15)" },
-      { "name": "button-glass", "value": "blur(8px)" },
-      { "name": "screen", "value": "blur(10px) saturate(1.15)" },
-      { "name": "strip", "value": "blur(14px) saturate(1.3)" },
-      { "name": "callout-glass", "value": "blur(18px) saturate(1.3)" }
+      {
+        "name": "piece",
+        "value": "blur(6px) saturate(1.15)"
+      },
+      {
+        "name": "button-glass",
+        "value": "blur(8px)"
+      },
+      {
+        "name": "screen",
+        "value": "blur(10px) saturate(1.15)"
+      },
+      {
+        "name": "strip",
+        "value": "blur(14px) saturate(1.3)"
+      },
+      {
+        "name": "callout-glass",
+        "value": "blur(18px) saturate(1.3)"
+      }
     ],
     "motion": [
-      { "name": "ease-expo-out", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "The only easing for pieces, presses and the FAQ chevron." },
-      { "name": "piece-transition", "value": "600ms", "purpose": "Piece state changes; 280ms when hiding; 300ms for color, left and height remaps." },
-      { "name": "drop-intro", "value": "650ms, 350ms delay", "purpose": "Hero new piece drops along its guide; guide fades in at 150ms (500ms)." },
-      { "name": "settle", "value": "520ms, 45ms stagger", "purpose": "Final set settles once on entering view, slight overshoot at 70%." },
-      { "name": "ui-state", "value": "150ms ease", "purpose": "Button, link and hover background changes." },
-      { "name": "chevron", "value": "250ms", "purpose": "FAQ disclosure rotation." },
-      { "name": "reduced-motion", "value": "150ms linear cross-fade", "purpose": "No transforms or keyframes; snap between assembled states." }
+      {
+        "name": "ease-expo-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The only easing for pieces, presses and the FAQ chevron."
+      },
+      {
+        "name": "piece-transition",
+        "value": "600ms",
+        "purpose": "Piece state changes; 280ms when hiding; 300ms for color, left and height remaps."
+      },
+      {
+        "name": "drop-intro",
+        "value": "650ms, 350ms delay",
+        "purpose": "Hero new piece drops along its guide; guide fades in at 150ms (500ms)."
+      },
+      {
+        "name": "settle",
+        "value": "520ms, 45ms stagger",
+        "purpose": "Final set settles once on entering view, slight overshoot at 70%."
+      },
+      {
+        "name": "ui-state",
+        "value": "150ms ease",
+        "purpose": "Button, link and hover background changes."
+      },
+      {
+        "name": "chevron",
+        "value": "250ms",
+        "purpose": "FAQ disclosure rotation."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "150ms linear cross-fade",
+        "purpose": "No transforms or keyframes; snap between assembled states."
+      }
     ],
     "breakpoints": [
-      { "name": "sm", "value": "640px" },
-      { "name": "md", "value": "768px" },
-      { "name": "lg", "value": "1024px" }
-    ]
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ],
+    "appSurfaces": {
+      "tokens": {
+        "light": {
+          "--background": "#F7F9FE",
+          "--surface": "#FFFFFF",
+          "--surface-dim": "#EEF2FA",
+          "--surface-container": "#F3F6FC",
+          "--on-surface": "#1D2942",
+          "--text-secondary": "#3A4766",
+          "--text-muted": "#5B6785",
+          "--text-hint": "#657290",
+          "--border": "#D6DCEA",
+          "--input-border": "#8792AA",
+          "--keyline": "#1D2942",
+          "--primary": "#5267DA",
+          "--primary-text": "#4155C6",
+          "--btn-primary": "#5267DA",
+          "--btn-primary-hover": "#4155C6",
+          "--btn-danger": "#B4233C",
+          "--destructive": "#B4233C",
+          "--sidebar-bg": "#1D2942",
+          "--chart-1": "#5267DA",
+          "--chart-2": "#1D2942",
+          "--chart-3": "#0F6B4F",
+          "--chart-4": "#B4620A",
+          "--chart-5": "#7663B5"
+        },
+        "dark": {
+          "--background": "#0B1222",
+          "--surface": "#0F172A",
+          "--surface-dim": "#151F36",
+          "--surface-container": "#121B31",
+          "--on-surface": "#EEF3FF",
+          "--text-secondary": "#B4C0DC",
+          "--text-muted": "#8F9BB8",
+          "--text-hint": "#7C88A6",
+          "--border": "#263049",
+          "--input-border": "#5C6886",
+          "--keyline": "rgba(214, 227, 255, 0.8)",
+          "--primary": "#A3B0FF",
+          "--primary-text": "#A3B0FF",
+          "--btn-primary": "#5267DA",
+          "--btn-danger": "#B4233C",
+          "--destructive": "#FF8FA3",
+          "--sidebar-bg": "#070B14",
+          "--chart-1": "#A3B0FF",
+          "--chart-2": "#B4C0DC",
+          "--chart-3": "#86E3C1",
+          "--chart-4": "#FCD27A",
+          "--chart-5": "#C6BCEF"
+        },
+        "status": {
+          "success": {
+            "light": [
+              "#DCF4EB",
+              "#0F6B4F"
+            ],
+            "dark": [
+              "rgba(134, 227, 193, 0.12)",
+              "#86E3C1"
+            ]
+          },
+          "warning": {
+            "light": [
+              "#FDF1DC",
+              "#8A4B08"
+            ],
+            "dark": [
+              "rgba(252, 210, 122, 0.12)",
+              "#FCD27A"
+            ]
+          },
+          "danger": {
+            "light": [
+              "#FDE8EC",
+              "#9A1C32"
+            ],
+            "dark": [
+              "rgba(255, 143, 163, 0.12)",
+              "#FF8FA3"
+            ]
+          },
+          "info": {
+            "light": [
+              "#DFEBFF",
+              "#23408F"
+            ],
+            "dark": [
+              "rgba(163, 176, 255, 0.12)",
+              "#C2CAFF"
+            ]
+          }
+        }
+      },
+      "typography": {
+        "family": "Plus Jakarta Sans for all UI text; Archivo only via .app-display, .app-numeral, .app-stamp",
+        "ramp": [
+          "11px",
+          "11.5px",
+          "12px",
+          "13px",
+          "14px",
+          "15px",
+          "16px"
+        ],
+        "display": {
+          "class": ".app-display",
+          "variation": "'wdth' 106, 'wght' 760",
+          "pageTitle": "1.625rem"
+        },
+        "numeral": {
+          "class": ".app-numeral",
+          "variation": "'wdth' 118, 'wght' 850",
+          "features": "tabular-nums lining-nums"
+        },
+        "stamp": {
+          "class": ".app-stamp",
+          "variation": "'wdth' 118, 'wght' 760"
+        }
+      },
+      "radii": {
+        "tag": "2px",
+        "badge": "3px",
+        "inset": "4px",
+        "control": "6px",
+        "card": "8px",
+        "tailwind": {
+          "DEFAULT": "6px",
+          "md": "6px",
+          "lg": "8px",
+          "xl": "8px",
+          "2xl": "10px",
+          "3xl": "12px"
+        }
+      },
+      "shadows": {
+        "soft": "0 1px 2px rgba(29, 41, 66, 0.06), 0 6px 14px -10px rgba(29, 41, 66, 0.28)",
+        "md": "0 10px 18px -12px rgba(29, 41, 66, 0.45), 0 2px 4px -1px rgba(29, 41, 66, 0.1)",
+        "page": "0 28px 48px -28px rgba(29, 41, 66, 0.5), 0 6px 12px -6px rgba(29, 41, 66, 0.14)"
+      },
+      "glass": [
+        {
+          "name": "header",
+          "class": ".app-glass-bar",
+          "value": "blur(14px) saturate(1.4)",
+          "bound": "1px --border bottom keyline"
+        },
+        {
+          "name": "overlay",
+          "class": ".app-overlay",
+          "value": "blur(6px) saturate(1.2)",
+          "use": "dialogs and mobile drawer"
+        }
+      ],
+      "signature": "Active nav item is the Índigo piece; attention rows show an Índigo piece when action is needed and a dashed ghost piece when settled. Stud dots (.app-studs) only in greeting headers and empty-state tiles.",
+      "motion": {
+        "easing": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "durations": "150-260ms",
+        "reducedMotion": "skeleton sweep and dialog entrance removed"
+      }
+    }
   },
   "components": [
     {
@@ -141,11 +614,27 @@
       "description": "Dashed roadmap piece stamped Próximamente; never presented as available.",
       "html": "<div class=\"ds-unbuilt\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9\"/><path d=\"M10.3 21a1.94 1.94 0 0 0 3.4 0\"/></svg><span class=\"ds-unbuilt-label\">Notificaciones push</span><span class=\"ds-stamp\">Próximamente</span></div>",
       "css": ".ds-unbuilt { display: flex; align-items: center; gap: 12px; max-width: 420px; padding: 16px; border: 1.5px dashed #1d2942; border-radius: 3px; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #3a4766; } .ds-unbuilt svg { width: 24px; height: 24px; flex-shrink: 0; } .ds-unbuilt-label { flex: 1; font-weight: 700; color: #1d2942; } .ds-stamp { padding: 2px 8px; border: 1.5px solid #1d2942; background: #f7f9fe; color: #1d2942; font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 112, 'wght' 800; font-size: 0.75rem; line-height: 1.5; white-space: nowrap; }"
+    },
+    {
+      "name": "App Nav Item (active piece)",
+      "kind": "nav",
+      "refersTo": "app-nav-active",
+      "description": "Sidebar item on Azul tinta; the active route is the solid Índigo piece.",
+      "html": "<nav class=\"ds-app-nav\"><a class=\"ds-app-nav-item is-active\" href=\"#\" aria-current=\"page\">Mi panel</a><a class=\"ds-app-nav-item\" href=\"#\">Visitas</a></nav>",
+      "css": ".ds-app-nav { display: grid; gap: 2px; width: 232px; padding: 12px; background: #1d2942; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; } .ds-app-nav-item { display: flex; align-items: center; height: 36px; padding: 0 10px; border-radius: 6px; font-size: 13px; font-weight: 500; color: #c9d3ea; text-decoration: none; transition: background-color 150ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-app-nav-item:hover { background: rgba(255, 255, 255, 0.06); color: #ffffff; } .ds-app-nav-item.is-active { background: #5267da; color: #ffffff; font-weight: 600; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 8px 14px -10px rgba(0, 0, 0, 0.7); } .ds-app-nav-item:focus-visible { outline: 2px solid #a3b0ff; outline-offset: 2px; }"
+    },
+    {
+      "name": "Attention Row",
+      "kind": "list",
+      "refersTo": "app-attention-row",
+      "description": "Resident home line: Índigo piece and count when action is needed, dashed ghost when settled.",
+      "html": "<ul class=\"ds-att\"><li><span class=\"ds-att-piece is-new\"></span><span class=\"ds-att-text\"><strong>Paquetes por retirar</strong><small>En custodia en portería.</small></span><span class=\"ds-att-num is-new\">2</span></li><li><span class=\"ds-att-piece\"></span><span class=\"ds-att-text\"><strong>Mensajes sin leer</strong><small>Estás al día con tu buzón.</small></span><span class=\"ds-att-num\">0</span></li></ul>",
+      "css": ".ds-att { margin: 0; padding: 0; list-style: none; max-width: 560px; border: 1px solid #d6dcea; border-radius: 8px; background: #ffffff; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; } .ds-att li { display: flex; align-items: center; gap: 16px; padding: 14px 20px; } .ds-att li + li { border-top: 1px solid #e6eaf3; } .ds-att-piece { width: 12px; height: 12px; border-radius: 3px; border: 1.5px dashed rgba(29, 41, 66, 0.45); } .ds-att-piece.is-new { border: 1px solid #4155c6; background: #5267da; } .ds-att-text { flex: 1; display: grid; } .ds-att-text strong { font-size: 14px; color: #1d2942; } .ds-att-text small { font-size: 12px; color: #5b6785; } .ds-att-num { font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 118, 'wght' 850; font-size: 1.625rem; line-height: 1; color: #5b6785; font-variant-numeric: tabular-nums lining-nums; } .ds-att-num.is-new { color: #4155c6; }"
     }
   ],
   "narrative": {
     "northStar": "Manual de armado del conjunto",
-    "overview": "The marketing surfaces read as a brick-build instruction book for a residential complex. Azul pastel pages are ruled by a 24px stud-dot module grid; every piece, page, call-out and control is outlined with an Azul tinta keyline; pieces are frosted-glass slabs that click onto one shared base. The piece added in the current step is Índigo, inventory pieces are Menta and Lavanda, earlier pieces sit ghosted behind dashed keylines, and oversized wide step numerals pace the reading. Hierarchy comes from piece size on a fixed S/M/L ramp and from type width, not from color washes.\n\nDensity is calm and generous: one spread, one model, one call-out at a time. Glass is the requested material, but it always sits inside a keyline; blur never stands alone as the edge of a surface. Dark mode is the same manual printed on night ink (Noche ground) with luminous keylines and luminous Índigo.\n\nScope boundary. This world is scoped to the .saed-manual class (tokens live as --m-* custom properties in src/components/landing/manual.css) and covers the public landing at / plus the shared LandingNavbar and LandingFooter, which self-scope and also render on /suscripciones. The authenticated app UI (AppShell, dashboards, shadcn ui/* components, src/index.css / Tailwind theme) keeps its incumbent system and must not inherit these tokens or rules. The /suscripciones body and LandingPricing have not been migrated into this world yet (see Don'ts).",
+    "overview": "The marketing surfaces read as a brick-build instruction book for a residential complex. Azul pastel pages are ruled by a 24px stud-dot module grid; every piece, page, call-out and control is outlined with an Azul tinta keyline; pieces are frosted-glass slabs that click onto one shared base. The piece added in the current step is Índigo, inventory pieces are Menta and Lavanda, earlier pieces sit ghosted behind dashed keylines, and oversized wide step numerals pace the reading. Hierarchy comes from piece size on a fixed S/M/L ramp and from type width, not from color washes.\n\nDensity is calm and generous: one spread, one model, one call-out at a time. Glass is the requested material, but it always sits inside a keyline; blur never stands alone as the edge of a surface. Dark mode is the same manual printed on night ink (Noche ground) with luminous keylines and luminous Índigo.\n\nScope boundary. This world is scoped to the .saed-manual class (tokens live as --m-* custom properties in src/components/landing/manual.css) and covers the public landing at / plus the shared LandingNavbar and LandingFooter, which self-scope and also render on /suscripciones. The authenticated app does not use the --m-* tokens; it carries an Operate-mode extension of this world on its own tokens (src/index.css and the Tailwind theme), described in extensions.appSurfaces and the App surfaces (Operate) section of DESIGN.md. The /suscripciones body and LandingPricing have not been migrated into this world yet (see Don'ts).",
     "keyCharacteristics": [
       "24px stud module: background dot grid, brick studs at 24px pitch, parts tray on the same grid.",
       "1.5px Azul tinta keylines on every piece; dashed keylines for guides, ghosts, page gutters and unbuilt pieces.",
@@ -156,11 +645,31 @@
       "Expo-out motion: pieces drop along dashed arrows; reduced motion snaps between assembled states."
     ],
     "rules": [
-      { "name": "The One New Piece Rule", "body": "Índigo fill marks only the piece being added in the current step, the primary action and progress. Inventory and built pieces are Menta or Lavanda; earlier pieces are ghosted, never a second Índigo.", "section": "colors" },
-      { "name": "The Pinned Palette Rule", "body": "Light mode uses only the seven pinned identity colors plus their alpha glass mixes and three derived inks (Índigo profundo, Tinta suave, Verde ok). No new hues.", "section": "colors" },
-      { "name": "The Width Ramp Rule", "body": "Rank is carried by Archivo width and weight (106 → 112 → 125, 750 → 850 → 900), not by color or letter-spacing. Numerals are always the widest, heaviest cut.", "section": "typography" },
-      { "name": "The Sentence Case Rule", "body": "Every label, stamp and heading in the manual is sentence case with no tracking. The world has no uppercase tracked labels.", "section": "typography" },
-      { "name": "The Keyline-Bounded Glass Rule", "body": "Every blurred surface (pieces 6px, glass button 8px, film screen 10px, strip 14px, glass call-out 18px) carries a 1.5px keyline. Blur never defines an edge on its own.", "section": "elevation" }
+      {
+        "name": "The One New Piece Rule",
+        "body": "Índigo fill marks only the piece being added in the current step, the primary action and progress. Inventory and built pieces are Menta or Lavanda; earlier pieces are ghosted, never a second Índigo.",
+        "section": "colors"
+      },
+      {
+        "name": "The Pinned Palette Rule",
+        "body": "Light mode uses only the seven pinned identity colors plus their alpha glass mixes and three derived inks (Índigo profundo, Tinta suave, Verde ok). No new hues.",
+        "section": "colors"
+      },
+      {
+        "name": "The Width Ramp Rule",
+        "body": "Rank is carried by Archivo width and weight (106 → 112 → 125, 750 → 850 → 900), not by color or letter-spacing. Numerals are always the widest, heaviest cut.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sentence Case Rule",
+        "body": "Every label, stamp and heading in the manual is sentence case with no tracking. The world has no uppercase tracked labels.",
+        "section": "typography"
+      },
+      {
+        "name": "The Keyline-Bounded Glass Rule",
+        "body": "Every blurred surface (pieces 6px, glass button 8px, film screen 10px, strip 14px, glass call-out 18px) carries a 1.5px keyline. Blur never defines an edge on its own.",
+        "section": "elevation"
+      }
     ],
     "dos": [
       "Do outline every piece, page, call-out and control with a 1.5px Azul tinta keyline (luminous rgba(214, 227, 255, 0.8) in dark mode).",
@@ -175,9 +684,9 @@
       "Don't let glass stand without a keyline, or use blur as the only edge of a surface.",
       "Don't use uppercase tracked labels, kickers or eyebrows above headings; the manual speaks in sentence case.",
       "Don't use hard offset shadows; depth is the soft slab and page shadow under pieces.",
-      "Don't round call-outs, pages or tables; pill shapes and 16–24px radii belong to the incumbent app UI, not this world.",
+      "Don't round call-outs, pages or tables; pill shapes and 16–24px radii belong to neither world.",
       "Don't introduce hues outside the pinned palette, or a second Índigo piece in one step.",
-      "Don't apply --m-* tokens or these rules to the authenticated app UI; it keeps its incumbent system."
+      "Don't apply --m-* tokens or the manual's illustrative rules (stud-grid layout, giant step numerals, 1.5px keylines on everything) to the authenticated app; it uses the Operate extension (extensions.appSurfaces)."
     ]
   }
 }

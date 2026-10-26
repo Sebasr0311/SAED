@@ -6,7 +6,28 @@ import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import { StatCard } from '../components/ui/StatCard.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import LoadingState from '../components/ui/LoadingState.jsx';
+import { Badge } from '../components/ui/badge.tsx';
+import { CalendarDays, CheckCircle2, Download, UserCheck } from 'lucide-react';
+
+const HIST_ESTADO_VARIANT = {
+  PROGRAMADA: 'info',
+  PENDIENTE: 'warning',
+  EN_CURSO: 'success',
+  ACTIVA: 'success',
+  FINALIZADA: 'secondary',
+  CANCELADA: 'destructive',
+};
+
+const HIST_ESTADO_LABEL = {
+  PROGRAMADA: 'Programada',
+  PENDIENTE: 'Pendiente',
+  EN_CURSO: 'En curso',
+  ACTIVA: 'Activa',
+  FINALIZADA: 'Finalizada',
+  CANCELADA: 'Cancelada',
+};
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, todayStr, imageSrc } from '../lib/utils.js';
@@ -323,29 +344,38 @@ export default function HistorialVisitasPage() {
     { key: 'nombreVisitante', label: 'Visitante' },
     { key: 'documentoVisitante', label: 'Documento' },
     { key: 'numeroApartamento', label: 'Apto' },
-    { key: 'fechaVisita', label: 'Ingreso', render: (r) => formatDate(r.fechaVisita) },
-    { key: 'fechaSalida', label: 'Salida', render: (r) => formatDate(r.fechaSalida) },
-    { key: 'estado', label: 'Estado' },
+    { key: 'fechaVisita', label: 'Ingreso', render: (r) => <span className="tabular-nums">{formatDate(r.fechaVisita)}</span> },
+    { key: 'fechaSalida', label: 'Salida', render: (r) => <span className="tabular-nums">{formatDate(r.fechaSalida)}</span> },
+    {
+      key: 'estado',
+      label: 'Estado',
+      render: (r) => (
+        <Badge variant={HIST_ESTADO_VARIANT[r.estado] || 'secondary'}>
+          {HIST_ESTADO_LABEL[r.estado] || r.estado}
+        </Badge>
+      ),
+    },
   ];
 
   return (
     <div>
       <PageHeader
-        title="Historial de Visitas"
-        subtitle="Registro histórico de visitas"
+        title="Historial de visitas"
+        subtitle="Consulte las visitas por rango de fechas y exporte el reporte a Excel."
         action={
           <Button
             variant="outline"
             onClick={() => exportarExcel(filtradas, fechaInicio, fechaFin)}
             disabled={filtradas.length === 0}
+            icon={<Download className="h-4 w-4" />}
           >
-            Exportar Excel
+            Exportar a Excel
           </Button>
         }
       />
 
-      <div className="card" style={{ marginBottom: '16px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-end' }}>
+      <div className="mb-4 rounded-lg border border-border bg-surface p-3 shadow-sm sm:p-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[repeat(2,minmax(0,12rem))_minmax(0,1fr)] sm:items-end">
           <Input
             id="fechaInicio"
             label="Desde"
@@ -365,36 +395,41 @@ export default function HistorialVisitasPage() {
             max={todayStr()}
           />
           <Input
-            id="search" aria-label="Buscar"
+            id="search"
             label="Búsqueda rápida"
-            placeholder="Visitante, documento, apto..."
+            type="search"
+            placeholder="Visitante, documento o apartamento"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="card-grid-3" style={{ marginBottom: '20px' }}>
-        <StatCard icon="today" value={stats.total} label="Total" color="primary" />
-        <StatCard icon="how_to_reg" value={stats.activas} label="Activas" color="cyan" />
-        <StatCard icon="check_circle" value={stats.finalizadas} label="Finalizadas" color="green" />
+      <div className="mb-5 grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
+        <MetricCard icon={CalendarDays} value={stats.total} label="Total en el rango" variant="primary" />
+        <MetricCard icon={UserCheck} value={stats.activas} label="Activas" variant="info" />
+        <MetricCard icon={CheckCircle2} value={stats.finalizadas} label="Finalizadas" variant="success" />
       </div>
 
       <DataTable
         columns={columns}
         rows={filtradas}
         loading={loading}
-        empty={{ icon: 'history', title: 'No hay visitas en el rango seleccionado', subtitle: 'Prueba ampliando el rango de fechas.' }}
-        error={error?.message}
+        empty={{
+          icon: 'history',
+          title: search ? 'Ninguna visita coincide con la búsqueda' : 'No hay visitas en el rango seleccionado',
+          subtitle: search ? 'Revise el nombre, documento o apartamento.' : 'Amplíe el rango de fechas.',
+        }}
+        error={error ? `No se pudo cargar el historial: ${error.message || 'error de conexión'}` : null}
         keyField="idVisita"
         onRowClick={verDetalle}
         pageSize={10}
       />
 
-      <Modal open={!!detalle} onClose={() => setDetalle(null)} title="Detalle de Visita" size="md">
-        {loadingDetalle && <p>Cargando...</p>}
+      <Modal open={!!detalle} onClose={() => setDetalle(null)} title="Detalle de la visita" size="md">
+        {loadingDetalle && <LoadingState size="sm" message="Cargando detalle..." />}
         {detalle && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div className="flex flex-col gap-2">
             <div className="detail-row">
               <span>Visitante</span>
               <span>
@@ -436,14 +471,14 @@ export default function HistorialVisitasPage() {
               </div>
             )}
             {detalle.fotoCaptura && (
-              <div style={{ marginTop: '12px' }}>
+              <div className="mt-3">
                 <img
                   src={imageSrc(detalle.fotoCaptura)}
                   alt="Foto de captura"
                   loading="lazy"
                   width="400"
                   height="300"
-                  style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'zoom-in' }}
+                  className="h-auto max-w-full cursor-zoom-in rounded-md border border-border"
                   onClick={(e) => window.open(e.target.src, '_blank')}
                 />
               </div>

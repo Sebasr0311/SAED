@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
+import { Building2, CheckCircle2, Eye, Info, MapPin, PauseCircle, RefreshCw, Search } from 'lucide-react';
 import api from '../lib/api.js';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.tsx';
+import { Card, CardContent } from '../components/ui/card.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
@@ -13,11 +14,29 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog.tsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
 import { toast } from 'sonner';
+
+const FILTER_SELECT =
+  'h-10 rounded-md border border-input bg-surface px-3 text-sm text-on-surface transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25';
+
+function Dato({ label, children }) {
+  return (
+    <div>
+      <dt className="text-xs font-semibold text-text-muted">{label}</dt>
+      <dd className="mt-0.5 text-sm text-on-surface">{children}</dd>
+    </div>
+  );
+}
 
 export default function SuperAdminPropiedadesPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [search, setSearch] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroOcupacion, setFiltroOcupacion] = useState('');
@@ -26,12 +45,14 @@ export default function SuperAdminPropiedadesPage() {
   async function loadData() {
     try {
       setLoading(true);
+      setLoadError(null);
       const res = await api.get('/properties');
       const list = res?.data || res || [];
       setItems(Array.isArray(list) ? list : []);
     } catch (err) {
       console.error(err);
       toast.error('Error al cargar el inventario global de propiedades');
+      setLoadError(err?.message || 'No fue posible consultar el inventario de propiedades.');
     } finally {
       setLoading(false);
     }
@@ -66,123 +87,106 @@ export default function SuperAdminPropiedadesPage() {
     });
   }, [items, search, filtroEstado, filtroOcupacion]);
 
+  const hayFiltros = Boolean(search || filtroEstado || filtroOcupacion);
+  const limpiarFiltros = () => {
+    setSearch('');
+    setFiltroEstado('');
+    setFiltroOcupacion('');
+  };
+
+  const header = (
+    <PageHeader
+      title="Propiedades globales"
+      subtitle="Supervisión de solo lectura de todas las copropiedades registradas. La gestión operativa corresponde a cada organización."
+      badge={<Badge variant="secondary">Solo lectura</Badge>}
+      action={
+        <Button variant="outline" size="sm" onClick={loadData} disabled={loading} className="min-h-10">
+          <RefreshCw className="h-4 w-4" aria-hidden="true" />
+          Actualizar catálogo
+        </Button>
+      }
+    />
+  );
+
   if (loading) {
     return (
-      <div className="p-6 space-y-6">
-        <div className="flex justify-between items-center">
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-10 w-32" />
+      <PageContainer>
+        {header}
+        <div role="status" aria-busy="true" aria-label="Cargando propiedades" className="space-y-6">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-24 rounded-lg" />
+            ))}
+          </div>
+          <Skeleton className="h-16 w-full rounded-lg" />
+          <Skeleton className="h-96 w-full rounded-lg" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
-          ))}
-        </div>
-        <Skeleton className="h-96 w-full rounded-xl" />
-      </div>
+      </PageContainer>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <PageContainer>
+        {header}
+        <ErrorState title="No se pudo cargar el inventario" message={loadError} onRetry={loadData} />
+      </PageContainer>
     );
   }
 
   return (
-    <div className="p-6 space-y-6 animate-fadeIn">
-      {/* Cabecera Contextual Enterprise */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border/70 pb-5">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Propiedades Globales — Monitoreo SaaS
-            </h1>
-            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-semibold px-2.5 py-0.5">
-              GLOBAL SCOPE
-            </Badge>
-            <Badge variant="secondary" className="font-semibold text-xs">
-              SOLO OBSERVABILIDAD
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Supervisión transversal de todas las copropiedades registradas en la plataforma. La gestión operativa corresponde a cada Organización.
-          </p>
-        </div>
+    <PageContainer>
+      {header}
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={loadData}
-          className="flex items-center gap-2 self-start md:self-auto min-h-[40px]"
-        >
-          <span className="material-symbols-outlined text-sm">refresh</span>
-          Actualizar Catálogo
-        </Button>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard label="Total de copropiedades" value={stats.total} context="Inventario en plataforma" icon={Building2} />
+        <MetricCard
+          label="Copropiedades activas"
+          value={stats.activas}
+          context="En operación"
+          icon={CheckCircle2}
+          variant="success"
+        />
+        <MetricCard
+          label="Inactivas o suspendidas"
+          value={stats.inactivas}
+          context="Operación detenida"
+          icon={PauseCircle}
+          variant={stats.inactivas > 0 ? 'warning' : 'secondary'}
+        />
+        <MetricCard
+          label="Ciudades con cobertura"
+          value={stats.ciudades}
+          context="Presencia geográfica"
+          icon={MapPin}
+          variant="info"
+        />
       </div>
 
-      {/* KPI Cards Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-border/80">
-          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Total Copropiedades</CardTitle>
-            <span className="material-symbols-outlined text-primary text-lg">apartment</span>
-          </CardHeader>
-          <CardContent className="pb-4">
-            <div className="text-2xl font-bold text-foreground">{stats.total}</div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Inventario en plataforma</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/80">
-          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Copropiedades Activas</CardTitle>
-            <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-lg">check_circle</span>
-          </CardHeader>
-          <CardContent className="pb-4">
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.activas}</div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">En operación normal</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/80">
-          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Inactivas / Suspendidas</CardTitle>
-            <span className="material-symbols-outlined text-amber-500 text-lg">pause_circle</span>
-          </CardHeader>
-          <CardContent className="pb-4">
-            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{stats.inactivas}</div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Operaciones congeladas</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/80">
-          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Ciudades con Cobertura</CardTitle>
-            <span className="material-symbols-outlined text-blue-500 text-lg">location_on</span>
-          </CardHeader>
-          <CardContent className="pb-4">
-            <div className="text-2xl font-bold text-foreground">{stats.ciudades}</div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Presencia geográfica</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Barra de Filtros y Búsqueda */}
-      <Card className="border-border/80">
+      <Card>
         <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex flex-col gap-3 md:flex-row">
             <div className="relative flex-1">
-              <span className="material-symbols-outlined absolute left-3 top-2.5 text-muted-foreground text-sm">
-                search
-              </span>
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+                aria-hidden="true"
+              />
               <Input
-                placeholder="Buscar por propiedad, organización cliente, ciudad o dirección..."
+                type="search"
+                aria-label="Buscar propiedades"
+                placeholder="Buscar por propiedad, organización, ciudad o dirección..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 text-sm"
+                className="h-10 pl-9 text-sm"
               />
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <select
+                aria-label="Filtrar por estado"
                 value={filtroEstado}
                 onChange={(e) => setFiltroEstado(e.target.value)}
-                className="px-3 py-2 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className={FILTER_SELECT}
               >
                 <option value="">Todos los estados</option>
                 <option value="ACTIVA">Activa</option>
@@ -190,9 +194,10 @@ export default function SuperAdminPropiedadesPage() {
               </select>
 
               <select
+                aria-label="Filtrar por ocupación"
                 value={filtroOcupacion}
                 onChange={(e) => setFiltroOcupacion(e.target.value)}
-                className="px-3 py-2 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className={FILTER_SELECT}
               >
                 <option value="">Cualquier ocupación</option>
                 <option value="MIXTA">Mixta</option>
@@ -200,17 +205,8 @@ export default function SuperAdminPropiedadesPage() {
                 <option value="ARRENDATARIOS">Arrendatarios</option>
               </select>
 
-              {(search || filtroEstado || filtroOcupacion) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSearch('');
-                    setFiltroEstado('');
-                    setFiltroOcupacion('');
-                  }}
-                  className="text-xs"
-                >
+              {hayFiltros && (
+                <Button variant="ghost" size="sm" onClick={limpiarFiltros} className="h-10">
                   Limpiar
                 </Button>
               )}
@@ -219,163 +215,128 @@ export default function SuperAdminPropiedadesPage() {
         </CardContent>
       </Card>
 
-      {/* Tabla de Propiedades Globales */}
-      <Card className="border-border/80 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+      {filtrados.length === 0 ? (
+        <div className="table-container">
+          <EmptyState
+            icon={Building2}
+            title="No se encontraron propiedades"
+            subtitle={
+              hayFiltros
+                ? 'Ajusta los filtros de búsqueda para ver resultados.'
+                : 'Aún no hay propiedades registradas en el catálogo global.'
+            }
+          >
+            {hayFiltros && (
+              <Button variant="outline" size="sm" className="mt-3" onClick={limpiarFiltros}>
+                Limpiar filtros
+              </Button>
+            )}
+          </EmptyState>
+        </div>
+      ) : (
+        <div className="table-container max-h-[70vh] overflow-y-auto">
+          <table className="data-table">
             <thead>
-              <tr className="border-b border-border/80 bg-muted/30 text-muted-foreground font-medium uppercase text-[11px] tracking-wider">
-                <th className="py-3.5 px-4 font-semibold">ID</th>
-                <th className="py-3.5 px-4 font-semibold">Copropiedad</th>
-                <th className="py-3.5 px-4 font-semibold">Organización Cliente</th>
-                <th className="py-3.5 px-4 font-semibold">Ubicación</th>
-                <th className="py-3.5 px-4 font-semibold">Ocupación Predominante</th>
-                <th className="py-3.5 px-4 font-semibold text-center">Estado</th>
-                <th className="py-3.5 px-4 font-semibold text-right">Observabilidad</th>
+              <tr>
+                <th scope="col">ID</th>
+                <th scope="col">Copropiedad</th>
+                <th scope="col">Organización cliente</th>
+                <th scope="col">Ubicación</th>
+                <th scope="col">Ocupación predominante</th>
+                <th scope="col" className="text-center">Estado</th>
+                <th scope="col" className="text-right">
+                  <span className="sr-only">Acciones</span>
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/60">
-              {filtrados.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
-                    <div className="flex flex-col items-center justify-center space-y-2">
-                      <span className="material-symbols-outlined text-4xl text-muted-foreground/60">
-                        apartment
-                      </span>
-                      <p className="text-sm font-medium">No se encontraron propiedades</p>
-                      <p className="text-xs text-muted-foreground">
-                        {search || filtroEstado || filtroOcupacion
-                          ? 'Ajuste los filtros de búsqueda para visualizar resultados.'
-                          : 'No hay propiedades registradas en el catálogo global.'}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filtrados.map((p) => {
-                  const isActiva = (p.estado || '').toUpperCase() === 'ACTIVA';
-                  return (
-                    <tr key={p.id} className="hover:bg-muted/40 transition-colors">
-                      <td className="py-3 px-4 font-mono font-bold text-muted-foreground">#{p.id}</td>
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-sm text-foreground">{p.nombre}</div>
-                        <div className="text-[11px] text-muted-foreground">{p.tipoPropiedadNombre || 'Copropiedad'}</div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-medium text-foreground flex items-center gap-1.5">
-                          <span className="material-symbols-outlined text-xs text-primary">domain</span>
-                          {p.organizacionNombre || 'Organización Directa'}
-                        </div>
-                        {p.idOrganizacion && (
-                          <div className="text-[10px] font-mono text-muted-foreground">ID Org: {p.idOrganizacion}</div>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="text-foreground">{p.ciudad || 'No especificada'}</div>
-                        <div className="text-[11px] text-muted-foreground truncate max-w-[200px]">{p.direccion || '-'}</div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge variant="outline" className="font-mono text-[10px]">
-                          {p.tipoOcupacionPredominante || 'MIXTA'}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${
-                            isActiva
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                          }`}
-                        >
-                          {isActiva ? 'ACTIVA' : 'INACTIVA'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedProperty(p)}
-                          className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground"
-                          title="Ver ficha técnica de observabilidad"
-                        >
-                          <span className="material-symbols-outlined text-sm mr-1">visibility</span>
-                          Ver Ficha
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
+            <tbody>
+              {filtrados.map((p) => {
+                const isActiva = (p.estado || '').toUpperCase() === 'ACTIVA';
+                return (
+                  <tr key={p.id}>
+                    <td className="whitespace-nowrap font-mono text-xs font-semibold text-text-secondary tabular-nums">
+                      #{p.id}
+                    </td>
+                    <td className="min-w-[10rem]">
+                      <div className="text-sm font-semibold text-on-surface">{p.nombre}</div>
+                      <div className="text-xs text-text-muted">{p.tipoPropiedadNombre || 'Copropiedad'}</div>
+                    </td>
+                    <td className="min-w-[10rem]">
+                      <div className="font-medium text-on-surface">{p.organizacionNombre || 'Organización directa'}</div>
+                      {p.idOrganizacion && (
+                        <div className="font-mono text-xs text-text-muted tabular-nums">ID org.: {p.idOrganizacion}</div>
+                      )}
+                    </td>
+                    <td>
+                      <div className="text-on-surface">{p.ciudad || 'No especificada'}</div>
+                      <div className="max-w-[200px] truncate text-xs text-text-muted">{p.direccion || '—'}</div>
+                    </td>
+                    <td>
+                      <Badge variant="outline">{p.tipoOcupacionPredominante || 'MIXTA'}</Badge>
+                    </td>
+                    <td className="text-center">
+                      <Badge variant={isActiva ? 'success' : 'warning'}>{isActiva ? 'Activa' : 'Inactiva'}</Badge>
+                    </td>
+                    <td className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedProperty(p)}
+                        className="h-10 px-2.5 text-xs sm:h-8"
+                        aria-label={`Ver ficha de ${p.nombre}`}
+                      >
+                        <Eye className="h-4 w-4" aria-hidden="true" />
+                        Ver ficha
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
-      </Card>
+      )}
 
-      {/* Modal Ficha de Observabilidad Global */}
       <Dialog open={!!selectedProperty} onOpenChange={(open) => !open && setSelectedProperty(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <span className="material-symbols-outlined text-primary">apartment</span>
-              Ficha Técnica — {selectedProperty?.nombre}
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Metadatos del catálogo SaaS global. Esta vista es de solo lectura.
-            </DialogDescription>
+            <DialogTitle className="pr-8">Ficha técnica: {selectedProperty?.nombre}</DialogTitle>
+            <DialogDescription>Datos del catálogo global. Esta vista es de solo lectura.</DialogDescription>
           </DialogHeader>
 
           {selectedProperty && (
-            <div className="space-y-3 py-2 text-xs">
-              <div className="grid grid-cols-2 gap-3 p-3 bg-muted/40 rounded-lg border border-border/80">
-                <div>
-                  <span className="text-muted-foreground block text-[10px] uppercase font-semibold">ID Catastral SaaS</span>
-                  <span className="font-mono font-bold text-foreground">#{selectedProperty.id}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Estado Operativo</span>
-                  <span
-                    className={`font-semibold ${
-                      (selectedProperty.estado || '').toUpperCase() === 'ACTIVA'
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-amber-600 dark:text-amber-400'
-                    }`}
-                  >
+            <div className="space-y-3 py-1">
+              <dl className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-surface-container p-3">
+                <Dato label="ID de propiedad">
+                  <span className="font-mono font-bold tabular-nums">#{selectedProperty.id}</span>
+                </Dato>
+                <Dato label="Estado operativo">
+                  <Badge variant={(selectedProperty.estado || '').toUpperCase() === 'ACTIVA' ? 'success' : 'warning'}>
                     {selectedProperty.estado || 'ACTIVA'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Organización Titular</span>
-                  <span className="font-medium text-foreground">{selectedProperty.organizacionNombre || 'N/A'}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-[10px] uppercase font-semibold">ID Organización</span>
-                  <span className="font-mono text-foreground">#{selectedProperty.idOrganizacion || '-'}</span>
-                </div>
-              </div>
+                  </Badge>
+                </Dato>
+                <Dato label="Organización titular">{selectedProperty.organizacionNombre || 'N/A'}</Dato>
+                <Dato label="ID de organización">
+                  <span className="font-mono tabular-nums">#{selectedProperty.idOrganizacion || '-'}</span>
+                </Dato>
+              </dl>
 
-              <div className="p-3 bg-muted/40 rounded-lg border border-border/80 space-y-2">
-                <div>
-                  <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Dirección & Ciudad</span>
-                  <span className="text-foreground">
-                    {selectedProperty.direccion || 'Sin dirección registrada'}, {selectedProperty.ciudad || 'Colombia'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Tipo de Ocupación Predominante</span>
-                  <span className="font-medium text-foreground">{selectedProperty.tipoOcupacionPredominante || 'MIXTA'}</span>
-                </div>
+              <dl className="space-y-2 rounded-lg border border-border bg-surface-container p-3">
+                <Dato label="Dirección y ciudad">
+                  {selectedProperty.direccion || 'Sin dirección registrada'}, {selectedProperty.ciudad || 'Colombia'}
+                </Dato>
+                <Dato label="Tipo de ocupación predominante">{selectedProperty.tipoOcupacionPredominante || 'MIXTA'}</Dato>
                 {selectedProperty.tipoPropiedadNombre && (
-                  <div>
-                    <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Tipología Inmobiliaria</span>
-                    <span className="text-foreground">{selectedProperty.tipoPropiedadNombre}</span>
-                  </div>
+                  <Dato label="Tipología">{selectedProperty.tipoPropiedadNombre}</Dato>
                 )}
-              </div>
+              </dl>
 
-              <div className="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300 text-[11px] flex items-start gap-2">
-                <span className="material-symbols-outlined text-sm shrink-0 mt-0.5">info</span>
+              <div className="flex items-start gap-2 rounded-md border border-tint-blue-fg/25 bg-tint-blue-bg p-3 text-xs text-tint-blue-fg">
+                <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>
-                  La operación de unidades, habitantes, visitas y parqueaderos corresponde a la consola del <strong>Administrador de Propiedad</strong> y su supervisión corporativa a la <strong>Organización</strong>.
+                  La operación de unidades, habitantes, visitas y parqueaderos corresponde a la consola del{' '}
+                  <strong>administrador de propiedad</strong>, y su supervisión corporativa a la{' '}
+                  <strong>organización</strong>.
                 </span>
               </div>
             </div>
@@ -383,11 +344,11 @@ export default function SuperAdminPropiedadesPage() {
 
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setSelectedProperty(null)}>
-              Cerrar Ficha
+              Cerrar ficha
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

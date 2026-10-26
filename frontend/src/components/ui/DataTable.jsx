@@ -1,6 +1,7 @@
 import { memo, useEffect, useState } from 'react';
 import { classNames } from '../../lib/utils.js';
 import EmptyState from './EmptyState.jsx';
+import ErrorState from './ErrorState.jsx';
 import { Button } from './Button.jsx';
 import { Skeleton } from './skeleton.tsx';
 
@@ -24,9 +25,9 @@ export const DataTable = memo(function DataTable({ columns = [], rows, data, loa
         <table className="data-table">
           <thead>
             <tr>
-              {columns.map((col) => (
-                <th key={col.key} scope="col" style={col.width ? { width: col.width } : undefined}>
-                  {col.label}
+              {columns.map((col, cIdx) => (
+                <th key={col.key ?? col.accessor ?? cIdx} scope="col" style={col.width ? { width: col.width } : undefined}>
+                  {col.label || col.header || col.name}
                 </th>
               ))}
             </tr>
@@ -34,8 +35,8 @@ export const DataTable = memo(function DataTable({ columns = [], rows, data, loa
           <tbody aria-busy="true">
             {Array.from({ length: 5 }).map((_, i) => (
               <tr key={`sk-${i}`}>
-                {columns.map((col) => (
-                  <td key={col.key}>
+                {columns.map((col, cIdx) => (
+                  <td key={col.key ?? col.accessor ?? cIdx}>
                     <Skeleton className="h-4 w-full" />
                   </td>
                 ))}
@@ -48,13 +49,12 @@ export const DataTable = memo(function DataTable({ columns = [], rows, data, loa
   }
   if (error) {
     return (
-      <div className="table-container p-8 text-center">
-        <p className="text-error" style={{ marginBottom: '8px' }}>{error?.message || error}</p>
-        {onRetry && (
-          <button type="button" className="btn btn-outline btn-sm" onClick={onRetry}>
-            Reintentar
-          </button>
-        )}
+      <div className="table-container p-4">
+        <ErrorState
+          title="No se pudieron cargar los datos"
+          message={typeof error === 'string' ? error : error?.message}
+          onRetry={onRetry}
+        />
       </div>
     );
   }

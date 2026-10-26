@@ -8,7 +8,8 @@ import { Input } from '../components/ui/Form.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { ActionButtons } from '../components/ui/ActionButtons.jsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
-import { Shield, Clock, Users, Trash2, Calendar, Phone, Plus } from 'lucide-react';
+import { Shield, Clock, Users, Trash2, Calendar, Phone, Plus, DoorOpen, MapPin, Search } from 'lucide-react';
+import { Badge } from '../components/ui/badge.tsx';
 
 const emptyForm = {
   nombre: '',
@@ -25,6 +26,7 @@ export default function PorteriasPage() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [busqueda, setBusqueda] = useState('');
+  const [loadError, setLoadError] = useState(null);
 
   // Turnos & Porteros assignment state (Ley 1920 de 2018)
   const [turnosModalOpen, setTurnosModalOpen] = useState(false);
@@ -46,7 +48,9 @@ export default function PorteriasPage() {
       const res = await api.get('/porteria');
       const lista = res?.data || res?.items || res || [];
       setPorterias(Array.isArray(lista) ? lista : []);
+      setLoadError(null);
     } catch (err) {
+      setLoadError(err);
       toast.error(err.message || 'No se pudieron cargar los puntos de portería');
     } finally {
       setLoading(false);
@@ -202,42 +206,52 @@ export default function PorteriasPage() {
   };
 
   const columns = [
-    { key: 'idPorteria', label: 'ID', width: 60 },
+    { key: 'idPorteria', label: 'ID', width: 60, render: (r) => <span className="tabular-nums">{r.idPorteria}</span> },
     {
       key: 'nombre',
-      label: 'Nombre de la Garita / Punto',
+      label: 'Garita o punto',
       render: (r) => (
         <div>
           <div className="font-semibold text-foreground flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-primary text-base">door_sliding</span>
+            <DoorOpen className="h-4 w-4 shrink-0 text-primary-text" aria-hidden="true" />
             {r.nombre}
           </div>
-          {r.ubicacion && <div className="text-xs text-muted-foreground mt-0.5">📍 {r.ubicacion}</div>}
+          {r.ubicacion && (
+            <div className="mt-0.5 flex items-center gap-1 text-xs text-text-secondary">
+              <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+              {r.ubicacion}
+            </div>
+          )}
         </div>
       ),
     },
     {
       key: 'telefonoContacto',
-      label: 'Teléfono / Radio',
-      render: (r) => (
-        <span className="text-xs text-foreground/80">
-          {r.telefonoContacto ? `📞 ${r.telefonoContacto}` : '—'}
-        </span>
-      ),
+      label: 'Teléfono o radio',
+      render: (r) =>
+        r.telefonoContacto ? (
+          <span className="inline-flex items-center gap-1 text-xs text-on-surface tabular-nums">
+            <Phone className="h-3 w-3 shrink-0 text-text-muted" aria-hidden="true" />
+            {r.telefonoContacto}
+          </span>
+        ) : (
+          <span className="text-xs text-text-muted">—</span>
+        ),
     },
     {
       key: 'turnos',
-      label: 'Turnos y Vigilancia',
+      label: 'Turnos',
       render: (r) => (
         <button
           onClick={(e) => {
             e.stopPropagation();
             openTurnos(r);
           }}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-primary/10 text-primary border border-primary/20 rounded-lg hover:bg-primary/20 transition-colors shadow-2xs"
+          type="button"
+          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input/60 bg-surface px-3 text-xs font-semibold text-on-surface transition-colors hover:border-primary/70 hover:bg-surface-container"
         >
-          <Clock className="w-3.5 h-3.5" />
-          Asignar Turnos (Ley 1920)
+          <Clock className="h-3.5 w-3.5 text-primary-text" aria-hidden="true" />
+          Asignar turnos
         </button>
       ),
     },
@@ -245,13 +259,9 @@ export default function PorteriasPage() {
       key: 'estado',
       label: 'Estado',
       render: (r) => (
-        <span
-          className={`badge ${
-            r.estado === 'ACTIVA' || r.estado === 'ACTIVO' ? 'badge-activo' : 'badge-neutral'
-          }`}
-        >
+        <Badge variant={r.estado === 'ACTIVA' || r.estado === 'ACTIVO' ? 'success' : 'secondary'}>
           {r.estado === 'ACTIVA' || r.estado === 'ACTIVO' ? 'Operativa' : 'Inactiva'}
-        </span>
+        </Badge>
       ),
     },
     {
@@ -277,21 +287,27 @@ export default function PorteriasPage() {
     <div className="space-y-6">
       <PageHeader
         title="Puntos de Portería"
-        subtitle="Administración de garitas, control de accesos y asignación de turnos a vigilantes bajo la Ley 1920 de 2018"
-        action={<Button onClick={openCreate}>+ Nueva Portería</Button>}
+        subtitle="Garitas de la copropiedad y turnos de vigilancia (jornadas según la Ley 1920 de 2018)."
+        action={
+          <Button onClick={openCreate} icon={<Plus className="h-4 w-4" />}>
+            Nueva portería
+          </Button>
+        }
       />
 
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-        <div className="text-xs text-muted-foreground font-medium">
-          Total de garitas registradas: <strong>{items.length}</strong>
+        <div className="text-sm text-text-secondary">
+          Garitas registradas: <strong className="text-on-surface tabular-nums">{items.length}</strong>
         </div>
-        <div className="w-full sm:w-72">
+        <div className="relative w-full sm:w-72">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
           <input
-            type="text"
-            placeholder="Buscar portería o ubicación..."
+            type="search"
+            aria-label="Buscar portería o ubicación"
+            placeholder="Buscar portería o ubicación"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full border border-border rounded-lg px-3 py-1.5 text-xs bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 pl-9 pr-3"
           />
         </div>
       </div>
@@ -300,10 +316,12 @@ export default function PorteriasPage() {
         columns={columns}
         rows={filteredItems}
         loading={loading}
+        error={loadError ? `No se pudieron cargar los puntos de portería: ${loadError.message || 'error de conexión'}` : null}
+        onRetry={cargar}
         empty={{
-          icon: 'door_sliding',
-          title: 'No hay porterías registradas',
-          subtitle: 'Registra el primer punto de control de acceso vehicular o peatonal.',
+          icon: DoorOpen,
+          title: busqueda ? 'Ninguna portería coincide con la búsqueda' : 'No hay porterías registradas',
+          subtitle: busqueda ? 'Revise el nombre o la ubicación.' : 'Registre el primer punto de control de acceso vehicular o peatonal con “Nueva portería”.',
         }}
         keyField="idPorteria"
       />
@@ -312,7 +330,7 @@ export default function PorteriasPage() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? `Editar Portería: ${editing.nombre}` : 'Nueva Garita de Portería'}
+        title={editing ? `Editar portería: ${editing.nombre}` : 'Nueva portería'}
         footer={
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setModalOpen(false)}>
@@ -360,7 +378,7 @@ export default function PorteriasPage() {
         <Modal
           open={turnosModalOpen}
           onClose={() => setTurnosModalOpen(false)}
-          title={`Asignación de Turnos — ${selectedPorteria.nombre}`}
+          title={`Turnos de ${selectedPorteria.nombre}`}
           size="lg"
           footer={
             <Button variant="outline" onClick={() => setTurnosModalOpen(false)}>
@@ -370,8 +388,8 @@ export default function PorteriasPage() {
         >
           <div className="space-y-5 pt-2">
             {/* Banner Informativo Legal */}
-            <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl flex items-start gap-2.5 text-xs text-blue-800 dark:text-blue-300">
-              <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+            <div className="p-3 bg-tint-blue-bg border border-tint-blue-fg/25 rounded-xl flex items-start gap-2.5 text-xs text-tint-blue-fg">
+              <Shield className="w-4 h-4 text-tint-blue-fg mt-0.5 shrink-0" />
               <div>
                 <p className="font-semibold">Marco Legal Colombiano (Ley 1920 de 2018 - Ley del Vigilante):</p>
                 <p className="text-muted-foreground mt-0.5 leading-relaxed">
@@ -409,15 +427,15 @@ export default function PorteriasPage() {
                         <div>
                           <div className="font-semibold text-foreground text-sm flex items-center gap-2">
                             {t.nombreCompleto || t.nombreUsuario}
-                            <span className="text-[10px] text-muted-foreground font-normal">(@{t.nombreUsuario})</span>
+                            <span className="text-xs text-muted-foreground font-normal">(@{t.nombreUsuario})</span>
                           </div>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25">
                               <Clock className="w-3 h-3" />
                               {t.horaInicio} - {t.horaFin} ({t.nombreTurno})
                             </span>
-                            <span className="text-[10px] text-muted-foreground">
-                              🗓️ {t.diasSemana || 'L-D'}
+                            <span className="text-xs text-muted-foreground">
+                              <Calendar className="h-3 w-3" aria-hidden="true" /> {t.diasSemana || 'L-D'}
                             </span>
                           </div>
                         </div>
@@ -444,13 +462,13 @@ export default function PorteriasPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-foreground mb-1">
+                  <label htmlFor="port-f1" className="block text-xs font-medium text-foreground mb-1">
                     Seleccionar Portero *
                   </label>
-                  <select
+                  <select id="port-f1"
                     value={nuevoTurno.idUsuario}
                     onChange={(e) => setNuevoTurno({ ...nuevoTurno, idUsuario: e.target.value })}
-                    className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
                   >
                     <option value="">-- Seleccionar Vigilante / Portero --</option>
                     {porterosDisponibles.map((p) => (
@@ -462,13 +480,13 @@ export default function PorteriasPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-foreground mb-1">
+                  <label htmlFor="port-f2" className="block text-xs font-medium text-foreground mb-1">
                     Turno Legal (1 por vigilante) *
                   </label>
-                  <select
+                  <select id="port-f2"
                     value={nuevoTurno.codigoTurno}
                     onChange={(e) => setNuevoTurno({ ...nuevoTurno, codigoTurno: e.target.value })}
-                    className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
                   >
                     <optgroup label="Jornada Ordinaria (8 Horas)">
                       <option value="TURNO_8H_MANANA">Mañana: 06:00 - 14:00 (8h Ordinaria)</option>
@@ -484,15 +502,15 @@ export default function PorteriasPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-foreground mb-1">
+                <label htmlFor="port-f3" className="block text-xs font-medium text-foreground mb-1">
                   Días de Cobertura Semanal
                 </label>
-                <input
+                <input id="port-f3"
                   type="text"
                   value={nuevoTurno.diasSemana}
                   onChange={(e) => setNuevoTurno({ ...nuevoTurno, diasSemana: e.target.value })}
                   placeholder="Ej: Lunes a Domingo / Lunes a Viernes"
-                  className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
                 />
               </div>
 

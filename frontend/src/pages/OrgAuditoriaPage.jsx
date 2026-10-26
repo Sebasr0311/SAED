@@ -1,10 +1,37 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import api from '../lib/api.js';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.tsx';
+import { formatDateTime } from '../lib/utils.js';
+import { Card, CardContent } from '../components/ui/card.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Button } from '../components/ui/button.tsx';
-import { ShieldCheck, Search, Eye, AlertCircle, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Input } from '../components/ui/input.tsx';
+import { Modal } from '../components/ui/Modal.jsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+import { ShieldCheck, Search, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const FILTER_SELECT =
+  'h-10 w-full rounded-md border border-input bg-surface px-3 text-sm text-on-surface transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 sm:w-auto';
+
+const ACTION_VARIANT = {
+  CREATE: 'success',
+  INSERT: 'success',
+  UPDATE: 'info',
+  DELETE: 'destructive',
+  STATUS_CHANGE: 'warning',
+};
+
+function Dato({ label, children }) {
+  return (
+    <div>
+      <dt className="text-xs font-semibold text-text-muted">{label}</dt>
+      <dd className="mt-0.5 text-sm font-medium text-on-surface">{children}</dd>
+    </div>
+  );
+}
 
 export default function OrgAuditoriaPage() {
   const [logs, setLogs] = useState([]);
@@ -16,33 +43,38 @@ export default function OrgAuditoriaPage() {
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 10;
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await api.get('/audit');
-        setLogs(Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []);
-      } catch (err) {
-        console.error('Error loading org audit logs:', err);
-        setError('No se pudo cargar la pista de auditoría.');
-      } finally {
-        setLoading(false);
-      }
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await api.get('/audit');
+      setLogs(Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []);
+    } catch (err) {
+      console.error('Error loading org audit logs:', err);
+      setError('No se pudo cargar la pista de auditoría.');
+    } finally {
+      setLoading(false);
     }
-    load();
   }, []);
 
-  const filtered = logs.filter((l) => {
-    const term = searchTerm.toLowerCase();
-    const matchesSearch =
-      (l.recursoAfectado || '').toLowerCase().includes(term) ||
-      (l.accion || '').toLowerCase().includes(term) ||
-      (l.ipCliente || '').toLowerCase().includes(term) ||
-      String(l.idUsuario || '').includes(term);
-    const matchesAction = actionFilter === 'ALL' || l.accion === actionFilter;
-    return matchesSearch && matchesAction;
-  });
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const filtered = useMemo(
+    () =>
+      logs.filter((l) => {
+        const term = searchTerm.toLowerCase();
+        const matchesSearch =
+          (l.recursoAfectado || '').toLowerCase().includes(term) ||
+          (l.accion || '').toLowerCase().includes(term) ||
+          (l.ipCliente || '').toLowerCase().includes(term) ||
+          String(l.idUsuario || '').includes(term);
+        const matchesAction = actionFilter === 'ALL' || l.accion === actionFilter;
+        return matchesSearch && matchesAction;
+      }),
+    [logs, searchTerm, actionFilter]
+  );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
@@ -60,183 +92,152 @@ export default function OrgAuditoriaPage() {
       case 'DELETE':
         return 'Eliminación';
       case 'STATUS_CHANGE':
-        return 'Cambio de Estado';
+        return 'Cambio de estado';
       default:
         return action;
     }
   };
 
-  const getActionBadgeClass = (action) => {
-    switch (action) {
-      case 'CREATE':
-        return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20';
-      case 'UPDATE':
-        return 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/20';
-      case 'DELETE':
-        return 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/20';
-      case 'STATUS_CHANGE':
-        return 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20';
-      default:
-        return 'bg-muted text-muted-foreground border-border';
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="p-6 space-y-6">
-        <Skeleton className="h-8 w-64 mb-2" />
-        <Skeleton className="h-64 rounded-xl" />
-      </div>
-    );
-  }
+  const hayFiltros = Boolean(searchTerm || actionFilter !== 'ALL');
 
   return (
-    <div className="p-6 space-y-8 animate-fadeIn">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              Pista de Auditoría
-            </h1>
-            <Badge variant="outline" className="text-xs px-2.5 py-0.5 font-medium">
-              {logs.length} eventos registrados
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Registro inmutable de acciones, mutaciones y eventos de seguridad en su organización.
-          </p>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Pista de auditoría"
+        subtitle="Registro inmutable de acciones, cambios y eventos de seguridad en su organización."
+        badge={!loading && !error ? <Badge variant="outline">{logs.length} eventos registrados</Badge> : null}
+      />
 
-      {error && (
-        <div className="bg-destructive/15 border border-destructive text-destructive px-4 py-3 rounded-lg flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
+      <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
         <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+            aria-hidden="true"
+          />
+          <Input
+            type="search"
+            aria-label="Buscar por recurso, usuario o IP"
             placeholder="Buscar por recurso, usuario o IP..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
               setPage(0);
             }}
-            className="w-full pl-9 pr-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className="h-10 pl-9 text-sm"
           />
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <select
-            value={actionFilter}
-            onChange={(e) => {
-              setActionFilter(e.target.value);
-              setPage(0);
-            }}
-            className="px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="ALL">Todas las Acciones</option>
-            <option value="CREATE">Creación</option>
-            <option value="UPDATE">Modificación</option>
-            <option value="DELETE">Eliminación</option>
-            <option value="STATUS_CHANGE">Cambio de Estado</option>
-          </select>
-        </div>
+        <select
+          aria-label="Filtrar por acción"
+          value={actionFilter}
+          onChange={(e) => {
+            setActionFilter(e.target.value);
+            setPage(0);
+          }}
+          className={FILTER_SELECT}
+        >
+          <option value="ALL">Todas las acciones</option>
+          <option value="CREATE">Creación</option>
+          <option value="UPDATE">Modificación</option>
+          <option value="DELETE">Eliminación</option>
+          <option value="STATUS_CHANGE">Cambio de estado</option>
+        </select>
       </div>
 
-      {/* Audit Table */}
-      <Card className="border border-border/80 shadow-sm">
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-muted-foreground bg-muted/30 border-b border-border">
-                <tr>
-                  <th className="px-6 py-3 font-semibold">Fecha y Hora</th>
-                  <th className="px-6 py-3 font-semibold">Acción</th>
-                  <th className="px-6 py-3 font-semibold">Recurso</th>
-                  <th className="px-6 py-3 font-semibold">ID Registro</th>
-                  <th className="px-6 py-3 font-semibold">Usuario ID</th>
-                  <th className="px-6 py-3 font-semibold">IP Origen</th>
-                  <th className="px-6 py-3 font-semibold text-right">Detalle</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filtered.length === 0 ? (
+      {loading ? (
+        <div role="status" aria-busy="true" aria-label="Cargando auditoría" className="space-y-2">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Skeleton key={i} className="h-11 w-full" />
+          ))}
+        </div>
+      ) : error ? (
+        <ErrorState title="No se pudo cargar la auditoría" message={error} onRetry={load} />
+      ) : filtered.length === 0 ? (
+        <div className="table-container">
+          <EmptyState
+            icon={ShieldCheck}
+            title={hayFiltros ? 'Sin coincidencias' : 'No hay registros de auditoría'}
+            subtitle={
+              hayFiltros
+                ? 'Ningún evento coincide con los filtros aplicados.'
+                : 'Las acciones realizadas en la organización quedarán registradas aquí.'
+            }
+          >
+            {hayFiltros && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => {
+                  setSearchTerm('');
+                  setActionFilter('ALL');
+                  setPage(0);
+                }}
+              >
+                Limpiar filtros
+              </Button>
+            )}
+          </EmptyState>
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <div className="max-h-[70vh] overflow-auto rounded-t-lg">
+              <table className="data-table">
+                <thead>
                   <tr>
-                    <td colSpan="7" className="px-6 py-8 text-center text-muted-foreground">
-                      No se encontraron registros de auditoría.
-                    </td>
+                    <th scope="col">Fecha y hora</th>
+                    <th scope="col">Acción</th>
+                    <th scope="col">Recurso</th>
+                    <th scope="col">ID registro</th>
+                    <th scope="col">Usuario</th>
+                    <th scope="col">IP de origen</th>
+                    <th scope="col" className="text-right">
+                      <span className="sr-only">Detalle</span>
+                    </th>
                   </tr>
-                ) : (
-                  paginatedLogs.map((l) => (
-                    <tr key={l.idAuditoria} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-6 py-4 text-xs font-mono text-muted-foreground whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                          <span>
-                            {l.fechaHora
-                              ? new Date(l.fechaHora).toLocaleString('es-CO')
-                              : 'Reciente'}
-                          </span>
-                        </div>
+                </thead>
+                <tbody>
+                  {paginatedLogs.map((l) => (
+                    <tr key={l.idAuditoria}>
+                      <td className="whitespace-nowrap text-xs tabular-nums text-text-secondary">
+                        {l.fechaHora ? formatDateTime(l.fechaHora) : '—'}
                       </td>
-                      <td className="px-6 py-4">
-                        <Badge variant="outline" className={`text-[11px] font-semibold ${getActionBadgeClass(l.accion)}`}>
-                          {formatAction(l.accion)}
-                        </Badge>
+                      <td>
+                        <Badge variant={ACTION_VARIANT[l.accion] || 'secondary'}>{formatAction(l.accion)}</Badge>
                       </td>
-                      <td className="px-6 py-4 font-medium text-foreground text-xs">
-                        {l.recursoAfectado}
-                      </td>
-                      <td className="px-6 py-4 font-mono text-xs text-muted-foreground">
+                      <td className="text-xs font-medium text-on-surface">{l.recursoAfectado}</td>
+                      <td className="font-mono text-xs text-text-secondary tabular-nums">
                         {l.idRegistroAfectado ? `#${l.idRegistroAfectado}` : 'N/A'}
                       </td>
-                      <td className="px-6 py-4 text-xs text-muted-foreground">
+                      <td className="whitespace-nowrap text-xs text-text-secondary tabular-nums">
                         {l.idUsuario ? `Usuario #${l.idUsuario}` : 'Sistema'}
                       </td>
-                      <td className="px-6 py-4 font-mono text-xs text-muted-foreground">
-                        {l.ipCliente || '127.0.0.1'}
-                      </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="font-mono text-xs text-text-secondary">{l.ipCliente || '—'}</td>
+                      <td className="text-right">
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => setSelectedLog(l)}
-                          className="text-xs gap-1"
+                          className="h-10 gap-1 text-xs sm:h-8"
+                          aria-label={`Ver detalle del evento ${l.idAuditoria}`}
                         >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Ver</span>
+                          <Eye aria-hidden="true" />
+                          Ver
                         </Button>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-          {/* Pagination Controls (10 items per page) */}
-          {filtered.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-border">
-              <div className="text-xs text-muted-foreground">
-                Mostrando{' '}
-                <span className="font-semibold text-foreground">
-                  {safePage * PAGE_SIZE + 1}
-                </span>{' '}
-                a{' '}
-                <span className="font-semibold text-foreground">
+            <div className="flex flex-col items-center justify-between gap-3 border-t border-border px-4 py-4 sm:flex-row sm:px-6">
+              <div className="text-xs text-text-secondary tabular-nums">
+                Mostrando <span className="font-semibold text-on-surface">{safePage * PAGE_SIZE + 1}</span> a{' '}
+                <span className="font-semibold text-on-surface">
                   {Math.min((safePage + 1) * PAGE_SIZE, filtered.length)}
                 </span>{' '}
-                de{' '}
-                <span className="font-semibold text-foreground">
-                  {filtered.length}
-                </span>{' '}
-                eventos
+                de <span className="font-semibold text-on-surface">{filtered.length}</span> eventos
               </div>
               <div className="flex items-center gap-1.5">
                 <Button
@@ -244,12 +245,12 @@ export default function OrgAuditoriaPage() {
                   size="sm"
                   disabled={safePage === 0}
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  className="h-8 px-2.5 text-xs gap-1"
+                  className="h-10 gap-1 px-3 text-xs sm:h-8"
                 >
-                  <ChevronLeft className="w-3.5 h-3.5" />
-                  <span>Anterior</span>
+                  <ChevronLeft aria-hidden="true" />
+                  Anterior
                 </Button>
-                <span className="px-3 text-xs font-medium text-muted-foreground">
+                <span className="px-3 text-xs font-medium text-text-secondary tabular-nums">
                   Página {safePage + 1} de {totalPages}
                 </span>
                 <Button
@@ -257,77 +258,64 @@ export default function OrgAuditoriaPage() {
                   size="sm"
                   disabled={safePage >= totalPages - 1}
                   onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                  className="h-8 px-2.5 text-xs gap-1"
+                  className="h-10 gap-1 px-3 text-xs sm:h-8"
                 >
-                  <span>Siguiente</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  Siguiente
+                  <ChevronRight aria-hidden="true" />
                 </Button>
               </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Detail Modal */}
-      {selectedLog && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <Card className="w-full max-w-2xl bg-background border-border shadow-xl">
-            <CardHeader className="border-b border-border pb-4 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-primary" />
-                  <span>Detalle de Evento de Auditoría #{selectedLog.idAuditoria}</span>
-                </CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Registrado el {new Date(selectedLog.fechaHora).toLocaleString('es-CO')}
-                </p>
-              </div>
-              <Badge variant="outline" className={getActionBadgeClass(selectedLog.accion)}>
-                {selectedLog.accion}
-              </Badge>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div>
-                  <span className="font-semibold text-muted-foreground uppercase block">Recurso</span>
-                  <span className="text-foreground font-medium">{selectedLog.recursoAfectado}</span>
-                </div>
-                <div>
-                  <span className="font-semibold text-muted-foreground uppercase block">ID Registro Afectado</span>
-                  <span className="text-foreground font-mono font-medium">#{selectedLog.idRegistroAfectado || 'N/A'}</span>
-                </div>
-                <div>
-                  <span className="font-semibold text-muted-foreground uppercase block">Usuario Ejecutor</span>
-                  <span className="text-foreground font-medium">ID #{selectedLog.idUsuario || 'Sistema'}</span>
-                </div>
-                <div>
-                  <span className="font-semibold text-muted-foreground uppercase block">Dirección IP</span>
-                  <span className="text-foreground font-mono font-medium">{selectedLog.ipCliente || '127.0.0.1'}</span>
-                </div>
-              </div>
-
-              {selectedLog.detalles && (
-                <div>
-                  <span className="text-xs font-semibold text-muted-foreground uppercase block mb-1.5">
-                    Carga Útil / Cambios (Snapshot)
-                  </span>
-                  <pre className="p-3 bg-muted/40 rounded-lg text-xs font-mono text-foreground overflow-x-auto border border-border">
-                    {typeof selectedLog.detalles === 'object'
-                      ? JSON.stringify(selectedLog.detalles, null, 2)
-                      : selectedLog.detalles}
-                  </pre>
-                </div>
-              )}
-
-              <div className="flex justify-end pt-4 border-t border-border">
-                <Button variant="outline" onClick={() => setSelectedLog(null)}>
-                  Cerrar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          </CardContent>
+        </Card>
       )}
-    </div>
+
+      <Modal
+        open={!!selectedLog}
+        onClose={() => setSelectedLog(null)}
+        size="lg"
+        title={selectedLog ? `Evento de auditoría #${selectedLog.idAuditoria}` : ''}
+        footer={
+          <Button variant="outline" onClick={() => setSelectedLog(null)}>
+            Cerrar
+          </Button>
+        }
+      >
+        {selectedLog && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
+              <Badge variant={ACTION_VARIANT[selectedLog.accion] || 'secondary'}>
+                {formatAction(selectedLog.accion)}
+              </Badge>
+              <span className="tabular-nums">
+                Registrado el {selectedLog.fechaHora ? formatDateTime(selectedLog.fechaHora) : '—'}
+              </span>
+            </div>
+            <dl className="grid grid-cols-1 gap-4 rounded-lg border border-border bg-surface-container p-3 sm:grid-cols-2">
+              <Dato label="Recurso">{selectedLog.recursoAfectado}</Dato>
+              <Dato label="ID de registro afectado">
+                <span className="font-mono tabular-nums">#{selectedLog.idRegistroAfectado || 'N/A'}</span>
+              </Dato>
+              <Dato label="Usuario ejecutor">
+                {selectedLog.idUsuario ? `ID #${selectedLog.idUsuario}` : 'Sistema'}
+              </Dato>
+              <Dato label="Dirección IP">
+                <span className="font-mono">{selectedLog.ipCliente || '—'}</span>
+              </Dato>
+            </dl>
+
+            {selectedLog.detalles && (
+              <div>
+                <p className="mb-1.5 text-xs font-semibold text-text-muted">Cambios registrados</p>
+                <pre className="max-h-72 overflow-auto rounded-lg border border-border bg-surface-container p-3 font-mono text-xs text-on-surface">
+                  {typeof selectedLog.detalles === 'object'
+                    ? JSON.stringify(selectedLog.detalles, null, 2)
+                    : selectedLog.detalles}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+    </PageContainer>
   );
 }

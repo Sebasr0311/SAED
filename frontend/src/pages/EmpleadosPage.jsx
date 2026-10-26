@@ -41,6 +41,7 @@ import { MetricCard } from '../components/ui/MetricCard.jsx';
 import { LoadingState } from '../components/ui/LoadingState.jsx';
 import { ErrorState } from '../components/ui/ErrorState.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
 
 const PAGE_SIZE = 12;
 
@@ -377,68 +378,45 @@ export default function EmpleadosPage() {
 
   return (
     <PageContainer>
-      {/* 1. Encabezado */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-2 border-b border-border/60">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Personal Operativo & Control de Acceso
-            </span>
-            <span className="text-muted-foreground/40">•</span>
-            <span className="text-xs font-medium text-primary">
-              {tenant.activePropertyName || 'Propiedad Activa'}
-            </span>
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl mt-0.5">
-            Empleados de Portería
-          </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            Registro, control de credenciales y administración de turnos para el personal de vigilancia y acceso.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={loading}
-            className="text-xs min-h-[40px] sm:min-h-9"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
-            Actualizar
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={openCreate}
-            className="text-xs min-h-[40px] sm:min-h-9 shadow-xs"
-          >
-            <UserPlus className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
-            Nuevo Empleado
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Empleados de Portería"
+        subtitle={`Credenciales y estado de cuenta del personal de vigilancia y acceso${tenant.activePropertyName ? ` de ${tenant.activePropertyName}` : ''}.`}
+        action={
+          <>
+            <Button variant="outline" size="sm" onClick={() => refetch().catch(() => {})} disabled={loading}>
+              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
+              Actualizar
+            </Button>
+            <Button variant="primary" size="sm" onClick={openCreate}>
+              <UserPlus className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+              Nuevo Empleado
+            </Button>
+          </>
+        }
+      />
 
       {/* 2. KPIs de Personal */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <MetricCard
           label="Total Empleados"
-          value={metrics.total}
+          value={rawUsers ? metrics.total : '—'}
           subtitle="Personal de vigilancia asignado"
           icon={Shield}
+          variant="primary"
         />
         <MetricCard
           label="Cuentas Activas"
-          value={metrics.activos}
+          value={rawUsers ? metrics.activos : '—'}
           subtitle="Con acceso habilitado al módulo"
           icon={UserCheck}
+          variant="success"
         />
         <MetricCard
           label="Cuentas Suspendidas"
-          value={metrics.suspendidos}
+          value={rawUsers ? metrics.suspendidos : '—'}
           subtitle="Accesos bloqueados temporalmente"
           icon={UserX}
+          variant={metrics.suspendidos > 0 ? 'warning' : 'secondary'}
         />
       </div>
 
@@ -447,20 +425,22 @@ export default function EmpleadosPage() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <input
-            type="text"
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nombre, documento, usuario o teléfono..."
-            className="w-full pl-9 pr-4 py-2 text-xs rounded-lg border border-border bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+            aria-label="Buscar empleados"
+            className="h-10 w-full rounded-md border border-input bg-surface pl-9 pr-3 text-sm text-on-surface placeholder:text-text-muted transition-[border-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
           />
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Filtrar por:</span>
+          <label htmlFor="filtro-estado-empleados" className="text-xs text-text-secondary font-semibold whitespace-nowrap">Filtrar por:</label>
           <select
+            id="filtro-estado-empleados"
             value={filterEstado}
             onChange={(e) => setFilterEstado(e.target.value)}
-            className="text-xs py-2 px-3 rounded-lg border border-border bg-card text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20"
+            className="h-10 rounded-md border border-input bg-surface px-3 text-sm text-on-surface focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
           >
             <option value="TODOS">Todos los estados</option>
             <option value="ACTIVOS">Solo Cuentas Activas</option>
@@ -470,31 +450,37 @@ export default function EmpleadosPage() {
       </div>
 
       {/* 4. Tabla de Empleados */}
-      {loading ? (
-        <LoadingState message="Cargando personal operativo de la copropiedad..." />
-      ) : error ? (
-        <ErrorState message="No se pudo cargar la lista de empleados" onRetry={() => refetch()} />
+      {loading && !rawUsers ? (
+        <Card className="overflow-hidden">
+          <LoadingState message="Cargando personal operativo de la copropiedad..." />
+        </Card>
+      ) : error && !rawUsers ? (
+        <ErrorState
+          title="No se pudo cargar la lista de empleados"
+          message={error?.message || 'Verifique su conexión e intente nuevamente.'}
+          onRetry={() => refetch().catch(() => {})}
+        />
       ) : rows.length === 0 ? (
         <EmptyState
-          title="No hay empleados registrados"
-          description={
+          icon={Shield}
+          title={search || filterEstado !== 'TODOS' ? 'Sin resultados' : 'No hay empleados registrados'}
+          subtitle={
             search
               ? 'No se encontraron empleados que coincidan con los filtros de búsqueda.'
               : 'Aún no has registrado porteros para esta propiedad. Haz clic en "Nuevo Empleado" para registrar el personal de turno.'
           }
-          action={
-            !search && (
+        >
+          <div className="mt-4 flex justify-center empty:hidden">{!search && (
               <Button variant="primary" size="sm" onClick={openCreate}>
                 <UserPlus className="h-4 w-4 mr-1.5" /> Registrar Primer Portero
               </Button>
-            )
-          }
-        />
+            )}</div>
+        </EmptyState>
       ) : (
-        <Card className="border border-border/80 shadow-xs overflow-hidden">
+        <Card className="overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-muted/40 text-muted-foreground font-medium border-b border-border/60">
+            <table className="w-full min-w-[760px] text-left text-xs">
+              <thead className="bg-surface-dim text-text-secondary font-semibold border-b border-border">
                 <tr>
                   <th className="py-3 px-4">Empleado</th>
                   <th className="py-3 px-4">Cargo / Función</th>
@@ -509,26 +495,26 @@ export default function EmpleadosPage() {
                   <tr key={emp.idUsuario} className="hover:bg-muted/20 transition-colors">
                     <td className="py-3 px-4">
                       <div className="font-semibold text-foreground">{emp.nombreCompleto}</div>
-                      <div className="text-[11px] text-muted-foreground">Doc: {emp.numeroDocumento || 'Sin registrar'}</div>
+                      <div className="text-[11.5px] text-text-secondary tabular-nums">Doc: {emp.numeroDocumento || 'Sin registrar'}</div>
                     </td>
                     <td className="py-3 px-4">
-                      <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px] font-semibold flex items-center gap-1 w-fit">
-                        <Shield className="h-3 w-3" />
+                      <Badge variant="info" className="w-fit">
+                        <Shield className="h-3 w-3" aria-hidden="true" />
                         Portería y Control
                       </Badge>
                     </td>
                     <td className="py-3 px-4">
                       <div className="font-mono text-foreground font-medium">@{emp.username}</div>
-                      <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <div className="text-[11.5px] text-muted-foreground flex items-center gap-1 mt-0.5">
                         <Mail className="h-3 w-3" />
                         {emp.email}
                       </div>
                     </td>
                     <td className="py-3 px-4">
                       {emp.telefono ? (
-                        <div className="flex items-center gap-1 text-muted-foreground">
-                          <Phone className="h-3 w-3" />
-                          <span>{emp.telefono}</span>
+                        <div className="flex items-center gap-1 text-text-secondary">
+                          <Phone className="h-3 w-3" aria-hidden="true" />
+                          <span className="tabular-nums">{emp.telefono}</span>
                         </div>
                       ) : (
                         <span className="text-muted-foreground/60 italic">—</span>
@@ -536,65 +522,65 @@ export default function EmpleadosPage() {
                     </td>
                     <td className="py-3 px-4 text-center">
                       {emp.activo ? (
-                        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">
+                        <Badge variant="success">
                           Cuenta Activa
                         </Badge>
                       ) : (
-                        <Badge variant="destructive" className="text-[10px] font-semibold">
+                        <Badge variant="destructive">
                           Cuenta Suspendida
                         </Badge>
                       )}
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          variant="ghost"
-                          size="sm"
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
                           onClick={() => toggleStatus(emp)}
                           disabled={statusToggling === emp.idUsuario}
-                          className="h-8 px-2 text-xs"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-text-secondary transition-colors duration-150 hover:bg-surface-dim hover:text-on-surface disabled:opacity-50"
                           title={emp.activo ? 'Suspender acceso' : 'Reactivar acceso'}
+                          aria-label={emp.activo ? `Suspender acceso de ${emp.nombreCompleto}` : `Reactivar acceso de ${emp.nombreCompleto}`}
                         >
                           {statusToggling === emp.idUsuario ? (
-                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
                           ) : emp.activo ? (
-                            <UserX className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                            <UserX className="h-4 w-4 text-tint-amber-fg" aria-hidden="true" />
                           ) : (
-                            <UserCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                            <UserCheck className="h-4 w-4 text-tint-green-fg" aria-hidden="true" />
                           )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => resendActivation(emp)}
                           disabled={resendingId === emp.idUsuario}
-                          className="h-8 px-2 text-xs"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-text-secondary transition-colors duration-150 hover:bg-surface-dim hover:text-on-surface disabled:opacity-50"
                           title="Reenviar enlace de activación"
+                          aria-label={`Reenviar enlace de activación a ${emp.nombreCompleto}`}
                         >
                           {resendingId === emp.idUsuario ? (
-                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
                           ) : (
-                            <Mail className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                            <Mail className="h-4 w-4" aria-hidden="true" />
                           )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => openEdit(emp)}
-                          className="h-8 px-2 text-xs"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-text-secondary transition-colors duration-150 hover:bg-surface-dim hover:text-on-surface"
                           title="Editar empleado y credenciales"
+                          aria-label={`Editar a ${emp.nombreCompleto}`}
                         >
-                          <Pencil className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
+                          <Pencil className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setConfirmDel(emp)}
-                          className="h-8 px-2 text-xs text-destructive hover:bg-destructive/10"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-destructive transition-colors duration-150 hover:bg-tint-red-bg"
                           title="Desvincular empleado"
+                          aria-label={`Desvincular a ${emp.nombreCompleto}`}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -640,12 +626,12 @@ export default function EmpleadosPage() {
                 <strong className="text-xs font-semibold text-foreground block">
                   Cargo Operativo: Portero (Control de Acceso)
                 </strong>
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-[11.5px] text-muted-foreground">
                   Personal encargado de registrar visitas, paquetes y vehículos en portería.
                 </span>
               </div>
             </div>
-            <Badge variant="outline" className="text-[10px] font-bold border-primary/30 text-primary">
+            <Badge variant="outline" className="text-[11.5px] font-bold border-primary/30 text-primary">
               ROL_PORTERO
             </Badge>
           </div>
@@ -744,7 +730,7 @@ export default function EmpleadosPage() {
           <div className="border-t border-border pt-3 space-y-3">
             <div className="flex items-center gap-2">
               <KeyRound className="h-4 w-4 text-primary" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+              <h3 className="text-xs font-bold text-foreground">
                 Credenciales de Acceso al Portal
               </h3>
             </div>
@@ -772,7 +758,7 @@ export default function EmpleadosPage() {
                 />
               ) : (
                 <div className="flex flex-col justify-end">
-                  <div className="text-[11px] bg-muted/60 p-2.5 rounded-lg border border-border text-muted-foreground flex items-center gap-2">
+                  <div className="text-[11.5px] bg-muted/60 p-2.5 rounded-lg border border-border text-muted-foreground flex items-center gap-2">
                     <Mail className="h-4 w-4 text-primary shrink-0" />
                     <span>La persona recibirá por correo un enlace de un solo uso (48 horas) para definir su contraseña.</span>
                   </div>
@@ -789,7 +775,7 @@ export default function EmpleadosPage() {
                   onChange={(e) => update('activo', e.target.checked)}
                   className="rounded-sm border-border text-primary focus:ring-primary/20"
                 />
-                <span className={`text-xs font-semibold ${form.activo ? 'text-emerald-600' : 'text-destructive'}`}>
+                <span className={`text-xs font-semibold ${form.activo ? 'text-tint-green-fg' : 'text-destructive'}`}>
                   {form.activo ? 'Habilitada (Activa)' : 'Suspendida (Inactiva)'}
                 </span>
               </label>

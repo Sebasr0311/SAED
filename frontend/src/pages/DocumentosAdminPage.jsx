@@ -3,6 +3,10 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { DataTable } from '../components/ui/DataTable';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import { Eye, Folder, Globe, Lock, Search, UploadCloud } from 'lucide-react';
 import { useFetch } from '../lib/hooks';
 import { api, BASE_URL } from '../lib/api';
 import { formatDate } from '../lib/utils';
@@ -298,7 +302,7 @@ export default function DocumentosAdminPage() {
           {r.descripcion && (
             <span className="text-xs text-muted-foreground line-clamp-1">{r.descripcion}</span>
           )}
-          <span className="text-[11px] text-muted-foreground/80 mt-0.5">
+          <span className="text-[11.5px] text-muted-foreground/80 mt-0.5">
             {r.nombreArchivo || 'archivo'} • {formatFileSize(r.archivoTamanoBytes)}
           </span>
         </div>
@@ -318,13 +322,13 @@ export default function DocumentosAdminPage() {
       label: 'Acceso Residentes',
       render: (r) =>
         r.esPublicoResidentes === 'S' ? (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-            <span className="material-symbols-outlined text-sm">visibility</span>
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-tint-green-fg">
+            <Eye className="h-3.5 w-3.5" aria-hidden="true" />
             Público
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-            <span className="material-symbols-outlined text-sm">lock</span>
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-tint-amber-fg">
+            <Lock className="h-3.5 w-3.5" aria-hidden="true" />
             Confidencial ({r.rolMinimoAcceso || 'Admin'})
           </span>
         ),
@@ -388,7 +392,7 @@ export default function DocumentosAdminPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <PageContainer>
       <PageHeader
         title="Repositorio Documental Oficial"
         subtitle="Custodia, control de versiones y gobierno documental de la copropiedad"
@@ -407,39 +411,9 @@ export default function DocumentosAdminPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-4 rounded-xl border border-border bg-card shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Total Documentos
-            </p>
-            <p className="text-2xl font-bold text-foreground mt-1">{stats.total}</p>
-          </div>
-          <span className="material-symbols-outlined text-3xl text-primary/70">folder</span>
-        </div>
-
-        <div className="p-4 rounded-xl border border-border bg-card shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Públicos para Residentes
-            </p>
-            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-              {stats.publicos}
-            </p>
-          </div>
-          <span className="material-symbols-outlined text-3xl text-emerald-500/70">public</span>
-        </div>
-
-        <div className="p-4 rounded-xl border border-border bg-card shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Confidenciales (Admin/Consejo)
-            </p>
-            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">
-              {stats.privados}
-            </p>
-          </div>
-          <span className="material-symbols-outlined text-3xl text-amber-500/70">lock</span>
-        </div>
+        <MetricCard label="Total documentos" value={!data ? '—' : stats.total} icon={Folder} variant="primary" />
+        <MetricCard label="Públicos para residentes" value={!data ? '—' : stats.publicos} icon={Globe} variant="success" />
+        <MetricCard label="Confidenciales (Admin/Consejo)" value={!data ? '—' : stats.privados} icon={Lock} variant="warning" />
       </div>
 
       {/* Filters and Search Bar */}
@@ -448,10 +422,11 @@ export default function DocumentosAdminPage() {
           <button
             type="button"
             onClick={() => setCategoriaFiltro('TODAS')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            aria-pressed={categoriaFiltro === 'TODAS'}
+            className={`min-h-10 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors duration-150 ${
               categoriaFiltro === 'TODAS'
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:text-foreground'
+                ? 'bg-btn-primary text-white shadow-sm'
+                : 'bg-surface-dim text-text-secondary hover:bg-surface-container hover:text-on-surface'
             }`}
           >
             Todas ({rawDocumentos.length})
@@ -464,10 +439,11 @@ export default function DocumentosAdminPage() {
                 key={c.value}
                 type="button"
                 onClick={() => setCategoriaFiltro(c.value)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                aria-pressed={categoriaFiltro === c.value}
+                className={`min-h-10 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors duration-150 ${
                   categoriaFiltro === c.value
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:text-foreground'
+                    ? 'bg-btn-primary text-white shadow-sm'
+                    : 'bg-surface-dim text-text-secondary hover:bg-surface-container hover:text-on-surface'
                 }`}
               >
                 {c.label} ({count})
@@ -478,26 +454,31 @@ export default function DocumentosAdminPage() {
 
         <div className="w-full sm:w-72">
           <div className="relative">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-              search
-            </span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary" aria-hidden="true" />
             <input
-              type="text"
+              type="search"
+              aria-label="Buscar documentos"
               placeholder="Buscar por título o contenido..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-input bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="h-10 w-full rounded-md border border-input bg-surface pl-9 pr-3 text-sm text-on-surface placeholder:text-text-muted focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
             />
           </div>
         </div>
       </div>
 
       {/* Main Table */}
+      {error && !data ? (
+        <ErrorState
+          title="No se pudieron cargar los documentos"
+          message={error?.message || 'Verifique su conexión e intente nuevamente.'}
+          onRetry={() => refetch().catch(() => {})}
+        />
+      ) : (
       <DataTable
         columns={columns}
         rows={documentos}
-        loading={loading}
-        error={error?.message}
+        loading={loading && !data}
         keyField="idDocumento"
         empty={{
           icon: 'folder_off',
@@ -508,6 +489,7 @@ export default function DocumentosAdminPage() {
               : 'El repositorio documental de esta propiedad está vacío. Sube el primer documento oficial.',
         }}
       />
+      )}
 
       {/* MODAL 1: SUBIR NUEVO DOCUMENTO (MULTIPART REAL) */}
       <Modal
@@ -612,7 +594,7 @@ export default function DocumentosAdminPage() {
               htmlFor="file-upload-input"
               className="cursor-pointer flex flex-col items-center justify-center gap-1.5"
             >
-              <span className="material-symbols-outlined text-3xl text-primary">cloud_upload</span>
+              <UploadCloud className="h-7 w-7 text-primary-text" aria-hidden="true" />
               <span className="text-sm font-semibold text-foreground">
                 {uploadFile ? uploadFile.name : 'Haz clic para seleccionar el archivo'}
               </span>
@@ -689,7 +671,7 @@ export default function DocumentosAdminPage() {
               htmlFor="version-file-input"
               className="cursor-pointer flex flex-col items-center justify-center gap-1.5"
             >
-              <span className="material-symbols-outlined text-3xl text-primary">system_update_alt</span>
+              <UploadCloud className="h-7 w-7 text-primary-text" aria-hidden="true" />
               <span className="text-sm font-semibold text-foreground">
                 {versionFile ? versionFile.name : 'Seleccionar nuevo archivo para la versión'}
               </span>
@@ -817,6 +799,6 @@ export default function DocumentosAdminPage() {
           </div>
         </form>
       </Modal>
-    </div>
+    </PageContainer>
   );
 }

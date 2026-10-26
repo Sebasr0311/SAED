@@ -6,29 +6,31 @@ import {
   AlertCircle,
   Plus,
   Search,
-  Filter,
   Eye,
   Download,
   Trash2,
   Edit3,
   Paperclip,
-  Calendar,
   FileText,
-  Building2,
   Upload,
   X,
   History,
   ShieldCheck,
-  Clock,
-  ArrowUpDown,
   RefreshCw,
 } from 'lucide-react';
 import { useFetch } from '../lib/hooks.js';
 import { api, BASE_URL } from '../lib/api.js';
+import { TOKEN_KEY } from '../lib/storage.js';
+import { cn } from '../lib/utils.js';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
+import { Button as IconButton } from '../components/ui/button.tsx';
+import { Input as BareInput } from '../components/ui/input.tsx';
+import { Input, Select, Textarea } from '../components/ui/Form.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
 import { Badge } from '../components/ui/badge.tsx';
-import { Card, CardContent } from '../components/ui/card.tsx';
 import {
   Dialog,
   DialogContent,
@@ -44,14 +46,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '../components/ui/sheet.tsx';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import { toast } from 'sonner';
@@ -84,11 +78,16 @@ const METODOS_PAGO = [
   { value: 'CONSIGNACION', label: 'Consignación' },
 ];
 
+const METODO_LABEL = Object.fromEntries(METODOS_PAGO.map((m) => [m.value, m.label]));
+
 const ESTADOS_GASTO = [
-  { value: 'REGISTRADO', label: 'Registrado', badgeClass: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300' },
-  { value: 'PAGADO', label: 'Pagado', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300' },
-  { value: 'ANULADO', label: 'Anulado', badgeClass: 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400' },
+  { value: 'REGISTRADO', label: 'Registrado', variant: 'info' },
+  { value: 'PAGADO', label: 'Pagado', variant: 'success' },
+  { value: 'ANULADO', label: 'Anulado', variant: 'outline' },
 ];
+
+const SELECT_CLASS =
+  'h-10 w-full rounded-md border border-input bg-surface px-3 text-sm text-on-surface shadow-xs transition-[border-color,box-shadow] duration-150 hover:border-keyline/70 focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 sm:h-9';
 
 const EMPTY_FORM = {
   fecha: new Date().toISOString().split('T')[0],
@@ -103,7 +102,7 @@ const EMPTY_FORM = {
 };
 
 export default function GastosPage() {
-  const { data: gastosRaw, loading, refetch } = useFetch(() => api.get('/gastos'), []);
+  const { data: gastosRaw, loading, error, refetch } = useFetch(() => api.get('/gastos'), []);
   const { data: presupData } = useFetch(() => api.get('/presupuestos'), []);
 
   // UI States
@@ -112,6 +111,7 @@ export default function GastosPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [soporteFile, setSoporteFile] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [intentado, setIntentado] = useState(false);
 
   // Soporte replacement dialog
   const [soporteModalOpen, setSoporteModalOpen] = useState(false);
@@ -222,6 +222,7 @@ export default function GastosPage() {
     setEditando(null);
     setForm(EMPTY_FORM);
     setSoporteFile(null);
+    setIntentado(false);
     setDialogOpen(true);
   }
 
@@ -240,11 +241,13 @@ export default function GastosPage() {
       presupuestoId: String(g.idPresupuesto || g.ID_PRESUPUESTO || ''),
     });
     setSoporteFile(null);
+    setIntentado(false);
     setDialogOpen(true);
   }
 
   // Guardar Gasto (Crear o Actualizar)
   async function guardar() {
+    setIntentado(true);
     if (!form.categoria.trim() || !form.beneficiario.trim()) {
       toast.error('La categoría y el beneficiario son obligatorios');
       return;
@@ -309,7 +312,7 @@ export default function GastosPage() {
       setDialogOpen(false);
       setForm(EMPTY_FORM);
       setSoporteFile(null);
-      refetch();
+      refetch().catch(() => {});
     } catch (err) {
       toast.error(err.message || 'Error al guardar el gasto');
     } finally {
@@ -353,7 +356,7 @@ export default function GastosPage() {
       setTargetGastoSoporte(null);
       setNuevoSoporteFile(null);
       setMotivoReemplazo('');
-      refetch();
+      refetch().catch(() => {});
     } catch (err) {
       toast.error(err.message || 'Error al subir el soporte documental');
     } finally {
@@ -383,7 +386,7 @@ export default function GastosPage() {
     setPreviewModalOpen(true);
 
     try {
-      const token = sessionStorage.getItem('token');
+      const token = sessionStorage.getItem(TOKEN_KEY);
       const res = await fetch(`${BASE_URL}/gastos/${id}/soporte`, {
         headers: {
           Authorization: token ? `Bearer ${token}` : '',
@@ -408,7 +411,7 @@ export default function GastosPage() {
   // Descargar Documento
   async function descargarSoporte(id, nombre) {
     try {
-      const token = sessionStorage.getItem('token');
+      const token = sessionStorage.getItem(TOKEN_KEY);
       const res = await fetch(`${BASE_URL}/gastos/${id}/soporte?download=true`, {
         headers: {
           Authorization: token ? `Bearer ${token}` : '',
@@ -446,391 +449,334 @@ export default function GastosPage() {
       await api.del(`/gastos/${id}`);
       toast.success('Gasto eliminado exitosamente');
       setDeleteTarget(null);
-      refetch();
+      refetch().catch(() => {});
     } catch (err) {
       toast.error(err.message || 'Error al eliminar el gasto');
     }
   }
 
+  const hayFiltros = Boolean(search || filtroPresupuesto || filtroCategoria || filtroEstado || filtroSoporte !== 'TODOS');
+  const tieneSoportePrevio = Boolean(targetGastoSoporte?.facturaSoporteUrl || targetGastoSoporte?.FACTURA_SOPORTE_URL);
+
   return (
     <div className="space-y-6">
-      {/* 1. Header */}
       <PageHeader
-        title="Gestión de Gastos"
-        subtitle="Registro de egresos operativos con soporte documental y trazabilidad"
+        title="Gestión de gastos"
+        subtitle="Egresos operativos de la copropiedad con soporte documental y trazabilidad"
         action={
-          <Button onClick={abrirCrear} className="gap-2 shadow-sm">
-            <Plus className="h-4 w-4" />
-            Nuevo Gasto
+          <Button onClick={abrirCrear} icon={<Plus className="h-4 w-4" />}>
+            Nuevo gasto
           </Button>
         }
       />
 
-      {/* 2. KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Gastado</p>
-              <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {fmtCOP.format(kpis.total)}
-              </p>
-              <p className="text-xs text-muted-foreground">Egresos activos del período</p>
-            </div>
-            <div className="p-3 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-xl">
-              <DollarSign className="h-6 w-6" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Registros</p>
-              <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {kpis.cantidad}
-              </p>
-              <p className="text-xs text-muted-foreground">Movimientos en el sistema</p>
-            </div>
-            <div className="p-3 bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 rounded-xl">
-              <Receipt className="h-6 w-6" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Con Soporte</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
-                  {kpis.conSoporte}
-                </p>
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
-                  {kpis.porcentajeSoporte}%
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">Con factura o comprobante</p>
-            </div>
-            <div className="p-3 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-xl">
-              <FileCheck className="h-6 w-6" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Sin Soporte</p>
-              <p className="text-2xl font-bold tracking-tight text-amber-600 dark:text-amber-400">
-                {kpis.sinSoporte}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {kpis.sinSoporte > 0 ? 'Requieren adjuntar factura' : 'Al día con soportes'}
-              </p>
-            </div>
-            <div className="p-3 bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400 rounded-xl">
-              <AlertCircle className="h-6 w-6" />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          label="Total gastado"
+          value={loading ? '…' : error ? '—' : fmtCOP.format(kpis.total)}
+          subtitle="Egresos activos (sin anulados)"
+          icon={DollarSign}
+          variant="primary"
+        />
+        <MetricCard
+          label="Registros"
+          value={loading ? '…' : error ? '—' : kpis.cantidad}
+          subtitle="Gastos en el sistema"
+          icon={Receipt}
+          variant="secondary"
+        />
+        <MetricCard
+          label="Con soporte"
+          value={loading ? '…' : error ? '—' : kpis.conSoporte}
+          subtitle={error ? 'Sin datos' : `${kpis.porcentajeSoporte} % con factura o comprobante`}
+          icon={FileCheck}
+          variant="success"
+        />
+        <MetricCard
+          label="Sin soporte"
+          value={loading ? '…' : error ? '—' : kpis.sinSoporte}
+          subtitle={error ? 'Sin datos' : kpis.sinSoporte > 0 ? 'Requieren adjuntar factura' : 'Al día con los soportes'}
+          icon={AlertCircle}
+          variant={kpis.sinSoporte > 0 ? 'warning' : 'secondary'}
+        />
       </div>
 
-      {/* 3. Filter Bar */}
-      <Card className="border shadow-sm">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex flex-col md:flex-row gap-3">
-            {/* Search Input */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Buscar por beneficiario, NIT, concepto o motivo..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-              />
-            </div>
-
-            {/* Presupuesto Select */}
-            <div className="w-full md:w-56">
-              <select
-                value={filtroPresupuesto}
-                onChange={(e) => setFiltroPresupuesto(e.target.value)}
-                className="w-full py-2 px-3 text-sm rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <option value="">Presupuesto: Todos</option>
-                {presupuestos.map((p) => (
-                  <option key={p.idPresupuesto || p.ID_PRESUPUESTO || p.id} value={p.idPresupuesto || p.ID_PRESUPUESTO || p.id}>
-                    {p.rubro || p.RUBRO}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Estado Select */}
-            <div className="w-full md:w-44">
-              <select
-                value={filtroEstado}
-                onChange={(e) => setFiltroEstado(e.target.value)}
-                className="w-full py-2 px-3 text-sm rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <option value="">Estado: Todos</option>
-                {ESTADOS_GASTO.map((est) => (
-                  <option key={est.value} value={est.value}>{est.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Soporte Select */}
-            <div className="w-full md:w-48">
-              <select
-                value={filtroSoporte}
-                onChange={(e) => setFiltroSoporte(e.target.value)}
-                className="w-full py-2 px-3 text-sm rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <option value="TODOS">Soporte: Todos</option>
-                <option value="CON_SOPORTE">Con Documento</option>
-                <option value="SIN_SOPORTE">Sin Documento</option>
-              </select>
-            </div>
-
-            {/* Reset Button */}
-            {(search || filtroPresupuesto || filtroCategoria || filtroEstado || filtroSoporte !== 'TODOS') && (
-              <Button variant="outline" size="sm" onClick={limpiarFiltros} className="gap-1 self-center">
-                <X className="h-4 w-4" />
-                Limpiar
-              </Button>
-            )}
+      <section className="table-container" aria-label="Gastos registrados">
+        <div className="flex flex-col gap-2 border-b border-border p-3 sm:p-4 lg:flex-row lg:items-center">
+          <div className="relative flex-1">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+              aria-hidden="true"
+            />
+            <BareInput
+              type="text"
+              aria-label="Buscar gastos"
+              placeholder="Buscar por beneficiario, NIT, categoría o motivo"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
           </div>
-        </CardContent>
-      </Card>
-
-      {/* 4. Table Card */}
-      <Card className="border shadow-sm">
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="p-6 space-y-3">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          ) : gastosFiltrados.length === 0 ? (
-            <div className="p-12 text-center space-y-3">
-              <div className="inline-flex p-3 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400">
-                <Receipt className="h-8 w-8" />
-              </div>
-              <p className="text-base font-medium text-slate-700 dark:text-slate-200">No se encontraron gastos</p>
-              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                No hay egresos registrados con los filtros aplicados. Puede registrar un nuevo gasto con el botón superior.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50/75 dark:bg-slate-900/50">
-                    <TableHead className="w-28">Fecha</TableHead>
-                    <TableHead>Beneficiario & Proveedor</TableHead>
-                    <TableHead>Categoría</TableHead>
-                    <TableHead>Presupuesto</TableHead>
-                    <TableHead>Método</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Soporte Documental</TableHead>
-                    <TableHead className="text-right">Monto</TableHead>
-                    <TableHead className="text-right w-36">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {gastosFiltrados.map((g) => {
-                    const id = g.idGasto || g.ID_GASTO || g.id;
-                    const fecha = g.fechaGasto || g.FECHA_GASTO || '-';
-                    const ben = g.beneficiario || g.BENEFICIARIO || '-';
-                    const nit = g.proveedorNit || g.PROVEEDOR_NIT;
-                    const cat = g.categoria || g.CATEGORIA || '-';
-                    const rubro = g.rubroPresupuesto || g.RUBRO_PRESUPUESTO;
-                    const metodo = g.metodoPago || g.METODO_PAGO || 'EFECTIVO';
-                    const estado = (g.estado || g.ESTADO || 'REGISTRADO').toUpperCase();
-                    const monto = Number(g.monto || g.MONTO || 0);
-                    const tieneSoporte = Boolean(g.facturaSoporteUrl || g.FACTURA_SOPORTE_URL);
-                    const origName = g.archivoNombreOrig || g.ARCHIVO_NOMBRE_ORIG;
-                    const mime = g.archivoMimeType || g.ARCHIVO_MIME_TYPE;
-
-                    const estadoConfig = ESTADOS_GASTO.find((e) => e.value === estado) || {
-                      label: estado,
-                      badgeClass: 'bg-slate-100 text-slate-700',
-                    };
-
-                    return (
-                      <TableRow key={id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/40">
-                        <TableCell className="font-mono text-xs whitespace-nowrap text-slate-600 dark:text-slate-400">
-                          {fecha}
-                        </TableCell>
-
-                        <TableCell>
-                          <div className="font-medium text-slate-900 dark:text-white leading-tight">
-                            {ben}
-                          </div>
-                          {nit && (
-                            <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                              <span>NIT:</span>
-                              <span className="font-mono">{nit}</span>
-                            </div>
-                          )}
-                        </TableCell>
-
-                        <TableCell>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                            {cat}
-                          </span>
-                        </TableCell>
-
-                        <TableCell className="text-xs text-muted-foreground">
-                          {rubro || <span className="italic text-slate-400">Sin asociar</span>}
-                        </TableCell>
-
-                        <TableCell className="text-xs text-slate-600 dark:text-slate-300">
-                          {metodo}
-                        </TableCell>
-
-                        <TableCell>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${estadoConfig.badgeClass}`}>
-                            {estadoConfig.label}
-                          </span>
-                        </TableCell>
-
-                        <TableCell>
-                          {tieneSoporte ? (
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                onClick={() => verSoporte(id, origName, mime)}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 transition-colors"
-                                title="Visualizar soporte documental"
-                              >
-                                <FileText className="h-3.5 w-3.5" />
-                                <span className="truncate max-w-[120px]">{origName || 'Ver Factura'}</span>
-                              </button>
-                              <button
-                                onClick={() => abrirModalSoporte(g)}
-                                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded"
-                                title="Reemplazar soporte con justificación de auditoría"
-                              >
-                                <RefreshCw className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => abrirModalSoporte(g)}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 transition-colors"
-                            >
-                              <Upload className="h-3 w-3" />
-                              Adjuntar
-                            </button>
-                          )}
-                        </TableCell>
-
-                        <TableCell className="text-right font-mono font-bold text-slate-900 dark:text-white">
-                          {fmtCOP.format(monto)}
-                        </TableCell>
-
-                        <TableCell className="text-right space-x-1 whitespace-nowrap">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => abrirDetalle(id)}
-                            title="Ver detalle completo y trazabilidad"
-                          >
-                            <Eye className="h-4 w-4 text-slate-600 dark:text-slate-300" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => abrirEditar(g)}
-                            title="Editar datos del gasto"
-                          >
-                            <Edit3 className="h-4 w-4 text-slate-600 dark:text-slate-300" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDeleteTarget(g)}
-                            title="Eliminar gasto"
-                          >
-                            <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:flex">
+            <select
+              aria-label="Filtrar por presupuesto"
+              value={filtroPresupuesto}
+              onChange={(e) => setFiltroPresupuesto(e.target.value)}
+              className={cn(SELECT_CLASS, 'lg:w-52')}
+            >
+              <option value="">Presupuesto: todos</option>
+              {presupuestos.map((p) => (
+                <option key={p.idPresupuesto || p.ID_PRESUPUESTO || p.id} value={p.idPresupuesto || p.ID_PRESUPUESTO || p.id}>
+                  {p.rubro || p.RUBRO}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Filtrar por estado"
+              value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value)}
+              className={cn(SELECT_CLASS, 'lg:w-40')}
+            >
+              <option value="">Estado: todos</option>
+              {ESTADOS_GASTO.map((est) => (
+                <option key={est.value} value={est.value}>{est.label}</option>
+              ))}
+            </select>
+            <select
+              aria-label="Filtrar por soporte"
+              value={filtroSoporte}
+              onChange={(e) => setFiltroSoporte(e.target.value)}
+              className={cn(SELECT_CLASS, 'lg:w-44')}
+            >
+              <option value="TODOS">Soporte: todos</option>
+              <option value="CON_SOPORTE">Con documento</option>
+              <option value="SIN_SOPORTE">Sin documento</option>
+            </select>
+          </div>
+          {hayFiltros && (
+            <Button variant="ghost" size="sm" onClick={limpiarFiltros} icon={<X className="h-4 w-4" />}>
+              Limpiar
+            </Button>
           )}
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* 5. Dialog Crear / Editar Gasto */}
+        {loading ? (
+          <div className="space-y-3 p-4" role="status" aria-label="Cargando gastos">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        ) : error ? (
+          <div className="p-4">
+            <ErrorState
+              compact
+              title="No se pudieron cargar los gastos"
+              message={error.message || 'Revise su conexión e intente de nuevo.'}
+              onRetry={() => refetch().catch(() => {})}
+            />
+          </div>
+        ) : gastosFiltrados.length === 0 ? (
+          <EmptyState
+            icon={Receipt}
+            title={hayFiltros ? 'No se encontraron gastos' : 'Aún no hay gastos registrados'}
+            subtitle={
+              hayFiltros
+                ? 'Ningún egreso coincide con los filtros aplicados.'
+                : 'Registre el primer egreso operativo con su factura o comprobante.'
+            }
+          >
+            <div className="mt-3">
+              {hayFiltros ? (
+                <Button variant="outline" size="sm" onClick={limpiarFiltros}>Limpiar filtros</Button>
+              ) : (
+                <Button size="sm" onClick={abrirCrear}>Nuevo gasto</Button>
+              )}
+            </div>
+          </EmptyState>
+        ) : (
+          <div className="max-h-[70vh] overflow-auto">
+            <table className="data-table">
+              <caption className="sr-only">Gastos operativos, valores en pesos colombianos</caption>
+              <thead>
+                <tr>
+                  <th scope="col" className="w-28">Fecha</th>
+                  <th scope="col">Beneficiario</th>
+                  <th scope="col">Categoría</th>
+                  <th scope="col">Presupuesto</th>
+                  <th scope="col">Método</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Soporte</th>
+                  <th scope="col" className="text-right">Monto</th>
+                  <th scope="col" className="text-right"><span className="sr-only">Acciones</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {gastosFiltrados.map((g) => {
+                  const id = g.idGasto || g.ID_GASTO || g.id;
+                  const fecha = g.fechaGasto || g.FECHA_GASTO || '—';
+                  const ben = g.beneficiario || g.BENEFICIARIO || '—';
+                  const nit = g.proveedorNit || g.PROVEEDOR_NIT;
+                  const cat = g.categoria || g.CATEGORIA || '—';
+                  const rubro = g.rubroPresupuesto || g.RUBRO_PRESUPUESTO;
+                  const metodo = g.metodoPago || g.METODO_PAGO || 'EFECTIVO';
+                  const estado = (g.estado || g.ESTADO || 'REGISTRADO').toUpperCase();
+                  const monto = Number(g.monto || g.MONTO || 0);
+                  const tieneSoporte = Boolean(g.facturaSoporteUrl || g.FACTURA_SOPORTE_URL);
+                  const origName = g.archivoNombreOrig || g.ARCHIVO_NOMBRE_ORIG;
+                  const mime = g.archivoMimeType || g.ARCHIVO_MIME_TYPE;
+                  const estadoConfig = ESTADOS_GASTO.find((e) => e.value === estado) || {
+                    label: estado,
+                    variant: 'secondary',
+                  };
+                  const anulado = estado === 'ANULADO';
+
+                  return (
+                    <tr key={id}>
+                      <td className="whitespace-nowrap tabular-nums text-text-secondary">{fecha}</td>
+                      <td className="min-w-[11rem]">
+                        <div className="font-semibold leading-tight">{ben}</div>
+                        {nit && <div className="mt-0.5 text-xs tabular-nums text-text-muted">NIT {nit}</div>}
+                      </td>
+                      <td className="min-w-[9rem]">{cat}</td>
+                      <td className="min-w-[8rem] text-text-secondary">
+                        {rubro || <span className="text-text-muted">Sin asociar</span>}
+                      </td>
+                      <td className="whitespace-nowrap text-text-secondary">{METODO_LABEL[metodo] || metodo}</td>
+                      <td>
+                        <Badge variant={estadoConfig.variant}>{estadoConfig.label}</Badge>
+                      </td>
+                      <td>
+                        {tieneSoporte ? (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => verSoporte(id, origName, mime)}
+                              icon={<FileText className="h-3.5 w-3.5" />}
+                              className="max-w-[11rem]"
+                            >
+                              <span className="truncate">{origName || 'Ver factura'}</span>
+                            </Button>
+                            <IconButton
+                              variant="ghost"
+                              size="icon"
+                              className="h-10 w-10"
+                              onClick={() => abrirModalSoporte(g)}
+                              aria-label={`Reemplazar soporte del gasto ${id}`}
+                              title="Reemplazar soporte"
+                            >
+                              <RefreshCw aria-hidden="true" />
+                            </IconButton>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => abrirModalSoporte(g)}
+                            icon={<Upload className="h-3.5 w-3.5" />}
+                            className="text-tint-amber-fg"
+                          >
+                            Adjuntar
+                          </Button>
+                        )}
+                      </td>
+                      <td
+                        className={cn(
+                          'whitespace-nowrap text-right font-bold tabular-nums',
+                          anulado && 'text-text-muted line-through'
+                        )}
+                      >
+                        {fmtCOP.format(monto)}
+                      </td>
+                      <td className="whitespace-nowrap text-right">
+                        <IconButton
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10"
+                          onClick={() => abrirDetalle(id)}
+                          aria-label={`Ver detalle del gasto ${id}`}
+                          title="Ver detalle y trazabilidad"
+                        >
+                          <Eye aria-hidden="true" />
+                        </IconButton>
+                        <IconButton
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10"
+                          onClick={() => abrirEditar(g)}
+                          aria-label={`Editar el gasto ${id}`}
+                          title="Editar"
+                        >
+                          <Edit3 aria-hidden="true" />
+                        </IconButton>
+                        <IconButton
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteTarget(g)}
+                          aria-label={`Eliminar el gasto ${id}`}
+                          title="Eliminar"
+                        >
+                          <Trash2 aria-hidden="true" />
+                        </IconButton>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Create / edit expense */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Receipt className="h-5 w-5 text-primary" />
-              {editando ? 'Editar Gasto Operativo' : 'Registrar Nuevo Gasto'}
-            </DialogTitle>
+            <DialogTitle>{editando ? 'Editar gasto operativo' : 'Registrar nuevo gasto'}</DialogTitle>
             <DialogDescription>
               {editando
-                ? 'Actualice los datos del gasto. Los cambios quedarán registrados en auditoría.'
-                : 'Ingrese los datos del egreso y adjunte la factura o comprobante soporte (PDF, JPG, PNG).'}
+                ? 'Actualice los datos del gasto. Los cambios quedan registrados en auditoría.'
+                : 'Ingrese los datos del egreso y adjunte la factura o comprobante (PDF, JPG o PNG).'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-5 py-3">
-            {/* Fila 1: Fecha y Monto */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Fecha del Gasto *
-                </label>
-                <input
-                  type="date"
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:ring-2 focus:ring-primary/20"
-                  value={form.fecha}
-                  onChange={(e) => setForm((f) => ({ ...f, fecha: e.target.value }))}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Monto (COP) *
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2 text-sm text-muted-foreground">$</span>
-                  <input
-                    type="number"
-                    step="1"
-                    min="1"
-                    placeholder="0"
-                    className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm font-mono font-bold bg-background focus:ring-2 focus:ring-primary/20"
-                    value={form.monto}
-                    onChange={(e) => setForm((f) => ({ ...f, monto: e.target.value }))}
-                  />
-                </div>
-              </div>
+          <div className="grid gap-4 py-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Input
+                id="gasto-fecha"
+                label="Fecha del gasto"
+                required
+                type="date"
+                value={form.fecha}
+                onChange={(e) => setForm((f) => ({ ...f, fecha: e.target.value }))}
+              />
+              <Input
+                id="gasto-monto"
+                label="Monto (COP)"
+                required
+                type="number"
+                step="1"
+                min="1"
+                placeholder="0"
+                className="text-right font-semibold tabular-nums"
+                value={form.monto}
+                onChange={(e) => setForm((f) => ({ ...f, monto: e.target.value }))}
+                error={intentado && (!form.monto || !(Number(form.monto) > 0)) ? 'Ingrese un monto mayor a 0' : undefined}
+              />
             </div>
 
-            {/* Fila 2: Categoría y Presupuesto */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Categoría del Gasto *
-                </label>
-                <input
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <Input
+                  id="gasto-categoria"
+                  label="Categoría del gasto"
+                  required
                   list="categorias-list"
-                  placeholder="Ej: Mantenimiento General"
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:ring-2 focus:ring-primary/20"
+                  placeholder="Ej. Mantenimiento general"
                   value={form.categoria}
                   onChange={(e) => setForm((f) => ({ ...f, categoria: e.target.value }))}
+                  error={intentado && !form.categoria.trim() ? 'La categoría es obligatoria' : undefined}
                 />
                 <datalist id="categorias-list">
                   {CATEGORIAS_SUGERIDAS.map((c) => (
@@ -838,130 +784,107 @@ export default function GastosPage() {
                   ))}
                 </datalist>
               </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Presupuesto Asociado
-                </label>
-                <select
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:ring-2 focus:ring-primary/20"
-                  value={form.presupuestoId}
-                  onChange={(e) => setForm((f) => ({ ...f, presupuestoId: e.target.value }))}
-                >
-                  <option value="">Sin asociar a presupuesto</option>
-                  {presupuestos.map((p) => (
-                    <option key={p.idPresupuesto || p.ID_PRESUPUESTO || p.id} value={p.idPresupuesto || p.ID_PRESUPUESTO || p.id}>
-                      {p.rubro || p.RUBRO}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Select
+                id="gasto-presupuesto"
+                label="Presupuesto asociado"
+                value={form.presupuestoId}
+                onChange={(e) => setForm((f) => ({ ...f, presupuestoId: e.target.value }))}
+              >
+                <option value="">Sin asociar a presupuesto</option>
+                {presupuestos.map((p) => (
+                  <option key={p.idPresupuesto || p.ID_PRESUPUESTO || p.id} value={p.idPresupuesto || p.ID_PRESUPUESTO || p.id}>
+                    {p.rubro || p.RUBRO}
+                  </option>
+                ))}
+              </Select>
             </div>
 
-            {/* Fila 3: Beneficiario y NIT */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Beneficiario / Proveedor *
-                </label>
-                <input
-                  placeholder="Razón social o nombre completo del proveedor"
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:ring-2 focus:ring-primary/20"
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="sm:col-span-2">
+                <Input
+                  id="gasto-beneficiario"
+                  label="Beneficiario o proveedor"
+                  required
+                  placeholder="Razón social o nombre completo"
                   value={form.beneficiario}
                   onChange={(e) => setForm((f) => ({ ...f, beneficiario: e.target.value }))}
+                  error={intentado && !form.beneficiario.trim() ? 'El beneficiario es obligatorio' : undefined}
                 />
               </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  NIT o Cédula
-                </label>
-                <input
-                  placeholder="Ej: 900.123.456-7"
-                  className="w-full border rounded-lg px-3 py-2 text-sm font-mono bg-background focus:ring-2 focus:ring-primary/20"
-                  value={form.proveedorNit}
-                  onChange={(e) => setForm((f) => ({ ...f, proveedorNit: e.target.value }))}
-                />
-              </div>
+              <Input
+                id="gasto-nit"
+                label="NIT o cédula"
+                placeholder="Ej. 900.123.456-7"
+                className="tabular-nums"
+                value={form.proveedorNit}
+                onChange={(e) => setForm((f) => ({ ...f, proveedorNit: e.target.value }))}
+              />
             </div>
 
-            {/* Fila 4: Método y Estado */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Método de Pago
-                </label>
-                <select
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:ring-2 focus:ring-primary/20"
-                  value={form.metodoPago}
-                  onChange={(e) => setForm((f) => ({ ...f, metodoPago: e.target.value }))}
-                >
-                  {METODOS_PAGO.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Estado del Gasto
-                </label>
-                <select
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:ring-2 focus:ring-primary/20"
-                  value={form.estado}
-                  onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}
-                >
-                  {ESTADOS_GASTO.map((e) => (
-                    <option key={e.value} value={e.value}>{e.label}</option>
-                  ))}
-                </select>
-              </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Select
+                id="gasto-metodo"
+                label="Método de pago"
+                value={form.metodoPago}
+                onChange={(e) => setForm((f) => ({ ...f, metodoPago: e.target.value }))}
+              >
+                {METODOS_PAGO.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </Select>
+              <Select
+                id="gasto-estado"
+                label="Estado del gasto"
+                value={form.estado}
+                onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}
+              >
+                {ESTADOS_GASTO.map((e) => (
+                  <option key={e.value} value={e.value}>{e.label}</option>
+                ))}
+              </Select>
             </div>
 
-            {/* Fila 5: Justificación */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Justificación / Motivo del Gasto
-              </label>
-              <textarea
+            <div className="space-y-1">
+              <Textarea
+                id="gasto-justificacion"
+                label="Justificación o motivo del gasto"
                 rows={2}
-                placeholder="Explique el motivo del egreso (ej: Mantenimiento preventivo de bombas de agua según contrato trimestral)..."
-                className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:ring-2 focus:ring-primary/20"
+                placeholder="Ej. Mantenimiento preventivo de las bombas de agua según contrato trimestral"
                 value={form.justificacion}
                 maxLength={500}
                 onChange={(e) => setForm((f) => ({ ...f, justificacion: e.target.value }))}
               />
-              <p className="text-[11px] text-muted-foreground text-right">
+              <p className="text-right text-xs tabular-nums text-text-muted">
                 {form.justificacion.length}/500 caracteres
               </p>
             </div>
 
-            {/* Fila 6: Adjunto de Soporte Documental (solo en creación) */}
             {!editando && (
-              <div className="space-y-2 pt-2 border-t">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Paperclip className="h-4 w-4 text-primary" />
-                  Factura o Documento Soporte (PDF, JPG, PNG &lt; 10MB)
-                </label>
-
-                <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors bg-slate-50/50 dark:bg-slate-900/30">
+              <div className="space-y-2 border-t border-border-subtle pt-4">
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-on-surface">
+                  <Paperclip className="h-4 w-4 text-primary-text" aria-hidden="true" />
+                  Factura o documento soporte (PDF, JPG o PNG, máximo 10 MB)
+                </p>
+                <div className="rounded-md border-[1.5px] border-dashed border-keyline/40 bg-surface-container p-4 text-center">
                   {soporteFile ? (
-                    <div className="flex items-center justify-between p-2 bg-background rounded-md border text-sm">
-                      <div className="flex items-center gap-2 truncate">
-                        <FileText className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-                        <span className="font-medium truncate">{soporteFile.name}</span>
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface p-2 text-sm">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <FileText className="h-4 w-4 shrink-0 text-tint-green-fg" aria-hidden="true" />
+                        <span className="truncate font-medium">{soporteFile.name}</span>
+                        <span className="whitespace-nowrap text-xs tabular-nums text-text-muted">
                           ({(soporteFile.size / 1024).toFixed(1)} KB)
                         </span>
                       </div>
-                      <Button
+                      <IconButton
                         type="button"
                         variant="ghost"
-                        size="sm"
+                        size="icon"
+                        className="h-10 w-10 text-destructive hover:text-destructive"
                         onClick={() => setSoporteFile(null)}
+                        aria-label="Quitar archivo seleccionado"
                       >
-                        <X className="h-4 w-4 text-red-500" />
-                      </Button>
+                        <X aria-hidden="true" />
+                      </IconButton>
                     </div>
                   ) : (
                     <div>
@@ -969,7 +892,7 @@ export default function GastosPage() {
                         type="file"
                         id="soporte-file-input"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        className="hidden"
+                        className="sr-only"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) {
@@ -983,11 +906,11 @@ export default function GastosPage() {
                       />
                       <label
                         htmlFor="soporte-file-input"
-                        className="cursor-pointer inline-flex flex-col items-center gap-1 text-xs text-muted-foreground hover:text-slate-900 dark:hover:text-white"
+                        className="inline-flex min-h-11 cursor-pointer flex-col items-center gap-1 rounded-md px-3 py-2 text-xs text-text-secondary hover:text-on-surface"
                       >
-                        <Upload className="h-6 w-6 text-slate-400 mb-1" />
-                        <span className="font-medium text-primary">Haga clic para seleccionar archivo</span>
-                        <span>o arrastre la factura aquí (PDF, JPG, PNG hasta 10MB)</span>
+                        <Upload className="mb-1 h-6 w-6 text-text-muted" aria-hidden="true" />
+                        <span className="font-semibold text-primary-text">Seleccionar archivo</span>
+                        <span>PDF, JPG o PNG hasta 10 MB</span>
                       </label>
                     </div>
                   )}
@@ -1000,49 +923,49 @@ export default function GastosPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
               Cancelar
             </Button>
-            <Button onClick={guardar} disabled={saving} className="gap-1.5">
-              {saving ? 'Guardando...' : editando ? 'Guardar Cambios' : 'Registrar Gasto'}
+            <Button onClick={guardar} disabled={saving} loading={saving}>
+              {saving ? 'Guardando…' : editando ? 'Guardar cambios' : 'Registrar gasto'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 6. Modal Adjuntar o Reemplazar Soporte Documental */}
+      {/* Attach or replace supporting document */}
       <Dialog open={soporteModalOpen} onOpenChange={setSoporteModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Paperclip className="h-5 w-5 text-primary" />
-              {targetGastoSoporte?.facturaSoporteUrl || targetGastoSoporte?.FACTURA_SOPORTE_URL
-                ? 'Reemplazar Soporte Documental'
-                : 'Adjuntar Soporte Documental'}
-            </DialogTitle>
+            <DialogTitle>{tieneSoportePrevio ? 'Reemplazar soporte documental' : 'Adjuntar soporte documental'}</DialogTitle>
             <DialogDescription>
-              {targetGastoSoporte?.facturaSoporteUrl || targetGastoSoporte?.FACTURA_SOPORTE_URL
-                ? 'El archivo anterior quedará archivado en el historial de auditoría inmutable.'
-                : 'Suba la factura o comprobante legal que respalda este egreso.'}
+              {tieneSoportePrevio
+                ? 'El archivo anterior queda archivado en el historial de auditoría.'
+                : 'Suba la factura o comprobante que respalda este egreso.'}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border text-xs space-y-1">
-              <p className="font-medium text-slate-900 dark:text-white">
-                Gasto #{targetGastoSoporte?.idGasto || targetGastoSoporte?.ID_GASTO}
-              </p>
-              <p className="text-muted-foreground">
-                Beneficiario: {targetGastoSoporte?.beneficiario || targetGastoSoporte?.BENEFICIARIO}
-              </p>
-              <p className="text-muted-foreground">
-                Monto: {fmtCOP.format(Number(targetGastoSoporte?.monto || targetGastoSoporte?.MONTO || 0))}
-              </p>
-            </div>
+            <dl className="grid grid-cols-1 gap-1 rounded-md border border-border bg-surface-container p-3 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-text-secondary">Gasto</dt>
+                <dd className="font-semibold tabular-nums">#{targetGastoSoporte?.idGasto || targetGastoSoporte?.ID_GASTO}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-text-secondary">Beneficiario</dt>
+                <dd className="text-right font-semibold">{targetGastoSoporte?.beneficiario || targetGastoSoporte?.BENEFICIARIO}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-text-secondary">Monto</dt>
+                <dd className="font-semibold tabular-nums">
+                  {fmtCOP.format(Number(targetGastoSoporte?.monto || targetGastoSoporte?.MONTO || 0))}
+                </dd>
+              </div>
+            </dl>
 
-            {/* Input de archivo */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Archivo de Soporte *
+            <div className="grid gap-1.5">
+              <label htmlFor="gasto-soporte-nuevo" className="text-sm font-semibold text-on-surface">
+                Archivo de soporte <span className="text-destructive" aria-hidden="true">*</span>
               </label>
               <input
+                id="gasto-soporte-nuevo"
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png"
                 onChange={(e) => {
@@ -1055,25 +978,21 @@ export default function GastosPage() {
                     setNuevoSoporteFile(file);
                   }
                 }}
-                className="w-full text-xs border rounded-lg p-2 bg-background"
+                className="w-full rounded-md border border-input bg-surface p-2 text-sm text-on-surface file:mr-3 file:rounded file:border-0 file:bg-surface-dim file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-on-surface"
               />
             </div>
 
-            {/* Motivo de reemplazo si ya existía uno previo */}
-            {(targetGastoSoporte?.facturaSoporteUrl || targetGastoSoporte?.FACTURA_SOPORTE_URL) && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Motivo del Reemplazo *
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Justifique el motivo de cambio del archivo (ej: Factura corregida por proveedor con nuevo número de radicación)..."
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-background focus:ring-2 focus:ring-primary/20"
-                  value={motivoReemplazo}
-                  maxLength={500}
-                  onChange={(e) => setMotivoReemplazo(e.target.value)}
-                />
-              </div>
+            {tieneSoportePrevio && (
+              <Textarea
+                id="gasto-motivo-reemplazo"
+                label="Motivo del reemplazo"
+                required
+                rows={2}
+                placeholder="Ej. Factura corregida por el proveedor con nuevo número de radicación"
+                value={motivoReemplazo}
+                maxLength={500}
+                onChange={(e) => setMotivoReemplazo(e.target.value)}
+              />
             )}
           </div>
 
@@ -1081,142 +1000,124 @@ export default function GastosPage() {
             <Button variant="outline" onClick={() => setSoporteModalOpen(false)} disabled={subiendoSoporte}>
               Cancelar
             </Button>
-            <Button onClick={subirSoporte} disabled={subiendoSoporte} className="gap-1.5">
-              {subiendoSoporte ? 'Subiendo...' : 'Guardar Soporte'}
+            <Button onClick={subirSoporte} disabled={subiendoSoporte} loading={subiendoSoporte}>
+              {subiendoSoporte ? 'Subiendo…' : 'Guardar soporte'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 7. Sheet / Drawer de Detalle y Trazabilidad */}
+      {/* Detail and audit trail */}
       <Sheet open={detalleSheetOpen} onOpenChange={setDetalleSheetOpen}>
-        <SheetContent className="sm:max-w-xl w-full overflow-y-auto">
+        <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
           <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <Receipt className="h-5 w-5 text-primary" />
-              Detalle del Gasto & Auditoría
-            </SheetTitle>
-            <SheetDescription>
-              Ficha técnica completa, soporte documental y trazabilidad de cambios.
-            </SheetDescription>
+            <SheetTitle>Detalle del gasto y auditoría</SheetTitle>
+            <SheetDescription>Datos completos, soporte documental y trazabilidad de cambios.</SheetDescription>
           </SheetHeader>
 
           {loadingDetalle ? (
-            <div className="p-6 space-y-4">
+            <div className="space-y-4 py-6" role="status" aria-label="Cargando detalle">
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-24 w-full" />
               <Skeleton className="h-24 w-full" />
             </div>
           ) : gastoDetalle ? (
             <div className="space-y-6 py-4">
-              {/* Bloque Financiero Principal */}
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border space-y-3">
-                <div className="flex justify-between items-start">
+              <div className="space-y-3 rounded-lg border border-border bg-surface-container p-4">
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Monto Pagado</span>
-                    <p className="text-3xl font-mono font-bold text-slate-900 dark:text-white">
+                    <span className="text-xs font-semibold text-text-secondary">Monto pagado</span>
+                    <p className="app-numeral mt-1 text-[1.625rem] text-on-surface">
                       {fmtCOP.format(Number(gastoDetalle.monto || 0))}
                     </p>
                   </div>
-                  <Badge variant="outline" className="text-xs px-2.5 py-1">
-                    {gastoDetalle.estado || 'REGISTRADO'}
+                  <Badge
+                    variant={(ESTADOS_GASTO.find((e) => e.value === (gastoDetalle.estado || 'REGISTRADO')) || {}).variant || 'secondary'}
+                  >
+                    {(ESTADOS_GASTO.find((e) => e.value === (gastoDetalle.estado || 'REGISTRADO')) || {}).label ||
+                      gastoDetalle.estado}
                   </Badge>
                 </div>
-
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t text-xs">
-                  <div>
-                    <span className="text-muted-foreground">Fecha: </span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">{gastoDetalle.fechaGasto || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Método: </span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">{gastoDetalle.metodoPago || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Categoría: </span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">{gastoDetalle.categoria || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Presupuesto: </span>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">{gastoDetalle.rubroPresupuesto || 'Sin asociar'}</span>
-                  </div>
-                </div>
+                <dl className="grid grid-cols-2 gap-2 border-t border-border-subtle pt-3 text-xs">
+                  {[
+                    ['Fecha', gastoDetalle.fechaGasto || '—'],
+                    ['Método', METODO_LABEL[gastoDetalle.metodoPago] || gastoDetalle.metodoPago || '—'],
+                    ['Categoría', gastoDetalle.categoria || '—'],
+                    ['Presupuesto', gastoDetalle.rubroPresupuesto || 'Sin asociar'],
+                  ].map(([k, v]) => (
+                    <div key={k}>
+                      <dt className="text-text-secondary">{k}</dt>
+                      <dd className="font-semibold tabular-nums text-on-surface">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
 
-              {/* Beneficiario y Justificación */}
               <div className="space-y-3">
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
-                    Beneficiario & Proveedor
-                  </h4>
-                  <div className="p-3 rounded-lg border bg-background text-sm space-y-1">
-                    <p className="font-semibold text-slate-900 dark:text-white">{gastoDetalle.beneficiario}</p>
+                  <h4 className="mb-1 text-[13px] font-bold text-on-surface">Beneficiario</h4>
+                  <div className="space-y-1 rounded-md border border-border bg-surface p-3 text-sm">
+                    <p className="font-semibold text-on-surface">{gastoDetalle.beneficiario}</p>
                     {gastoDetalle.proveedorNit && (
-                      <p className="text-xs text-muted-foreground font-mono">NIT / Identificación: {gastoDetalle.proveedorNit}</p>
+                      <p className="text-xs tabular-nums text-text-muted">NIT o identificación: {gastoDetalle.proveedorNit}</p>
                     )}
                   </div>
                 </div>
-
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
-                    Motivo o Justificación del Egreso
-                  </h4>
-                  <div className="p-3 rounded-lg border bg-background text-sm text-slate-700 dark:text-slate-300 italic">
+                  <h4 className="mb-1 text-[13px] font-bold text-on-surface">Motivo o justificación</h4>
+                  <div className="rounded-md border border-border bg-surface p-3 text-sm text-text-secondary">
                     {gastoDetalle.justificacion || 'No se registró una justificación detallada para este egreso.'}
                   </div>
                 </div>
               </div>
 
-              {/* Soporte Documental Vigente */}
               <div className="space-y-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Documento Soporte Vigente
-                </h4>
+                <h4 className="text-[13px] font-bold text-on-surface">Documento soporte vigente</h4>
                 {gastoDetalle.facturaSoporteUrl ? (
-                  <div className="p-4 rounded-xl border bg-background space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 truncate">
-                        <FileText className="h-5 w-5 text-emerald-600 flex-shrink-0" />
-                        <div className="truncate">
-                          <p className="text-sm font-medium truncate">{gastoDetalle.archivoNombreOrig || 'Soporte Documental'}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {gastoDetalle.archivoMimeType} • {gastoDetalle.archivoTamanoBytes ? `${(gastoDetalle.archivoTamanoBytes / 1024).toFixed(1)} KB` : ''}
+                  <div className="space-y-3 rounded-md border border-border bg-surface p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <FileText className="h-5 w-5 shrink-0 text-tint-green-fg" aria-hidden="true" />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">{gastoDetalle.archivoNombreOrig || 'Soporte documental'}</p>
+                          <p className="text-xs tabular-nums text-text-muted">
+                            {gastoDetalle.archivoMimeType}
+                            {gastoDetalle.archivoTamanoBytes ? ` · ${(gastoDetalle.archivoTamanoBytes / 1024).toFixed(1)} KB` : ''}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex shrink-0 items-center gap-1">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => verSoporte(gastoDetalle.idGasto, gastoDetalle.archivoNombreOrig, gastoDetalle.archivoMimeType)}
-                          className="gap-1 text-xs"
+                          icon={<Eye className="h-3.5 w-3.5" />}
                         >
-                          <Eye className="h-3.5 w-3.5" />
                           Ver
                         </Button>
-                        <Button
+                        <IconButton
                           variant="outline"
-                          size="sm"
+                          size="icon"
+                          className="h-10 w-10"
                           onClick={() => descargarSoporte(gastoDetalle.idGasto, gastoDetalle.archivoNombreOrig)}
-                          className="gap-1 text-xs"
+                          aria-label="Descargar soporte"
                         >
-                          <Download className="h-3.5 w-3.5" />
-                        </Button>
+                          <Download aria-hidden="true" />
+                        </IconButton>
                       </div>
                     </div>
-
                     {gastoDetalle.archivoSha256 && (
-                      <div className="pt-2 border-t text-[11px] text-muted-foreground font-mono flex items-center gap-1 truncate">
-                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
+                      <div className="flex items-center gap-1 truncate border-t border-border-subtle pt-2 font-mono text-[11.5px] text-text-muted">
+                        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-tint-green-fg" aria-hidden="true" />
                         <span className="truncate">SHA-256: {gastoDetalle.archivoSha256}</span>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="p-4 rounded-xl border border-dashed text-center space-y-2 bg-amber-50/40 dark:bg-amber-950/20">
-                    <AlertCircle className="h-6 w-6 text-amber-500 mx-auto" />
-                    <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">
-                      Este egreso no tiene adjunto ningún soporte documental.
+                  <div className="space-y-2 rounded-md border-[1.5px] border-dashed border-tint-amber-fg/40 bg-tint-amber-bg p-4 text-center">
+                    <AlertCircle className="mx-auto h-6 w-6 text-tint-amber-fg" aria-hidden="true" />
+                    <p className="text-xs font-semibold text-tint-amber-fg">
+                      Este egreso no tiene soporte documental adjunto.
                     </p>
                     <Button
                       size="sm"
@@ -1225,35 +1126,33 @@ export default function GastosPage() {
                         setDetalleSheetOpen(false);
                         abrirModalSoporte(gastoDetalle);
                       }}
-                      className="text-xs gap-1"
+                      icon={<Upload className="h-3.5 w-3.5" />}
                     >
-                      <Upload className="h-3.5 w-3.5" />
-                      Adjuntar Soporte Ahora
+                      Adjuntar soporte
                     </Button>
                   </div>
                 )}
               </div>
 
-              {/* Trazabilidad y Auditoría */}
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border space-y-2 text-xs">
-                <h4 className="font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <ShieldCheck className="h-4 w-4 text-primary" />
-                  Registro de Auditoría
+              <div className="space-y-2 rounded-md border border-border bg-surface-container p-4 text-xs">
+                <h4 className="flex items-center gap-1.5 text-[13px] font-bold text-on-surface">
+                  <ShieldCheck className="h-4 w-4 text-primary-text" aria-hidden="true" />
+                  Registro de auditoría
                 </h4>
-                <div className="space-y-1 text-slate-600 dark:text-slate-400">
+                <div className="space-y-1 text-text-secondary">
                   <p>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">Registrado por: </span>
+                    <span className="font-semibold text-on-surface">Registrado por: </span>
                     {gastoDetalle.registradoPorNombre || `Usuario #${gastoDetalle.registradoPor || '-'}`}
                   </p>
                   {gastoDetalle.fechaCreacion && (
-                    <p>
-                      <span className="font-medium text-slate-800 dark:text-slate-200">Fecha de creación: </span>
+                    <p className="tabular-nums">
+                      <span className="font-semibold text-on-surface">Fecha de creación: </span>
                       {gastoDetalle.fechaCreacion}
                     </p>
                   )}
                   {gastoDetalle.modificadoPorNombre && (
-                    <p>
-                      <span className="font-medium text-slate-800 dark:text-slate-200">Última modificación por: </span>
+                    <p className="tabular-nums">
+                      <span className="font-semibold text-on-surface">Última modificación por: </span>
                       {gastoDetalle.modificadoPorNombre}
                       {gastoDetalle.fechaModificacion ? ` el ${gastoDetalle.fechaModificacion}` : ''}
                     </p>
@@ -1261,31 +1160,28 @@ export default function GastosPage() {
                 </div>
               </div>
 
-              {/* Historial de Soportes Anteriores Reemplazados */}
               {gastoDetalle.historialSoportes && gastoDetalle.historialSoportes.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                    <History className="h-4 w-4 text-indigo-500" />
-                    Historial de Soportes Reemplazados ({gastoDetalle.historialSoportes.length})
+                  <h4 className="flex items-center gap-1.5 text-[13px] font-bold text-on-surface">
+                    <History className="h-4 w-4 text-text-secondary" aria-hidden="true" />
+                    Soportes reemplazados <span className="tabular-nums">({gastoDetalle.historialSoportes.length})</span>
                   </h4>
-                  <div className="space-y-2">
+                  <ul className="space-y-2">
                     {gastoDetalle.historialSoportes.map((h) => (
-                      <div key={h.idHistorial} className="p-3 rounded-lg border bg-slate-50/50 dark:bg-slate-900/50 text-xs space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
+                      <li key={h.idHistorial} className="space-y-1 rounded-md border border-border bg-surface p-3 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="max-w-[200px] truncate font-semibold text-on-surface">
                             {h.archivoNombreOrig || 'Soporte archivado'}
                           </span>
-                          <span className="text-[11px] text-muted-foreground">{h.fechaReemplazo || '-'}</span>
+                          <span className="tabular-nums text-text-muted">{h.fechaReemplazo || '—'}</span>
                         </div>
-                        <p className="text-muted-foreground italic">
-                          Motivo: {h.motivoReemplazo || 'Sustitución de soporte'}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">
+                        <p className="text-text-secondary">Motivo: {h.motivoReemplazo || 'Sustitución de soporte'}</p>
+                        <p className="text-text-muted">
                           Reemplazado por: {h.reemplazadoPorNombre || `Usuario #${h.reemplazadoPor || '-'}`}
                         </p>
-                      </div>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
               )}
             </div>
@@ -1293,62 +1189,50 @@ export default function GastosPage() {
         </SheetContent>
       </Sheet>
 
-      {/* 8. Visor de Documento Soporte (Preview Modal) */}
+      {/* Supporting document preview */}
       <Dialog open={previewModalOpen} onOpenChange={setPreviewModalOpen}>
-        <DialogContent className="sm:max-w-4xl max-h-[92vh] flex flex-col p-4">
-          <DialogHeader className="pb-2 border-b">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 truncate">
-                <FileText className="h-5 w-5 text-primary" />
-                <DialogTitle className="text-base truncate">{previewFileInfo.name}</DialogTitle>
-              </div>
+        <DialogContent className="flex max-h-[92dvh] flex-col p-4 sm:max-w-4xl">
+          <DialogHeader className="border-b border-border pb-3 pr-10">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <DialogTitle className="min-w-0 truncate text-base">{previewFileInfo.name}</DialogTitle>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => descargarSoporte(previewFileInfo.id, previewFileInfo.name)}
-                className="gap-1 text-xs"
+                icon={<Download className="h-3.5 w-3.5" />}
               >
-                <Download className="h-3.5 w-3.5" />
                 Descargar
               </Button>
             </div>
           </DialogHeader>
 
-          <div className="flex-1 min-h-[500px] flex items-center justify-center p-2 bg-slate-100 dark:bg-slate-950 rounded-lg overflow-hidden">
+          <div className="flex min-h-[50dvh] flex-1 items-center justify-center overflow-hidden rounded-md bg-surface-dim p-2">
             {previewLoading ? (
-              <div className="space-y-3 text-center">
-                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-xs text-muted-foreground">Cargando documento seguro...</p>
+              <div className="w-full max-w-md space-y-3" role="status">
+                <Skeleton className="h-6 w-2/3" />
+                <Skeleton className="h-40 w-full" />
+                <p className="text-center text-xs text-text-secondary">Cargando documento…</p>
               </div>
             ) : previewBlobUrl ? (
               previewFileInfo.type.includes('image') ? (
-                <img
-                  src={previewBlobUrl}
-                  alt={previewFileInfo.name}
-                  className="max-h-[75vh] max-w-full object-contain rounded"
-                />
+                <img src={previewBlobUrl} alt={previewFileInfo.name} className="max-h-[75dvh] max-w-full rounded object-contain" />
               ) : (
-                <iframe
-                  src={previewBlobUrl}
-                  title="Visor de Factura"
-                  className="w-full h-[75vh] rounded border-0"
-                />
+                <iframe src={previewBlobUrl} title="Visor de factura" className="h-[75dvh] w-full rounded border-0" />
               )
             ) : (
-              <p className="text-sm text-muted-foreground">No se pudo generar la vista previa</p>
+              <p className="text-sm text-text-secondary">No se pudo generar la vista previa.</p>
             )}
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* 9. Confirm Delete Dialog */}
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={confirmarEliminar}
-        title="Eliminar Gasto Operativo"
+        title="Eliminar gasto operativo"
         message={`¿Está seguro de eliminar el gasto por valor de ${fmtCOP.format(Number(deleteTarget?.monto || deleteTarget?.MONTO || 0))} a favor de "${deleteTarget?.beneficiario || deleteTarget?.BENEFICIARIO || ''}"? Esta acción revertirá el monto en presupuestos.`}
-        confirmLabel="Eliminar Gasto"
+        confirmLabel="Eliminar gasto"
         danger
       />
     </div>

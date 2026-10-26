@@ -405,7 +405,7 @@ export function ConvivientesSection({
             <div className="flex items-center gap-2.5 flex-wrap">
               <CardTitle className="text-lg flex items-center gap-2 text-foreground">
                 <Users className="w-5 h-5 text-primary" />
-                <span>Núcleo Familiar y Habitantes de la Unidad</span>
+                <span>Núcleo familiar y habitantes de la unidad</span>
               </CardTitle>
 
               {/* Badge de Estado del Cupo */}
@@ -417,12 +417,12 @@ export function ConvivientesSection({
                       Límite alcanzado
                     </Badge>
                   ) : isLastSpot ? (
-                    <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 gap-1 px-2 py-0.5 text-xs font-semibold">
+                    <Badge className="bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25 gap-1 px-2 py-0.5 text-xs font-semibold">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                       Último cupo disponible
                     </Badge>
                   ) : (
-                    <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 gap-1 px-2 py-0.5 text-xs font-semibold">
+                    <Badge className="bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25 gap-1 px-2 py-0.5 text-xs font-semibold">
                       <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                       {available} {available === 1 ? 'cupo disponible' : 'cupos disponibles'}
                     </Badge>
@@ -456,7 +456,7 @@ export function ConvivientesSection({
               title={reached ? 'Límite de convivientes alcanzado para esta unidad' : 'Registrar nuevo habitante'}
             >
               <UserPlus className="w-4 h-4" />
-              <span>Agregar Conviviente</span>
+              <span>Agregar conviviente</span>
             </Button>
           </div>
         </div>
@@ -465,8 +465,8 @@ export function ConvivientesSection({
         <div className="mt-4 p-3.5 rounded-xl border border-border/70 bg-muted/20 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-foreground uppercase tracking-wider text-[11px]">
-                Cupo de Convivientes:
+              <span className="font-semibold text-foreground text-[11px]">
+                Cupo de convivientes:
               </span>
               {quotaLoading ? (
                 <Skeleton className="h-4 w-28" />
@@ -486,8 +486,8 @@ export function ConvivientesSection({
                     reached
                       ? 'text-destructive'
                       : isLastSpot
-                      ? 'text-amber-600 dark:text-amber-400'
-                      : 'text-emerald-600 dark:text-emerald-400'
+                      ? 'text-tint-amber-fg'
+                      : 'text-tint-green-fg'
                   }`}
                 >
                   {available} {available === 1 ? 'cupo' : 'cupos'}
@@ -504,7 +504,7 @@ export function ConvivientesSection({
                   reached
                     ? 'bg-destructive'
                     : isLastSpot
-                    ? 'bg-amber-500'
+                    ? 'bg-tint-amber-fg'
                     : 'bg-primary'
                 }`}
                 style={{ width: `${limit > 0 ? Math.min(100, Math.round((currentCount / limit) * 100)) : 0}%` }}
@@ -535,7 +535,7 @@ export function ConvivientesSection({
                         ? reached
                           ? 'bg-destructive'
                           : isLastSpot
-                          ? 'bg-amber-500'
+                          ? 'bg-tint-amber-fg'
                           : 'bg-primary'
                         : 'bg-muted-foreground/30'
                     }`}
@@ -557,7 +557,7 @@ export function ConvivientesSection({
               </div>
             </div>
           ) : isLastSpot ? (
-            <div role="status" className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
+            <div role="status" className="p-2.5 rounded-lg bg-tint-amber-bg border border-tint-amber-fg/25 text-xs text-tint-amber-fg flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
               <div>
                 <strong>Último cupo disponible:</strong> Queda únicamente 1 cupo activo antes de alcanzar el tope configurado para esta unidad.
@@ -591,7 +591,7 @@ export function ConvivientesSection({
             {!reached && (
               <Button size="sm" onClick={handleOpenAddModal} className="gap-1.5 mt-2">
                 <UserPlus className="w-4 h-4" />
-                <span>Agregar Primer Conviviente</span>
+                <span>Agregar primer conviviente</span>
               </Button>
             )}
           </div>
@@ -668,14 +668,14 @@ export function ConvivientesSection({
                       <div className="pt-1 flex items-center justify-between">
                         <span className="text-muted-foreground text-[11px]">Condición:</span>
                         {isActivo ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                          <span className="inline-flex items-center gap-1 text-[11px] text-tint-green-fg font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-tint-green-fg shrink-0" />
                             Activo
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-semibold">
                             <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground shrink-0" />
-                            Inactivo (Suspendido)
+                            Inactivo (suspendido)
                           </span>
                         )}
                       </div>
@@ -695,7 +695,7 @@ export function ConvivientesSection({
                           title="Suspender temporalmente para liberar cupo"
                           aria-label={`Suspender a ${hNombre} para liberar cupo`}
                         >
-                          <UserX className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
+                          <UserX className="w-3.5 h-3.5 text-tint-amber-fg" aria-hidden="true" />
                           <span>Suspender</span>
                         </Button>
                       ) : (
@@ -705,7 +705,7 @@ export function ConvivientesSection({
                           size="sm"
                           disabled={reached}
                           onClick={() => promptReactivate(h)}
-                          className="h-7 px-2.5 text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 gap-1 disabled:opacity-50"
+                          className="h-7 px-2.5 text-xs text-tint-green-fg border-tint-green-fg/25 hover:bg-tint-green-bg gap-1 disabled:opacity-50"
                           title={reached ? 'Cupo lleno en la unidad' : 'Reactivar en la unidad'}
                           aria-label={`Reactivar a ${hNombre}`}
                         >
@@ -797,7 +797,7 @@ export function ConvivientesSection({
                           size="sm"
                           disabled={reached}
                           onClick={() => promptReactivate(h)}
-                          className="h-6 px-2 text-[11px] text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 gap-1 disabled:opacity-50"
+                          className="h-6 px-2 text-[11px] text-tint-green-fg border-tint-green-fg/25 hover:bg-tint-green-bg gap-1 disabled:opacity-50"
                           title={reached ? 'Cupo lleno en la unidad' : 'Reincorporar habitante a la unidad'}
                         >
                           <RotateCcw className="w-3 h-3" />
@@ -828,7 +828,7 @@ export function ConvivientesSection({
       <Modal
         open={addModalOpen}
         onClose={() => !saving && setAddModalOpen(false)}
-        title="Registrar Residente de Convivencia"
+        title="Registrar residente de convivencia"
         size="md"
         footer={
           <>
@@ -879,7 +879,7 @@ export function ConvivientesSection({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               id="conv-primer-nombre"
-              label="Primer Nombre"
+              label="Primer nombre"
               required
               disabled={saving || reached}
               placeholder="Ej. María"
@@ -894,7 +894,7 @@ export function ConvivientesSection({
 
             <Input
               id="conv-primer-apellido"
-              label="Primer Apellido"
+              label="Primer apellido"
               required
               disabled={saving || reached}
               placeholder="Ej. Gómez"
@@ -911,7 +911,7 @@ export function ConvivientesSection({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select
               id="conv-id-tipo-doc"
-              label="Tipo de Documento"
+              label="Tipo de documento"
               required
               value={form.idTipoDocumento}
               disabled={saving || reached}
@@ -929,7 +929,7 @@ export function ConvivientesSection({
             <div>
               <Input
                 id="conv-num-doc"
-                label="Número de Documento"
+                label="Número de documento"
                 required
                 disabled={saving || reached}
                 placeholder={getDocPlaceholder(activeDocCodigo)}
@@ -951,7 +951,7 @@ export function ConvivientesSection({
             <Input
               id="conv-email"
               type="email"
-              label="Correo Electrónico"
+              label="Correo electrónico"
               required
               disabled={saving || reached}
               placeholder="familiar@ejemplo.com"
@@ -967,7 +967,7 @@ export function ConvivientesSection({
             <Input
               id="conv-telefono"
               type="tel"
-              label="Teléfono Celular (Opcional)"
+              label="Teléfono celular (opcional)"
               disabled={saving || reached}
               placeholder="Ej. 3001234567"
               value={form.telefono}
@@ -983,7 +983,7 @@ export function ConvivientesSection({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               id="conv-usuario"
-              label="Usuario de Ingreso"
+              label="Usuario de ingreso"
               required
               disabled={saving || reached}
               placeholder="Ej. mgomez"
@@ -1027,8 +1027,8 @@ export function ConvivientesSection({
       >
         {createdCredentials && (
           <div className="space-y-4 py-2">
-            <div className="flex items-start gap-3 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs">
-              <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+            <div className="flex items-start gap-3 p-3.5 rounded-xl bg-tint-green-bg border border-tint-green-fg/25 text-tint-green-fg text-xs">
+              <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-tint-green-fg" />
               <div className="space-y-1">
                 <p className="font-semibold text-sm text-foreground">
                   ¡Habitante de convivencia registrado exitosamente!

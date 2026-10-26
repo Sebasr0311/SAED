@@ -24,12 +24,12 @@ import {
 import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
-import { Card } from '../components/ui/card.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { Input, Select, Textarea } from '../components/ui/Form.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
 import LoadingState from '../components/ui/LoadingState.jsx';
 
 import api from '../lib/api.js';
@@ -41,36 +41,36 @@ const ESTADO_BADGE = {
   APROBADA: {
     label: 'Aprobada',
     badgeVariant: 'success',
-    colorClass: 'text-emerald-700 dark:text-emerald-400',
-    bgClass: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60',
+    colorClass: 'text-tint-green-fg',
+    bgClass: 'bg-tint-green-bg border-tint-green-fg/25',
     icon: CheckCircle2,
   },
   PENDIENTE: {
     label: 'Pendiente de Aprobación',
     badgeVariant: 'warning',
-    colorClass: 'text-amber-700 dark:text-amber-400',
-    bgClass: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60',
+    colorClass: 'text-tint-amber-fg',
+    bgClass: 'bg-tint-amber-bg border-tint-amber-fg/25',
     icon: Clock,
   },
   RECHAZADA: {
     label: 'Rechazada',
     badgeVariant: 'destructive',
-    colorClass: 'text-rose-700 dark:text-rose-400',
-    bgClass: 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60',
+    colorClass: 'text-tint-red-fg',
+    bgClass: 'bg-tint-red-bg border-tint-red-fg/25',
     icon: XCircle,
   },
   CANCELADA: {
     label: 'Cancelada',
     badgeVariant: 'secondary',
-    colorClass: 'text-slate-600 dark:text-slate-400',
-    bgClass: 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700',
+    colorClass: 'text-text-secondary',
+    bgClass: 'bg-surface-dim border-border',
     icon: AlertCircle,
   },
   COMPLETADA: {
     label: 'Completada',
     badgeVariant: 'secondary',
-    colorClass: 'text-blue-700 dark:text-blue-400',
-    bgClass: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60',
+    colorClass: 'text-tint-blue-fg',
+    bgClass: 'bg-tint-blue-bg border-tint-blue-fg/25',
     icon: CheckCircle2,
   },
 };
@@ -96,7 +96,7 @@ function getZonaIcon(nombre) {
 
 export default function ResReservasPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isConviviente } = useAuth();
   const [form, setForm] = useState(emptyForm);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalDetalle, setModalDetalle] = useState(null);
@@ -110,7 +110,10 @@ export default function ResReservasPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   // 1. Zonas comunes disponibles
-  const { data: zonasData, loading: loadingZonas } = useFetch(() => api.get('/zonas-comunes'), []);
+  const { data: zonasData, loading: loadingZonas, error: errorZonas, refetch: refetchZonas } = useFetch(
+    () => api.get('/zonas-comunes'),
+    []
+  );
   const zonas = useMemo(() => {
     const list = Array.isArray(zonasData) ? zonasData : zonasData?.items || [];
     return Array.isArray(list) ? list : [];
@@ -120,6 +123,7 @@ export default function ResReservasPage() {
   const {
     data: reservasData,
     loading: loadingReservas,
+    error: errorReservas,
     refetch,
   } = useFetch(() => api.get('/reservas/mis-reservas'), [user]);
 
@@ -128,25 +132,28 @@ export default function ResReservasPage() {
     return Array.isArray(list) ? list : [];
   }, [reservasData]);
 
-  // 3. Estado financiero de la unidad (GAP-F8-08 Banner Preventivo de Mora)
+  // 3. Estado financiero de la unidad (GAP-F8-08 Banner Preventivo de Mora).
+  // RESIDENTE_CONVIVENCIA has no financial access: skip the call and never show the arrears notice.
   const {
     data: estadoFinancieroData,
     loading: loadingEstadoFinanciero,
-    refetch: refetchFinanciero,
-  } = useFetch(() => api.get('/paz-y-salvos/mi-estado-financiero'), [user]);
+  } = useFetch(
+    () => (isConviviente ? Promise.resolve(null) : api.get('/paz-y-salvos/mi-estado-financiero')),
+    [user, isConviviente]
+  );
 
   const estadoFinanciero = useMemo(() => {
     return estadoFinancieroData?.data || estadoFinancieroData || null;
   }, [estadoFinancieroData]);
 
   const enMora = useMemo(() => {
-    if (!estadoFinanciero) return false;
+    if (isConviviente || !estadoFinanciero) return false;
     return Boolean(
       estadoFinanciero.enMora === true ||
       estadoFinanciero.pazYSalvo === false ||
       (estadoFinanciero.saldoTotalExigible != null && Number(estadoFinanciero.saldoTotalExigible) > 0)
     );
-  }, [estadoFinanciero]);
+  }, [estadoFinanciero, isConviviente]);
 
   // Métricas
   const stats = useMemo(() => {
@@ -282,12 +289,12 @@ export default function ResReservasPage() {
   return (
     <PageContainer>
       <PageHeader
-        title="Zonas Comunes y Reservas"
-        subtitle="Consulta aforo, normas de uso y agenda los espacios sociales de la copropiedad"
+        title="Zonas comunes y reservas"
+        subtitle="Consulta aforo y normas de uso, y agenda los espacios sociales de la copropiedad."
         action={
-          <Button onClick={() => abrirReservaZona('')}>
-            <Plus className="w-4 h-4 mr-1.5" />
-            Nueva Reserva
+          <Button onClick={() => abrirReservaZona('')} className="min-h-10">
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Nueva reserva
           </Button>
         }
       />
@@ -296,28 +303,26 @@ export default function ResReservasPage() {
       {!loadingEstadoFinanciero && enMora && estadoFinanciero && (
         <div
           data-testid="mora-preventive-banner"
-          className="mb-6 p-4 rounded-xl border border-rose-300 dark:border-rose-900/60 bg-rose-50/95 dark:bg-rose-950/30 text-rose-900 dark:text-rose-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm"
+          className="flex flex-col items-start justify-between gap-4 rounded-lg border border-tint-red-fg/25 bg-tint-red-bg p-4 md:flex-row md:items-center"
         >
           <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 shrink-0 mt-0.5">
-              <AlertCircle className="w-5 h-5" />
-            </div>
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-tint-red-fg" aria-hidden="true" />
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <h4 className="font-bold text-rose-950 dark:text-rose-100 text-sm">
-                  Unidad con Obligaciones Financieras Pendientes
-                </h4>
-                <Badge variant="destructive" className="text-[10px] px-1.5 py-0 uppercase">
-                  En Mora
+                <h2 className="text-sm font-bold text-on-surface">
+                  Unidad con obligaciones financieras pendientes
+                </h2>
+                <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                  En mora
                 </Badge>
               </div>
-              <p className="text-xs text-rose-800 dark:text-rose-300 leading-relaxed">
+              <p className="text-xs leading-relaxed text-text-secondary">
                 Tu unidad {estadoFinanciero.identificadorUnidad ? `(${estadoFinanciero.identificadorUnidad})` : ''} presenta un saldo pendiente
                 {/* Convivencia receives only the arrears flag (F5-H03): the amount is shown when the API provides it. */}
                 {estadoFinanciero.saldoTotalExigible != null && (
                   <>
                     {' '}de{' '}
-                    <strong className="font-semibold text-rose-950 dark:text-rose-100">
+                    <strong className="font-semibold tabular-nums text-on-surface">
                       {formatCurrency(estadoFinanciero.saldoTotalExigible)}
                     </strong>
                   </>
@@ -325,7 +330,7 @@ export default function ResReservasPage() {
                 . Conforme al reglamento de propiedad horizontal, la aprobación y confirmación de nuevas reservas de zonas comunes se encuentra restringida hasta normalizar el estado de cartera.
               </p>
               {Array.isArray(estadoFinanciero.motivosBloqueo) && estadoFinanciero.motivosBloqueo.length > 0 && (
-                <ul className="list-disc list-inside text-xs text-rose-700 dark:text-rose-300/90 pt-1 space-y-0.5">
+                <ul className="list-inside list-disc space-y-0.5 pt-1 text-xs text-text-secondary">
                   {estadoFinanciero.motivosBloqueo.map((motivo, idx) => (
                     <li key={idx}>{motivo}</li>
                   ))}
@@ -336,39 +341,39 @@ export default function ResReservasPage() {
           <Button
             variant="destructive"
             size="sm"
-            className="shrink-0 self-end md:self-center font-medium shadow-sm"
+            className="min-h-10 shrink-0 self-end md:self-center"
             onClick={() => navigate('/res-cuotas')}
           >
-            Ir a Mis Cuotas
+            Ir a mis cuotas
           </Button>
         </div>
       )}
 
       {/* 1. KPIs Ejecutivos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="Zonas Disponibles"
-          value={String(stats.totalZonas)}
+          label="Zonas disponibles"
+          value={loadingZonas ? '…' : errorZonas ? '—' : String(stats.totalZonas)}
           icon={Building}
           variant="primary"
           context="Espacios comunitarios"
         />
         <MetricCard
-          label="Reservas Aprobadas"
-          value={String(stats.aprobadas)}
+          label="Reservas aprobadas"
+          value={loadingReservas ? '…' : String(stats.aprobadas)}
           icon={CheckCircle2}
           variant="success"
-          context="Listas para disfrutar"
+          context="Confirmadas por la administración"
         />
         <MetricCard
-          label="En Revisión"
-          value={String(stats.pendientes)}
+          label="En revisión"
+          value={loadingReservas ? '…' : String(stats.pendientes)}
           icon={Clock}
           variant={stats.pendientes > 0 ? 'warning' : 'primary'}
           context={stats.pendientes > 0 ? 'Pendiente administración' : 'Sin trámites pendientes'}
         />
         <MetricCard
-          label="Próxima Reserva"
+          label="Próxima reserva"
           value={stats.proxima ? formatDate(stats.proxima.fechaReserva) : 'Ninguna'}
           icon={Calendar}
           variant="primary"
@@ -377,15 +382,15 @@ export default function ResReservasPage() {
       </div>
 
       {/* 2. Catálogo Visual de Espacios Comunes (Amenities) */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-3.5">
+      <section aria-labelledby="zonas-title">
+        <div className="mb-3.5 flex flex-wrap items-end justify-between gap-2">
           <div>
-            <h2 className="text-lg font-bold text-foreground">Espacios de la Copropiedad</h2>
+            <h2 id="zonas-title" className="text-base font-bold text-on-surface">Espacios de la copropiedad</h2>
             <p className="text-xs text-muted-foreground">
-              Haz clic en cualquier espacio para agendar tu fecha preferida
+              Elige un espacio para agendar tu fecha
             </p>
           </div>
-          <Badge variant="outline" className="text-xs font-semibold">
+          <Badge variant="outline" className="tabular-nums">
             {zonas.length} espacios activos
           </Badge>
         </div>
@@ -393,13 +398,22 @@ export default function ResReservasPage() {
         {loadingZonas ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-40 rounded-xl border border-border bg-card animate-pulse" />
+              <div key={i} className="app-skeleton h-40 rounded-lg" aria-hidden="true" />
             ))}
           </div>
+        ) : errorZonas ? (
+          <ErrorState
+            compact
+            title="No se pudieron cargar las zonas comunes"
+            message="Revisa tu conexión e intenta de nuevo."
+            onRetry={() => refetchZonas().catch(() => {})}
+          />
         ) : zonas.length === 0 ? (
-          <Card className="p-6 text-center text-muted-foreground text-sm">
-            No se registran zonas comunes configuradas en esta propiedad.
-          </Card>
+          <EmptyState
+            icon={Building}
+            title="Aún no hay zonas comunes configuradas"
+            subtitle="Cuando la administración habilite espacios reservables, aparecerán aquí."
+          />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {zonas.map((z) => {
@@ -409,30 +423,31 @@ export default function ResReservasPage() {
               return (
                 <div
                   key={z.idZona}
-                  className="group bg-card border border-border rounded-xl p-4 hover:border-primary/40 hover:shadow-md transition-all flex flex-col justify-between"
+                  className="flex flex-col justify-between rounded-lg border border-border bg-surface p-5 shadow-sm transition-colors duration-150 hover:border-primary/50"
                 >
                   <div>
                     <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="p-3 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                      <div className="rounded-md bg-tint-purple-bg p-2.5 text-tint-purple-fg">
                         <Icon className="w-5 h-5" />
                       </div>
                       <div className="flex flex-col items-end gap-1">
                         <Badge variant="secondary" className="text-xs font-semibold">
-                          👥 Aforo: {z.aforoMaximo || 'N/A'}
+                          <Users className="h-3 w-3" aria-hidden="true" />
+                          Aforo: {z.aforoMaximo || 'N/A'}
                         </Badge>
                         {costo ? (
-                          <span className="text-xs font-bold text-primary">
+                          <span className="text-xs font-bold tabular-nums text-on-surface">
                             {formatCurrency(z.costoReserva)}
                           </span>
                         ) : (
-                          <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                            Uso Gratuito
+                          <span className="rounded-[3px] bg-tint-green-bg px-2 py-0.5 text-xs font-bold text-tint-green-fg">
+                            Uso gratuito
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <h3 className="text-base font-bold text-foreground group-hover:text-primary transition-colors">
+                    <h3 className="text-[15px] font-bold text-on-surface">
                       {z.nombre}
                     </h3>
                     {z.tipo && (
@@ -448,7 +463,8 @@ export default function ResReservasPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => abrirReservaZona(z.idZona)}
-                      className="group-hover:bg-primary group-hover:text-primary-foreground transition-all"
+                      aria-label={`Reservar ${z.nombre}`}
+                      className="min-h-10 sm:min-h-8"
                     >
                       Reservar
                     </Button>
@@ -458,26 +474,27 @@ export default function ResReservasPage() {
             })}
           </div>
         )}
-      </div>
+      </section>
 
       {/* 3. Mis Reservas Solicitadas */}
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
           <div className="flex gap-2 items-center flex-wrap w-full sm:w-auto">
             {[
               { id: 'TODAS', label: `Todas (${stats.total})` },
               { id: 'APROBADAS', label: `Aprobadas (${stats.aprobadas})` },
-              { id: 'PENDIENTES', label: `En Revisión (${stats.pendientes})` },
+              { id: 'PENDIENTES', label: `En revisión (${stats.pendientes})` },
               { id: 'HISTORIAL', label: 'Historial' },
             ].map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setTabFiltro(tab.id)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                aria-pressed={tabFiltro === tab.id}
+                className={`min-h-10 rounded-md px-3.5 text-xs font-semibold tabular-nums transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9 ${
                   tabFiltro === tab.id
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    ? 'bg-btn-primary text-white shadow-sm'
+                    : 'bg-surface border border-border text-text-secondary hover:text-on-surface hover:bg-surface-container'
                 }`}
               >
                 {tab.label}
@@ -493,22 +510,31 @@ export default function ResReservasPage() {
                 placeholder="Buscar por espacio, fecha u observación..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                aria-label="Buscar reservas"
+                className="h-10 w-full rounded-md border border-input bg-surface pl-9 pr-3 text-sm text-on-surface placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/25"
               />
             </div>
           </div>
         </div>
 
         {loadingReservas ? (
-          <LoadingState text="Consultando historial de reservas..." />
+          <div className="rounded-lg border border-border bg-surface shadow-sm">
+            <LoadingState message="Consultando tus reservas…" />
+          </div>
+        ) : errorReservas ? (
+          <ErrorState
+            title="No se pudieron cargar tus reservas"
+            message="Revisa tu conexión e intenta de nuevo."
+            onRetry={() => refetch().catch(() => {})}
+          />
         ) : filteredReservas.length === 0 ? (
           <EmptyState
-            icon="event"
+            icon={Calendar}
             title="No tienes reservas registradas"
             subtitle={
               tabFiltro === 'PENDIENTES'
                 ? 'No tienes solicitudes pendientes de aprobación.'
-                : 'Usa el botón "Nueva Reserva" o selecciona un espacio del catálogo superior.'
+                : 'Usa «Nueva reserva» o elige un espacio de la lista superior.'
             }
           />
         ) : (
@@ -569,7 +595,7 @@ export default function ResReservasPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 dark:border-rose-900/50 dark:hover:bg-rose-950/40"
+                        className="text-tint-red-fg hover:text-tint-red-fg hover:bg-tint-red-bg border-tint-red-fg/25"
                         onClick={() => setReservaACancelar(r)}
                       >
                         <XCircle className="w-4 h-4 mr-1.5" />
@@ -582,7 +608,7 @@ export default function ResReservasPage() {
                       onClick={() => setModalDetalle(r)}
                     >
                       <Eye className="w-4 h-4 mr-1.5" />
-                      Ver Ficha
+                      Ver ficha
                     </Button>
                   </div>
                 </div>
@@ -596,22 +622,22 @@ export default function ResReservasPage() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title="Solicitar Reserva de Espacio Común"
+        title="Solicitar reserva de espacio común"
         footer={
           <div className="flex items-center justify-end gap-2 w-full">
             <Button variant="outline" onClick={() => setModalOpen(false)}>
               Cancelar
             </Button>
             <Button onClick={handleSubmit} disabled={saving}>
-              {saving ? 'Enviando Solicitud...' : 'Radicar Reserva'}
+              {saving ? 'Enviando solicitud…' : 'Radicar Reserva'}
             </Button>
           </div>
         }
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {enMora && (
-            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 flex items-start gap-2.5 text-xs text-rose-900 dark:text-rose-200">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+            <div className="p-3 rounded-xl bg-tint-red-bg border border-tint-red-fg/25 flex items-start gap-2.5 text-xs text-tint-red-fg">
+              <AlertCircle className="w-4 h-4 shrink-0 text-tint-red-fg mt-0.5" />
               <div>
                 <strong>Aviso de Cartera:</strong> Tu unidad registra obligaciones pendientes por{' '}
                 <strong>{formatCurrency(estadoFinanciero?.saldoTotalExigible || 0)}</strong>. Recuerda que la confirmación de la reserva requiere encontrarse a paz y salvo.
@@ -622,7 +648,7 @@ export default function ResReservasPage() {
           <div className="form-group">
             <Select
               id="idZona"
-              label="Espacio Comunitario *"
+              label="Espacio comunitario *"
               value={form.idZona}
               onChange={(e) => setForm((f) => ({ ...f, idZona: e.target.value }))}
               error={errors.idZona}
@@ -637,8 +663,8 @@ export default function ResReservasPage() {
           </div>
 
           {zonaSeleccionadaEnModal && (
-            <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 flex items-start gap-2.5 text-xs text-blue-900 dark:text-blue-300">
-              <Info className="w-4 h-4 shrink-0 text-blue-600 mt-0.5" />
+            <div className="p-3 rounded-xl bg-tint-blue-bg border border-tint-blue-fg/25 flex items-start gap-2.5 text-xs text-tint-blue-fg">
+              <Info className="w-4 h-4 shrink-0 text-tint-blue-fg mt-0.5" />
               <div>
                 <strong>{zonaSeleccionadaEnModal.nombre}:</strong> Aforo permitido de{' '}
                 <strong>{zonaSeleccionadaEnModal.aforoMaximo || 'N/A'} personas</strong>.
@@ -652,7 +678,7 @@ export default function ResReservasPage() {
           <div className="form-row">
             <Input
               id="fechaReserva"
-              label="Fecha de la Reserva *"
+              label="Fecha de la reserva *"
               type="date"
               min={new Date().toISOString().slice(0, 10)}
               value={form.fechaReserva}
@@ -661,7 +687,7 @@ export default function ResReservasPage() {
             />
             <Input
               id="cantidadAsistentes"
-              label="Cantidad de Asistentes *"
+              label="Cantidad de asistentes *"
               type="number"
               min={1}
               max={zonaSeleccionadaEnModal?.aforoMaximo || 200}
@@ -674,7 +700,7 @@ export default function ResReservasPage() {
           <div className="form-row">
             <Input
               id="horaInicio"
-              label="Hora de Inicio *"
+              label="Hora de inicio *"
               type="time"
               value={form.horaInicio}
               onChange={(e) => setForm((f) => ({ ...f, horaInicio: e.target.value }))}
@@ -682,7 +708,7 @@ export default function ResReservasPage() {
             />
             <Input
               id="horaFin"
-              label="Hora de Finalización *"
+              label="Hora de finalización *"
               type="time"
               value={form.horaFin}
               onChange={(e) => setForm((f) => ({ ...f, horaFin: e.target.value }))}
@@ -693,7 +719,7 @@ export default function ResReservasPage() {
           <div className="form-group">
             <Textarea
               id="observaciones"
-              label="Motivo del Evento u Observaciones (Opcional)"
+              label="Motivo del evento u observaciones (opcional)"
               rows={3}
               placeholder="Ej. Cumpleaños familiar, reunión de estudio o convivencia..."
               value={form.observaciones}
@@ -702,7 +728,7 @@ export default function ResReservasPage() {
           </div>
 
           <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <ShieldCheck className="w-3.5 h-3.5 text-tint-green-fg" />
             La reserva quedará sujeta al reglamento interno y aprobación de la administración.
           </div>
         </form>
@@ -719,7 +745,7 @@ export default function ResReservasPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 dark:border-rose-900/50 dark:hover:bg-rose-950/40"
+                className="text-tint-red-fg hover:text-tint-red-fg hover:bg-tint-red-bg border-tint-red-fg/25"
                 onClick={() => {
                   const r = modalDetalle;
                   setModalDetalle(null);
@@ -727,13 +753,13 @@ export default function ResReservasPage() {
                 }}
               >
                 <XCircle className="w-4 h-4 mr-1.5" />
-                Cancelar Reserva
+                Cancelar reserva
               </Button>
             ) : (
               <div />
             )}
             <Button variant="outline" onClick={() => setModalDetalle(null)}>
-              Cerrar Ficha
+              Cerrar ficha
             </Button>
           </div>
         }
@@ -768,8 +794,8 @@ export default function ResReservasPage() {
             </div>
 
             <div className="p-3.5 rounded-xl border border-border space-y-2">
-              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                Detalles del Evento
+              <div className="text-xs font-bold text-muted-foreground">
+                Detalles del evento
               </div>
               <div className="flex justify-between text-xs py-1 border-b border-border/50">
                 <span className="text-muted-foreground">Asistentes estimados:</span>
@@ -781,7 +807,7 @@ export default function ResReservasPage() {
               </div>
               {modalDetalle.costoTotal && Number(modalDetalle.costoTotal) > 0 && (
                 <div className="flex justify-between text-xs py-1 border-b border-border/50">
-                  <span className="text-muted-foreground">Canon / Garantía:</span>
+                  <span className="text-muted-foreground">Canon / garantía:</span>
                   <span className="font-bold text-primary">{formatCurrency(modalDetalle.costoTotal)}</span>
                 </div>
               )}
@@ -795,10 +821,10 @@ export default function ResReservasPage() {
               )}
             </div>
 
-            <div className="p-3 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 text-xs text-amber-900 dark:text-amber-300 space-y-1">
+            <div className="p-3 rounded-xl bg-tint-amber-bg border border-tint-amber-fg/25 text-xs text-tint-amber-fg space-y-1">
               <div className="font-bold flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                Reglas de Convivencia
+                <AlertCircle className="w-4 h-4 text-tint-amber-fg shrink-0" />
+                Reglas de convivencia
               </div>
               <p>
                 El residente es responsable del cuidado del mobiliario, orden y entrega del espacio en el mismo
@@ -813,7 +839,7 @@ export default function ResReservasPage() {
       <Modal
         open={!!reservaACancelar}
         onClose={() => !cancelando && setReservaACancelar(null)}
-        title="Cancelar Reserva"
+        title="Cancelar reserva"
         footer={
           <div className="flex items-center justify-end gap-2 w-full">
             <Button
@@ -840,7 +866,7 @@ export default function ResReservasPage() {
               <strong className="text-foreground">{reservaACancelar.nombreZona}</strong> programada para el{' '}
               <strong className="text-foreground">{formatDate(reservaACancelar.fechaReserva)}</strong> ({reservaACancelar.horaInicio} - {reservaACancelar.horaFin})?
             </p>
-            <div className="p-3 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 text-xs text-amber-900 dark:text-amber-300">
+            <div className="p-3 rounded-xl bg-tint-amber-bg border border-tint-amber-fg/25 text-xs text-tint-amber-fg">
               Esta acción liberará el espacio para otros residentes y no se puede deshacer.
             </div>
           </div>

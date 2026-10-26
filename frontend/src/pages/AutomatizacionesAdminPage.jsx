@@ -24,6 +24,10 @@ import {
   Globe,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
+import { LoadingState } from '../components/ui/LoadingState.jsx';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/badge';
@@ -36,13 +40,13 @@ import { useTenantApi } from '../lib/useTenantApi.js';
 import { toast } from 'sonner';
 
 const ACCION_TIPOS = [
-  { id: 'ENVIAR_NOTIFICACION', label: 'Enviar Notificación Push/In-App', icon: Bell, color: 'text-sky-500 bg-sky-500/10 border-sky-500/30' },
-  { id: 'ENVIAR_CORREO_ADMIN', label: 'Enviar Correo al Administrador', icon: Mail, color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/30' },
-  { id: 'GENERAR_MULTA', label: 'Generar Multa Automática', icon: ShieldAlert, color: 'text-amber-500 bg-amber-500/10 border-amber-500/30' },
-  { id: 'CREAR_TICKET_MANTENIMIENTO', label: 'Crear Ticket de Mantenimiento', icon: Wrench, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30' },
-  { id: 'REVOCAR_QR', label: 'Revocar Código de Acceso QR', icon: QrCode, color: 'text-rose-500 bg-rose-500/10 border-rose-500/30' },
-  { id: 'GENERAR_TAREA_SLA', label: 'Generar Tarea de Alerta SLA', icon: Clock, color: 'text-purple-500 bg-purple-500/10 border-purple-500/30' },
-  { id: 'WEBHOOK_EXTERNO', label: 'Disparar Webhook HTTP Externo', icon: Globe, color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/30' },
+  { id: 'ENVIAR_NOTIFICACION', label: 'Enviar Notificación Push/In-App', icon: Bell, color: 'text-tint-blue-fg bg-tint-blue-bg border-tint-blue-fg/25' },
+  { id: 'ENVIAR_CORREO_ADMIN', label: 'Enviar Correo al Administrador', icon: Mail, color: 'text-primary-text bg-tint-primary-bg border-tint-primary-fg/25' },
+  { id: 'GENERAR_MULTA', label: 'Generar Multa Automática', icon: ShieldAlert, color: 'text-tint-amber-fg bg-tint-amber-bg border-tint-amber-fg/25' },
+  { id: 'CREAR_TICKET_MANTENIMIENTO', label: 'Crear Ticket de Mantenimiento', icon: Wrench, color: 'text-tint-green-fg bg-tint-green-bg border-tint-green-fg/25' },
+  { id: 'REVOCAR_QR', label: 'Revocar Código de Acceso QR', icon: QrCode, color: 'text-tint-red-fg bg-tint-red-bg border-tint-red-fg/25' },
+  { id: 'GENERAR_TAREA_SLA', label: 'Generar Tarea de Alerta SLA', icon: Clock, color: 'text-tint-purple-fg bg-tint-purple-bg border-tint-purple-fg/25' },
+  { id: 'WEBHOOK_EXTERNO', label: 'Disparar Webhook HTTP Externo', icon: Globe, color: 'text-tint-blue-fg bg-tint-blue-bg border-tint-blue-fg/25' },
 ];
 
 const ACCION_MAP = ACCION_TIPOS.reduce((acc, curr) => {
@@ -51,14 +55,14 @@ const ACCION_MAP = ACCION_TIPOS.reduce((acc, curr) => {
 }, {});
 
 const MODULOS_COLOR = {
-  FINANZAS: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-  CONTRATOS: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
-  MANTENIMIENTO: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-  ACCESOS: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
-  PQRS: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
-  SEGUROS: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20',
-  CONSUMOS: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20',
-  PORTERIA: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',
+  FINANZAS: 'bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25',
+  CONTRATOS: 'bg-tint-blue-bg text-tint-blue-fg border-tint-blue-fg/25',
+  MANTENIMIENTO: 'bg-tint-amber-bg text-tint-amber-fg border-tint-amber-fg/25',
+  ACCESOS: 'bg-tint-red-bg text-tint-red-fg border-tint-red-fg/25',
+  PQRS: 'bg-tint-purple-bg text-tint-purple-fg border-tint-purple-fg/25',
+  SEGUROS: 'bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25',
+  CONSUMOS: 'bg-tint-blue-bg text-tint-blue-fg border-tint-blue-fg/25',
+  PORTERIA: 'bg-tint-primary-bg text-primary-text border-tint-primary-fg/25',
 };
 
 export default function AutomatizacionesAdminPage() {
@@ -106,27 +110,32 @@ export default function AutomatizacionesAdminPage() {
   const [simulacionPayload, setSimulacionPayload] = useState('{\n  "idUnidad": 1,\n  "diasMora": 35,\n  "monto": 250000\n}');
 
   // Carga de datos de la API
-  const { data: summary, mutate: mutateSummary } = useFetch(
+  // useFetch exposes { loading, error, refetch }; the previous isLoading/mutate names never existed,
+  // so loading states never showed and refresh buttons threw. Wrappers swallow rejections (error state renders instead).
+  const { data: summary, refetch: refetchSummary } = useFetch(
     () => tenantApi.get('/automatizaciones/resumen'),
     [tenant.activeAssignmentId]
   );
+  const mutateSummary = () => refetchSummary().catch(() => {});
 
-  const { data: eventosRaw, isLoading: loadingEventos } = useFetch(
+  const { data: eventosRaw, loading: loadingEventos } = useFetch(
     () => tenantApi.get('/automatizaciones/eventos'),
     [tenant.activeAssignmentId]
   );
   const eventos = useMemo(() => eventosRaw?.items || (Array.isArray(eventosRaw) ? eventosRaw : []), [eventosRaw]);
 
-  const { data: reglasRaw, isLoading: loadingReglas, mutate: mutateReglas } = useFetch(
+  const { data: reglasRaw, loading: loadingReglas, error: errorReglas, refetch: refetchReglas } = useFetch(
     () => tenantApi.get('/automatizaciones/reglas'),
     [tenant.activeAssignmentId]
   );
+  const mutateReglas = () => refetchReglas().catch(() => {});
   const reglas = useMemo(() => reglasRaw?.items || (Array.isArray(reglasRaw) ? reglasRaw : []), [reglasRaw]);
 
-  const { data: ejecucionesRaw, isLoading: loadingEjecuciones, mutate: mutateEjecuciones } = useFetch(
+  const { data: ejecucionesRaw, loading: loadingEjecuciones, error: errorEjecuciones, refetch: refetchEjecuciones } = useFetch(
     () => tenantApi.get('/automatizaciones/ejecuciones?limit=50'),
     [tenant.activeAssignmentId]
   );
+  const mutateEjecuciones = () => refetchEjecuciones().catch(() => {});
   const ejecuciones = useMemo(() => ejecucionesRaw?.items || (Array.isArray(ejecucionesRaw) ? ejecucionesRaw : []), [ejecucionesRaw]);
 
   // Filtrado de reglas
@@ -374,72 +383,75 @@ export default function AutomatizacionesAdminPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Encabezado Principal */}
+    <PageContainer>
       <PageHeader
         title="Motor de Automatizaciones ECA"
-        description="Configure flujos reactivos inteligentes basados en arquitectura Evento -> Condición -> Acción para optimizar la operación de la copropiedad."
-      >
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={() => {
-              mutateSummary();
-              mutateReglas();
-              mutateEjecuciones();
-            }}
-            className="gap-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Actualizar
-          </Button>
-          <Button onClick={() => handleOpenCreate()} className="gap-2 bg-primary text-primary-foreground">
-            <Plus className="w-4 h-4" />
-            Nueva Regla
-          </Button>
-        </div>
-      </PageHeader>
+        description="Flujos Evento → Condición → Acción para automatizar la operación de la copropiedad."
+        action={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => {
+                mutateSummary();
+                mutateReglas();
+                mutateEjecuciones();
+              }}
+              className="gap-2 min-h-10"
+            >
+              <RefreshCw className={`w-4 h-4 ${loadingReglas || loadingEjecuciones ? 'animate-spin' : ''}`} aria-hidden="true" />
+              Actualizar
+            </Button>
+            <Button onClick={() => handleOpenCreate()} className="gap-2 min-h-10">
+              <Plus className="w-4 h-4" aria-hidden="true" />
+              Nueva Regla
+            </Button>
+          </>
+        }
+      />
 
-      {/* Tarjetas de Métricas / KPIs */}
+      {/* KPIs: no fallback figures; '—' until the backend answers */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          title="Reglas Activas"
-          value={summary ? `${summary.reglasActivas || 0} / ${summary.totalReglas || 0}` : '0 / 0'}
-          subtitle={`${summary?.reglasInactivas || 0} en pausa`}
+          title="Reglas activas"
+          value={summary ? `${summary.reglasActivas || 0} / ${summary.totalReglas || 0}` : '—'}
+          subtitle={summary ? `${summary.reglasInactivas || 0} en pausa` : 'Sin datos'}
           icon={Bot}
-          trend={summary?.totalReglas > 0 ? '+Activo' : null}
-          trendDirection="up"
+          variant="primary"
         />
         <MetricCard
-          title="Catálogo de Eventos"
-          value={summary?.totalEventos || eventos.length || 8}
+          title="Catálogo de eventos"
+          value={summary?.totalEventos ?? (eventosRaw ? eventos.length : '—')}
           subtitle="Eventos del sistema monitoreados"
           icon={Zap}
+          variant="info"
         />
         <MetricCard
-          title="Ejecuciones este Mes"
-          value={summary?.totalEjecucionesMes || 0}
+          title="Ejecuciones este mes"
+          value={summary ? summary.totalEjecucionesMes || 0 : '—'}
           subtitle="Disparos automáticos evaluados"
           icon={Activity}
+          variant="secondary"
         />
         <MetricCard
-          title="Tasa de Efectividad"
-          value={summary?.tasaExito != null ? `${summary.tasaExito.toFixed(1)}%` : '100%'}
-          subtitle={`${summary?.ejecucionesExitosas || 0} exitosas, ${summary?.ejecucionesFallidas || 0} fallidas`}
+          title="Tasa de efectividad"
+          value={summary?.tasaExito != null ? `${summary.tasaExito.toFixed(1)}%` : '—'}
+          subtitle={summary ? `${summary.ejecucionesExitosas || 0} exitosas, ${summary.ejecucionesFallidas || 0} fallidas` : 'Sin ejecuciones registradas'}
           icon={CheckCircle2}
-          trend={summary?.tasaExito >= 90 ? 'Excelente' : 'Revisar'}
-          trendDirection={summary?.tasaExito >= 90 ? 'up' : 'down'}
+          variant={summary?.tasaExito == null ? 'secondary' : summary.tasaExito >= 90 ? 'success' : 'warning'}
         />
       </div>
 
-      {/* Selector de Pestañas de Navegación */}
-      <div className="flex border-b border-border space-x-6">
+      {/* Tabs */}
+      <div role="tablist" aria-label="Secciones de automatizaciones" className="flex gap-6 overflow-x-auto border-b border-border">
         <button
           onClick={() => setActiveTab('reglas')}
-          className={`pb-3 font-medium text-sm transition-colors border-b-2 flex items-center gap-2 ${
+          aria-selected={activeTab === 'reglas'}
+          type="button"
+          role="tab"
+          className={`min-h-10 shrink-0 pb-3 font-semibold text-sm transition-colors duration-150 border-b-2 flex items-center gap-2 ${
             activeTab === 'reglas'
-              ? 'border-primary text-primary font-semibold'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
+              ? 'border-primary text-primary-text'
+              : 'border-transparent text-text-secondary hover:text-on-surface'
           }`}
         >
           <Sliders className="w-4 h-4" />
@@ -447,10 +459,13 @@ export default function AutomatizacionesAdminPage() {
         </button>
         <button
           onClick={() => setActiveTab('eventos')}
-          className={`pb-3 font-medium text-sm transition-colors border-b-2 flex items-center gap-2 ${
+          aria-selected={activeTab === 'eventos'}
+          type="button"
+          role="tab"
+          className={`min-h-10 shrink-0 pb-3 font-semibold text-sm transition-colors duration-150 border-b-2 flex items-center gap-2 ${
             activeTab === 'eventos'
-              ? 'border-primary text-primary font-semibold'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
+              ? 'border-primary text-primary-text'
+              : 'border-transparent text-text-secondary hover:text-on-surface'
           }`}
         >
           <Zap className="w-4 h-4" />
@@ -458,10 +473,13 @@ export default function AutomatizacionesAdminPage() {
         </button>
         <button
           onClick={() => setActiveTab('ejecuciones')}
-          className={`pb-3 font-medium text-sm transition-colors border-b-2 flex items-center gap-2 ${
+          aria-selected={activeTab === 'ejecuciones'}
+          type="button"
+          role="tab"
+          className={`min-h-10 shrink-0 pb-3 font-semibold text-sm transition-colors duration-150 border-b-2 flex items-center gap-2 ${
             activeTab === 'ejecuciones'
-              ? 'border-primary text-primary font-semibold'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
+              ? 'border-primary text-primary-text'
+              : 'border-transparent text-text-secondary hover:text-on-surface'
           }`}
         >
           <Clock className="w-4 h-4" />
@@ -483,13 +501,13 @@ export default function AutomatizacionesAdminPage() {
                 className="pl-9 h-9"
               />
             </div>
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
               <div className="flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground whitespace-nowrap">Estado:</Label>
                 <select
                   value={filtroEstado}
                   onChange={(e) => setFiltroEstado(e.target.value)}
-                  className="bg-background border border-input rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="h-9 bg-surface border border-input rounded-md px-2 text-xs text-on-surface focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
                 >
                   <option value="TODAS">Todos los Estados</option>
                   <option value="ACTIVA">Activas</option>
@@ -502,7 +520,7 @@ export default function AutomatizacionesAdminPage() {
                 <select
                   value={filtroEvento}
                   onChange={(e) => setFiltroEvento(e.target.value)}
-                  className="bg-background border border-input rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary max-w-[180px]"
+                  className="h-9 bg-surface border border-input rounded-md px-2 text-xs text-on-surface focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 max-w-[180px]"
                 >
                   <option value="TODOS">Todos los Eventos</option>
                   {eventos.map((ev) => (
@@ -516,8 +534,16 @@ export default function AutomatizacionesAdminPage() {
           </div>
 
           {/* Listado de Reglas */}
-          {loadingReglas ? (
-            <div className="py-12 text-center text-muted-foreground">Cargando reglas de automatización...</div>
+          {loadingReglas && !reglasRaw ? (
+            <div className="rounded-lg border border-border bg-card">
+              <LoadingState message="Cargando reglas de automatización..." />
+            </div>
+          ) : errorReglas && !reglasRaw ? (
+            <ErrorState
+              title="No se pudieron cargar las reglas"
+              message={errorReglas?.message || 'Verifique su conexión e intente nuevamente.'}
+              onRetry={mutateReglas}
+            />
           ) : filteredReglas.length === 0 ? (
             <div className="p-8 text-center bg-card rounded-xl border border-dashed border-border space-y-3">
               <Bot className="w-12 h-12 text-muted-foreground mx-auto stroke-1" />
@@ -556,10 +582,10 @@ export default function AutomatizacionesAdminPage() {
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-semibold text-base text-foreground">{regla.nombre}</h3>
-                            <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${badgeColor}`}>
+                            <span className={`text-[11.5px] font-medium px-2 py-0.5 rounded-full border ${badgeColor}`}>
                               {regla.codigoEvento}
                             </span>
-                            <Badge variant={isActiva ? 'default' : 'secondary'} className="text-[10px]">
+                            <Badge variant={isActiva ? 'default' : 'secondary'} className="text-[11.5px]">
                               {isActiva ? 'ACTIVA' : 'INACTIVA'}
                             </Badge>
                           </div>
@@ -580,7 +606,7 @@ export default function AutomatizacionesAdminPage() {
                         >
                           <span
                             className={`w-2 h-2 rounded-full ${
-                              isActiva ? 'bg-emerald-500' : 'bg-zinc-400'
+                              isActiva ? 'bg-btn-success' : 'bg-tint-neutral-fg'
                             }`}
                           />
                           {isActiva ? 'Desactivar' : 'Activar'}
@@ -625,56 +651,56 @@ export default function AutomatizacionesAdminPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                       {/* 1. Disparador */}
                       <div className="bg-muted/40 p-3 rounded-lg border border-border/40 space-y-1.5">
-                        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                          <Zap className="w-3.5 h-3.5 text-amber-500" />
+                        <div className="text-[11.5px] font-semibold text-muted-foreground flex items-center gap-1.5">
+                          <Zap className="w-3.5 h-3.5 text-tint-amber-fg" />
                           1. Evento Disparador
                         </div>
                         <div className="font-medium text-foreground">{regla.nombreEvento || regla.codigoEvento}</div>
-                        <div className="text-[11px] text-muted-foreground">
+                        <div className="text-[11.5px] text-muted-foreground">
                           Módulo: <span className="font-medium">{regla.moduloOrigen || 'SISTEMA'}</span>
                         </div>
                       </div>
 
                       {/* 2. Condición */}
                       <div className="bg-muted/40 p-3 rounded-lg border border-border/40 space-y-1.5">
-                        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                          <Sliders className="w-3.5 h-3.5 text-sky-500" />
+                        <div className="text-[11.5px] font-semibold text-muted-foreground flex items-center gap-1.5">
+                          <Sliders className="w-3.5 h-3.5 text-tint-blue-fg" />
                           2. Condición Lógica
                         </div>
                         {regla.condicionJson ? (
-                          <pre className="font-mono text-[10px] bg-background p-1.5 rounded border border-border overflow-x-auto text-foreground">
+                          <pre className="font-mono text-[11.5px] bg-background p-1.5 rounded border border-border overflow-x-auto text-foreground">
                             {regla.condicionJson}
                           </pre>
                         ) : (
-                          <div className="text-muted-foreground italic flex items-center gap-1 text-[11px]">
-                            <Check className="w-3 h-3 text-emerald-500" /> Siempre se ejecuta al disparar
+                          <div className="text-muted-foreground italic flex items-center gap-1 text-[11.5px]">
+                            <Check className="w-3 h-3 text-tint-green-fg" /> Siempre se ejecuta al disparar
                           </div>
                         )}
                       </div>
 
                       {/* 3. Acciones */}
                       <div className="bg-muted/40 p-3 rounded-lg border border-border/40 space-y-1.5">
-                        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                          <Activity className="w-3.5 h-3.5 text-emerald-500" />
+                        <div className="text-[11.5px] font-semibold text-muted-foreground flex items-center gap-1.5">
+                          <Activity className="w-3.5 h-3.5 text-tint-green-fg" />
                           3. Acciones Secuenciales ({regla.acciones?.length || 0})
                         </div>
                         <div className="space-y-1">
                           {regla.acciones && regla.acciones.length > 0 ? (
                             regla.acciones.map((acc, idx) => {
-                              const conf = ACCION_MAP[acc.tipoAccion] || { label: acc.tipoAccion, color: 'text-zinc-500 bg-zinc-500/10' };
+                              const conf = ACCION_MAP[acc.tipoAccion] || { label: acc.tipoAccion, color: 'text-text-secondary bg-tint-neutral-bg' };
                               return (
                                 <div key={idx} className="flex items-center gap-1.5">
-                                  <span className="w-4 h-4 rounded-full bg-background border text-[10px] flex items-center justify-center font-bold">
+                                  <span className="w-4 h-4 rounded-full bg-background border text-[11.5px] flex items-center justify-center font-bold">
                                     {acc.ordenEjecucion || idx + 1}
                                   </span>
-                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${conf.color}`}>
+                                  <span className={`px-1.5 py-0.5 rounded text-[11.5px] font-medium border ${conf.color}`}>
                                     {conf.label}
                                   </span>
                                 </div>
                               );
                             })
                           ) : (
-                            <span className="text-muted-foreground italic text-[11px]">Sin acciones asociadas</span>
+                            <span className="text-muted-foreground italic text-[11.5px]">Sin acciones asociadas</span>
                           )}
                         </div>
                       </div>
@@ -709,12 +735,12 @@ export default function AutomatizacionesAdminPage() {
                 <div key={ev.idEvento} className="bg-card rounded-xl border border-border p-4 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
+                      <div className="p-2 rounded-lg bg-tint-amber-bg text-tint-amber-fg">
                         <Zap className="w-4 h-4" />
                       </div>
                       <div>
                         <h4 className="font-semibold text-sm text-foreground">{ev.nombre}</h4>
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${badgeColor}`}>
+                        <span className={`text-[11.5px] font-medium px-2 py-0.5 rounded-full border ${badgeColor}`}>
                           {ev.codigo}
                         </span>
                       </div>
@@ -735,17 +761,17 @@ export default function AutomatizacionesAdminPage() {
                   {/* Variables disponibles en Payload */}
                   <div className="bg-muted/40 p-2.5 rounded-lg border border-border/40 space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      <span className="text-[11.5px] font-semibold text-muted-foreground">
                         Variables de Payload Disponibles:
                       </span>
                       <button
                         onClick={() => handleCopyVar(ev.variablesPayload)}
-                        className="text-[10px] text-primary hover:underline flex items-center gap-1"
+                        className="text-[11.5px] text-primary hover:underline flex items-center gap-1"
                         title="Copiar variables"
                       >
                         {copiedVar === ev.variablesPayload ? (
                           <>
-                            <Check className="w-3 h-3 text-emerald-500" /> Copiado
+                            <Check className="w-3 h-3 text-tint-green-fg" /> Copiado
                           </>
                         ) : (
                           <>
@@ -759,13 +785,13 @@ export default function AutomatizacionesAdminPage() {
                         ev.variablesPayload.split(',').map((v, i) => (
                           <span
                             key={i}
-                            className="font-mono text-[10px] bg-background px-1.5 py-0.5 rounded border border-border text-foreground"
+                            className="font-mono text-[11.5px] bg-background px-1.5 py-0.5 rounded border border-border text-foreground"
                           >
                             payload.{v.trim()}
                           </span>
                         ))
                       ) : (
-                        <span className="text-muted-foreground text-[10px] italic">Sin variables adicionales</span>
+                        <span className="text-muted-foreground text-[11.5px] italic">Sin variables adicionales</span>
                       )}
                     </div>
                   </div>
@@ -797,16 +823,22 @@ export default function AutomatizacionesAdminPage() {
             </Button>
           </div>
 
-          {loadingEjecuciones ? (
-            <div className="py-12 text-center text-muted-foreground">Cargando historial de auditoría...</div>
-          ) : ejecuciones.length === 0 ? (
-            <div className="p-8 text-center bg-card rounded-xl border border-dashed border-border space-y-2">
-              <Clock className="w-10 h-10 text-muted-foreground mx-auto stroke-1" />
-              <div className="text-sm font-medium">Aún no hay ejecuciones registradas</div>
-              <p className="text-xs text-muted-foreground">
-                Dispare una simulación manual o espere a que un evento operativo del sistema active una regla.
-              </p>
+          {loadingEjecuciones && !ejecucionesRaw ? (
+            <div className="rounded-lg border border-border bg-card">
+              <LoadingState message="Cargando historial de auditoría..." />
             </div>
+          ) : errorEjecuciones && !ejecucionesRaw ? (
+            <ErrorState
+              title="No se pudo cargar el historial"
+              message={errorEjecuciones?.message || 'Verifique su conexión e intente nuevamente.'}
+              onRetry={mutateEjecuciones}
+            />
+          ) : ejecuciones.length === 0 ? (
+            <EmptyState
+              icon={Clock}
+              title="Aún no hay ejecuciones registradas"
+              subtitle="Dispare una simulación manual o espere a que un evento operativo del sistema active una regla."
+            />
           ) : (
             <div className="bg-card rounded-xl border border-border overflow-hidden">
               <div className="overflow-x-auto">
@@ -827,7 +859,7 @@ export default function AutomatizacionesAdminPage() {
                       const isExitosa = ej.resultado === 'EXITOSA';
                       return (
                         <tr key={ej.idEjecucion} className="hover:bg-muted/20 transition-colors">
-                          <td className="p-3 font-mono text-[11px] whitespace-nowrap">
+                          <td className="p-3 font-mono text-[11.5px] whitespace-nowrap">
                             {ej.fechaEjecucion
                               ? new Date(ej.fechaEjecucion).toLocaleString('es-CO', {
                                   dateStyle: 'short',
@@ -839,7 +871,7 @@ export default function AutomatizacionesAdminPage() {
                             {ej.nombreRegla || `Regla #${ej.idRegla}`}
                           </td>
                           <td className="p-3">
-                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-muted border border-border">
+                            <span className="font-mono text-[11.5px] px-1.5 py-0.5 rounded bg-muted border border-border">
                               {ej.codigoEvento || 'N/A'}
                             </span>
                           </td>
@@ -848,17 +880,17 @@ export default function AutomatizacionesAdminPage() {
                           </td>
                           <td className="p-3 text-center">
                             <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11.5px] font-semibold border ${
                                 isExitosa
-                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                                  ? 'bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25'
+                                  : 'bg-tint-red-bg text-tint-red-fg border-tint-red-fg/25'
                               }`}
                             >
                               {isExitosa ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                               {ej.resultado}
                             </span>
                           </td>
-                          <td className="p-3 text-right font-mono text-[11px]">
+                          <td className="p-3 text-right font-mono text-[11.5px]">
                             {ej.tiempoMs != null ? `${ej.tiempoMs} ms` : '-'}
                           </td>
                           <td className="p-3 text-center">
@@ -913,7 +945,7 @@ export default function AutomatizacionesAdminPage() {
                 ))}
               </select>
               {form.idEvento && (
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[11.5px] text-muted-foreground">
                   {eventos.find((ev) => String(ev.idEvento) === String(form.idEvento))?.descripcion}
                 </p>
               )}
@@ -990,7 +1022,7 @@ export default function AutomatizacionesAdminPage() {
           {/* Constructor de Acciones */}
           <div className="space-y-3 pt-2 border-t border-border">
             <div className="flex items-center justify-between">
-              <Label className="text-xs font-bold uppercase tracking-wider text-foreground">
+              <Label className="text-xs font-bold text-foreground">
                 Acciones Secuenciales a Ejecutar
               </Label>
               <Button type="button" variant="outline" size="sm" onClick={handleAddAccion} className="h-7 text-xs gap-1">
@@ -1003,7 +1035,7 @@ export default function AutomatizacionesAdminPage() {
                 <div key={index} className="p-3 bg-muted/40 rounded-lg border border-border/80 space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-muted-foreground flex items-center gap-1">
-                      <span className="w-4 h-4 rounded-full bg-background border text-[10px] flex items-center justify-center font-bold">
+                      <span className="w-4 h-4 rounded-full bg-background border text-[11.5px] flex items-center justify-center font-bold">
                         {index + 1}
                       </span>
                       Paso {index + 1}
@@ -1021,7 +1053,7 @@ export default function AutomatizacionesAdminPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
-                      <Label className="text-[11px]">Tipo de Acción</Label>
+                      <Label className="text-[11.5px]">Tipo de Acción</Label>
                       <select
                         value={acc.tipoAccion}
                         onChange={(e) => handleUpdateAccion(index, 'tipoAccion', e.target.value)}
@@ -1036,12 +1068,12 @@ export default function AutomatizacionesAdminPage() {
                     </div>
 
                     <div>
-                      <Label className="text-[11px]">Parámetros (JSON)</Label>
+                      <Label className="text-[11.5px]">Parámetros (JSON)</Label>
                       <textarea
                         rows={2}
                         value={acc.parametrosJson}
                         onChange={(e) => handleUpdateAccion(index, 'parametrosJson', e.target.value)}
-                        className="w-full font-mono text-[11px] bg-background border border-input rounded-md p-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="w-full font-mono text-[11.5px] bg-background border border-input rounded-md p-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                     </div>
                   </div>
@@ -1100,15 +1132,15 @@ export default function AutomatizacionesAdminPage() {
           {simulacionResult && (
             <div className="mt-4 p-4 rounded-xl border bg-muted/30 space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                   <Activity className="w-4 h-4 text-primary" />
                   Resultado de la Evaluación
                 </span>
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                  className={`px-2 py-0.5 rounded-full text-[11.5px] font-semibold border ${
                     simulacionResult.resultado === 'EXITOSA'
-                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                      : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                      ? 'bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25'
+                      : 'bg-tint-red-bg text-tint-red-fg border-tint-red-fg/25'
                   }`}
                 >
                   {simulacionResult.resultado}
@@ -1120,8 +1152,8 @@ export default function AutomatizacionesAdminPage() {
               </div>
 
               <div className="space-y-1">
-                <Label className="text-[11px] font-semibold text-muted-foreground">Traza de Auditoría:</Label>
-                <pre className="font-mono text-[11px] bg-background p-2.5 rounded border border-border overflow-x-auto text-foreground">
+                <Label className="text-[11.5px] font-semibold text-muted-foreground">Traza de Auditoría:</Label>
+                <pre className="font-mono text-[11.5px] bg-background p-2.5 rounded border border-border overflow-x-auto text-foreground">
                   {simulacionResult.logDetalle}
                 </pre>
               </div>
@@ -1147,7 +1179,7 @@ export default function AutomatizacionesAdminPage() {
               </div>
               <div>
                 <span className="text-muted-foreground">Evento Disparador:</span>
-                <p className="font-mono text-[11px] font-medium text-foreground">{ejecucionSeleccionada.codigoEvento}</p>
+                <p className="font-mono text-[11.5px] font-medium text-foreground">{ejecucionSeleccionada.codigoEvento}</p>
               </div>
               <div>
                 <span className="text-muted-foreground">Resultado:</span>
@@ -1155,13 +1187,13 @@ export default function AutomatizacionesAdminPage() {
               </div>
               <div>
                 <span className="text-muted-foreground">Tiempo de respuesta:</span>
-                <p className="font-mono text-[11px] font-medium text-foreground">{ejecucionSeleccionada.tiempoMs} ms</p>
+                <p className="font-mono text-[11.5px] font-medium text-foreground">{ejecucionSeleccionada.tiempoMs} ms</p>
               </div>
             </div>
 
             <div className="space-y-1">
               <Label className="text-xs font-semibold">Detalle y Traza de Ejecución</Label>
-              <pre className="font-mono text-[11px] bg-background p-3 rounded border border-border overflow-x-auto text-foreground whitespace-pre-wrap">
+              <pre className="font-mono text-[11.5px] bg-background p-3 rounded border border-border overflow-x-auto text-foreground whitespace-pre-wrap">
                 {ejecucionSeleccionada.logDetalle}
               </pre>
             </div>
@@ -1205,6 +1237,6 @@ export default function AutomatizacionesAdminPage() {
           </div>
         </div>
       </Modal>
-    </div>
+    </PageContainer>
   );
 }

@@ -1,4 +1,5 @@
 import React, { memo } from 'react';
+import { TrendingDown, TrendingUp } from 'lucide-react';
 import { cn } from '../../lib/utils.js';
 
 /**
@@ -28,31 +29,14 @@ export const MetricCard = memo(function MetricCard({
   const displayContext = context || subtitle;
   const activeVariant = color || variant;
 
+  // Semantic icon tiles: tonal bg/fg pairs from index.css (AA in both modes).
   const variantStyles = {
-    primary: {
-      bg: 'bg-navy-50 text-navy-800 dark:bg-navy-900/50 dark:text-navy-300',
-      border: 'border-slate-200 dark:border-slate-800',
-    },
-    success: {
-      bg: 'bg-success-50 text-success-700 dark:bg-success-950/40 dark:text-success-400',
-      border: 'border-success-200/60 dark:border-success-800/60',
-    },
-    warning: {
-      bg: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
-      border: 'border-amber-200/60 dark:border-amber-800/60',
-    },
-    danger: {
-      bg: 'bg-danger-50 text-danger-700 dark:bg-danger-950/40 dark:text-danger-400',
-      border: 'border-danger-200/60 dark:border-danger-800/60',
-    },
-    info: {
-      bg: 'bg-info-50 text-info-700 dark:bg-info-950/40 dark:text-info-400',
-      border: 'border-info-200/60 dark:border-info-800/60',
-    },
-    secondary: {
-      bg: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-      border: 'border-slate-200 dark:border-slate-700',
-    },
+    primary: { bg: 'bg-tint-primary-bg text-tint-primary-fg' },
+    success: { bg: 'bg-tint-green-bg text-tint-green-fg' },
+    warning: { bg: 'bg-tint-amber-bg text-tint-amber-fg' },
+    danger: { bg: 'bg-tint-red-bg text-tint-red-fg' },
+    info: { bg: 'bg-tint-purple-bg text-tint-purple-fg' },
+    secondary: { bg: 'bg-tint-neutral-bg text-tint-neutral-fg' },
   };
 
   const currentTheme = variantStyles[activeVariant] || variantStyles.primary;
@@ -84,31 +68,31 @@ export const MetricCard = memo(function MetricCard({
       onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick(e) : undefined}
       aria-label={displayLabel ? `Métrica: ${displayLabel}` : undefined}
       className={cn(
-        'relative flex items-center justify-between gap-4 overflow-hidden rounded-xl border bg-card p-5 text-card-foreground shadow-sm transition-all duration-200',
-        'hover:shadow-md hover:-translate-y-0.5',
-        onClick && 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'relative flex items-center justify-between gap-4 overflow-hidden rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm transition-[border-color,box-shadow] duration-150 ease-out',
+        onClick && 'cursor-pointer hover:border-primary/60 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         className
       )}
     >
       <div className="min-w-0 flex-1 space-y-1">
         {displayLabel && (
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            {displayLabel}
-          </p>
+          <p className="text-[13px] font-semibold text-text-secondary">{displayLabel}</p>
         )}
-        <div className="text-2xl font-bold tracking-tight text-on-background">
-          {value != null ? value : '—'}
-        </div>
+        <div className="app-numeral text-[1.625rem] text-on-surface">{value != null ? value : '—'}</div>
         {(displayContext || trend) && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-text-muted">
             {trend && (
               <span
                 className={cn(
                   'inline-flex items-center font-semibold',
-                  trend.positive ? 'text-success-600' : 'text-danger-600'
+                  trend.positive ? 'text-tint-green-fg' : 'text-tint-red-fg'
                 )}
               >
-                {trend.positive ? '↑' : '↓'} {trend.value}
+                {trend.positive ? (
+                  <TrendingUp className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <TrendingDown className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                {trend.value}
               </span>
             )}
             {displayContext && <span>{displayContext}</span>}
@@ -119,7 +103,7 @@ export const MetricCard = memo(function MetricCard({
       {icon && (
         <div
           className={cn(
-            'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors',
+            'flex h-11 w-11 shrink-0 items-center justify-center rounded-md',
             currentTheme.bg
           )}
         >

@@ -29,14 +29,11 @@ import { formatDate, formatDateTime, formatTime, formatApto, imageSrc } from '..
 import PageContainer from '../components/layout/PageContainer.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbSeparator,
-  BreadcrumbPage,
-} from '../components/ui/Breadcrumb.jsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+import LoadingState from '../components/ui/LoadingState.jsx';
+import { Badge } from '../components/ui/badge.tsx';
 
 const COMPANIAS_RAPIDAS = [
   'Servientrega',
@@ -106,6 +103,7 @@ export default function PaquetesPage() {
   const {
     data: paquetesRaw,
     loading: loadingPaquetes,
+    error: errorPaquetes,
     refetch: refetchPaquetes,
   } = useFetch(() => api.get('/paquetes'), []);
 
@@ -389,92 +387,70 @@ export default function PaquetesPage() {
   }, [paquetesEntregados]);
 
   return (
-    <PageContainer>
-      {/* 1. Breadcrumb de Navegación */}
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink to="/portero-dashboard">Garita Principal</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>Control de Paquetería</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
-      {/* 2. Cabecera Contextual Enterprise */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border/60 pb-5">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Recepción y Custodia de Paquetería
-            </h1>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Custodia Activa
-            </span>
-            <span className="px-2 py-0.5 text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700">
-              PORTERO
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Recepción segura de encomiendas, generación de PIN anti-fraude y notificación automática a residentes.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
+    <PageContainer
+      breadcrumbs={[
+        { label: 'Panel de portería', href: '/portero-dashboard' },
+        { label: 'Paquetes', active: true },
+      ]}
+    >
+      <PageHeader
+        title="Recepción y custodia de paquetería"
+        subtitle="Registre cada encomienda con foto; el residente recibe un PIN de retiro y usted confirma la entrega con ese PIN."
+        action={
           <button
+            type="button"
             onClick={() => refetchPaquetes()}
-            className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg bg-card border border-border hover:bg-muted text-foreground transition-colors shadow-sm"
-            title="Refrescar encomiendas"
+            className={'inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-input/60 bg-surface px-3.5 text-sm font-semibold text-on-surface shadow-xs transition-colors duration-150 hover:border-primary/70 hover:bg-surface-container sm:min-h-10'}
+            aria-label="Actualizar encomiendas"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loadingPaquetes ? 'animate-spin text-emerald-500' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${loadingPaquetes ? 'animate-spin' : ''}`} aria-hidden="true" />
             Actualizar
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* 3. Strip de KPIs Operativos */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="En Custodia"
+          label="En custodia"
           value={paquetesEnCustodia.length}
           context="Pendientes de entrega"
           icon={Inbox}
           variant={paquetesEnCustodia.length > 0 ? 'warning' : 'primary'}
         />
         <MetricCard
-          label="Recibidos Hoy"
+          label="Recibidos hoy"
           value={totalHoy}
-          context="Ingresados a garita"
+          context="Ingresados a la garita"
           icon={Package}
           variant="primary"
         />
         <MetricCard
-          label="Entregados Hoy"
+          label="Entregados hoy"
           value={entregadosHoy}
-          context="Despachados con éxito"
+          context="Entregados con PIN"
           icon={CheckCircle2}
           variant="success"
         />
         <MetricCard
-          label="Total Histórico"
+          label="Total registrado"
           value={paquetes.length}
           context="Paquetes procesados"
           icon={Boxes}
-          variant="neutral"
+          variant="secondary"
         />
       </div>
 
       {/* 4. Selector de Pestañas Corporativas */}
-      <div className="flex items-center gap-2 border-b border-border/80 pb-px overflow-x-auto">
+      <div className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-surface-container p-1" role="group" aria-label="Secciones de paquetería">
         <button
+          type="button"
           onClick={() => setActiveTab('recibir')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap min-h-[44px] ${
+          aria-pressed={activeTab === 'recibir'}
+          className={`flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-4 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             activeTab === 'recibir'
-              ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              ? 'bg-surface text-primary-text shadow-sm'
+              : 'text-text-secondary hover:bg-surface/60 hover:text-on-surface'
           }`}
         >
           <PlusCircle className="w-4 h-4" />
@@ -482,53 +458,58 @@ export default function PaquetesPage() {
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab('pendientes')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap min-h-[44px] ${
+          aria-pressed={activeTab === 'pendientes'}
+          className={`flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-4 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             activeTab === 'pendientes'
-              ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              ? 'bg-surface text-primary-text shadow-sm'
+              : 'text-text-secondary hover:bg-surface/60 hover:text-on-surface'
           }`}
         >
           <Inbox className="w-4 h-4" />
-          En Custodia ({paquetesEnCustodia.length})
+          En Custodia (<span className="tabular-nums">{paquetesEnCustodia.length}</span>)
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveTab('historial')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap min-h-[44px] ${
+          aria-pressed={activeTab === 'historial'}
+          className={`flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-4 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             activeTab === 'historial'
-              ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              ? 'bg-surface text-primary-text shadow-sm'
+              : 'text-text-secondary hover:bg-surface/60 hover:text-on-surface'
           }`}
         >
           <Clock className="w-4 h-4" />
-          Historial Entregados ({paquetesEntregados.length})
+          Historial Entregados (<span className="tabular-nums">{paquetesEntregados.length}</span>)
         </button>
       </div>
 
       {/* 5. Contenido por Pestaña */}
       {activeTab === 'recibir' && (
-        <div className="bg-card rounded-xl border border-border/80 shadow-sm overflow-hidden p-6">
+        <div className="rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-6">
           <form onSubmit={handleRegistrar} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               {/* Columna Izquierda: Datos del Envío */}
               <div className="lg:col-span-7 space-y-5">
                 <div className="border-b border-border/60 pb-3">
                   <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-emerald-500" />
-                    Datos de la Encomienda y Destinatario
+                    <Building2 className="w-4 h-4 text-primary-text" />
+                    Datos de la Encomienda y destinatario
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    El residente recibirá una notificación push e in-app con el PIN generado.
+                    El residente recibe una notificación con el PIN de retiro.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-foreground mb-1.5">
-                      Apartamento Destino *
+                    <label htmlFor="paq-unidad" className="mb-1.5 block text-sm font-semibold text-on-surface">
+                      Apartamento destino <span className="text-destructive" aria-hidden="true">*</span>
                     </label>
                     <select
+                      id="paq-unidad"
                       value={selectedUnidad}
                       onChange={(e) => {
                         handleSelectUnidad(e.target.value);
@@ -536,10 +517,11 @@ export default function PaquetesPage() {
                       }}
                       required
                       aria-invalid={Boolean(errors.selectedUnidad)}
-                      className={`w-full px-3 py-2.5 text-sm rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 ${
+                      aria-describedby={errors.selectedUnidad ? 'paq-unidad-error' : undefined}
+                      className={`h-10 w-full rounded-md border bg-surface px-3 text-sm text-on-surface transition-[border-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-[3px] ${
                         errors.selectedUnidad
-                          ? '!border-destructive focus:!ring-destructive/30'
-                          : 'border-border focus:ring-emerald-500/20 focus:border-emerald-500'
+                          ? '!border-destructive focus-visible:ring-destructive/30'
+                          : 'border-input focus-visible:border-ring focus-visible:ring-ring/25'
                       }`}
                     >
                       <option value="">Seleccionar unidad...</option>
@@ -554,7 +536,7 @@ export default function PaquetesPage() {
                       })}
                     </select>
                     {errors.selectedUnidad && (
-                      <p role="alert" className="text-xs text-destructive font-medium flex items-center gap-1.5 mt-1 animate-fadeIn">
+                      <p id="paq-unidad-error" role="alert" className="text-xs text-destructive font-medium flex items-center gap-1.5 mt-1 animate-fadeIn">
                         <span className="inline-block w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
                         <span>{errors.selectedUnidad}</span>
                       </p>
@@ -562,17 +544,18 @@ export default function PaquetesPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-foreground mb-1.5">
-                      Destinatario (Residente de la unidad)
+                    <label htmlFor="paq-destinatario" className="mb-1.5 block text-sm font-semibold text-on-surface">
+                      Destinatario
                     </label>
                     {loadingResidentes ? (
-                      <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-muted-foreground rounded-lg border border-border bg-background">
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-500 shrink-0" />
+                      <div className="flex h-10 items-center gap-2 rounded-md border border-border bg-surface-container px-3 text-xs text-text-secondary" role="status">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary-text shrink-0" />
                         <span>Cargando residentes...</span>
                       </div>
                     ) : residentesUnidad.length > 0 ? (
                       <div className="space-y-1.5">
                         <select
+                          id="paq-destinatario"
                           value={idPersonaDestinatario}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -585,9 +568,9 @@ export default function PaquetesPage() {
                               setDestinatario('');
                             }
                           }}
-                          className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                          className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 px-3"
                         >
-                          <option value="">- Toda la unidad / General -</option>
+                          <option value="">Toda la unidad</option>
                           {residentesUnidad.map((r) => {
                             const idPers = r.ID_PERSONA || r.idPersona;
                             const nom = `${r.NOMBRES || r.primerNombre || ''} ${r.APELLIDOS || r.primerApellido || ''}`.trim();
@@ -606,21 +589,22 @@ export default function PaquetesPage() {
                           })}
                         </select>
                         {destinatario && (
-                          <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                            <Check className="w-3 h-3 text-emerald-500" />
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Check className="w-3 h-3 text-primary-text" />
                             <span>Destinatario: <strong>{destinatario}</strong></span>
                           </p>
                         )}
                       </div>
                     ) : (
                       <div className="relative">
-                        <User className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                        <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
                         <input
+                          id="paq-destinatario"
                           type="text"
                           placeholder={selectedUnidad ? 'Nombre o dejar para toda la unidad' : 'Seleccione primero el apartamento'}
                           value={destinatario}
                           onChange={(e) => setDestinatario(e.target.value)}
-                          className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                          className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 pl-9 pr-3"
                         />
                       </div>
                     )}
@@ -629,19 +613,20 @@ export default function PaquetesPage() {
 
                 {/* Empresa de Mensajería */}
                 <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1.5">
-                    Empresa de Mensajería o Transporte *
-                  </label>
-                  <div className="flex flex-wrap gap-1.5 mb-2">
+                  <p id="paq-empresa-label" className="mb-1.5 block text-sm font-semibold text-on-surface">
+                    Empresa de mensajería o transporte <span className="text-destructive" aria-hidden="true">*</span>
+                  </p>
+                  <div className="mb-2 flex flex-wrap gap-1.5" role="group" aria-labelledby="paq-empresa-label">
                     {COMPANIAS_RAPIDAS.map((c) => (
                       <button
                         key={c}
                         type="button"
                         onClick={() => setEmpresaMensajeria(c)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                        aria-pressed={empresaMensajeria === c}
+                        className={`min-h-10 rounded-md border px-3 text-sm font-semibold transition-colors duration-150 ${
                           empresaMensajeria === c
-                            ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-600 dark:text-emerald-400'
-                            : 'bg-muted/40 border-border text-muted-foreground hover:text-foreground hover:bg-muted'
+                            ? 'border-btn-primary bg-btn-primary text-white'
+                            : 'border-input/60 bg-surface text-on-surface hover:border-primary/70'
                         }`}
                       >
                         {c}
@@ -652,11 +637,12 @@ export default function PaquetesPage() {
                   {empresaMensajeria === 'Otro' && (
                     <input
                       type="text"
+                      aria-label="Otra empresa o mensajero"
                       placeholder="Especifique empresa o mensajero particular"
                       value={otraEmpresa}
                       onChange={(e) => setOtraEmpresa(e.target.value)}
                       required
-                      className="w-full mt-2 px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                      className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 mt-2 px-3"
                     />
                   )}
                 </div>
@@ -664,29 +650,31 @@ export default function PaquetesPage() {
                 {/* Número de Guía y Tamaño */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-foreground mb-1.5">
-                      Número de Guía / Tracking (Opcional)
+                    <label htmlFor="paq-guia" className="mb-1.5 block text-sm font-semibold text-on-surface">
+                      Número de guía (opcional)
                     </label>
                     <div className="relative">
-                      <Hash className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                      <Hash className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
                       <input
+                        id="paq-guia"
                         type="text"
-                        placeholder="Opcional - ej. TRK-99214"
+                        placeholder="ej. TRK-99214"
                         value={numeroGuia}
                         onChange={(e) => setNumeroGuia(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-mono"
+                        className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 pl-9 pr-3 tabular-nums"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-foreground mb-1.5">
-                      Tamaño de la Encomienda *
+                    <label htmlFor="paq-tamano" className="mb-1.5 block text-sm font-semibold text-on-surface">
+                      Tamaño de la encomienda <span className="text-destructive" aria-hidden="true">*</span>
                     </label>
                     <select
+                      id="paq-tamano"
                       value={tamano}
                       onChange={(e) => setTamano(e.target.value)}
-                      className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                      className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 px-3"
                     >
                       {TAMANOS.map((t) => (
                         <option key={t.id} value={t.id}>
@@ -699,10 +687,11 @@ export default function PaquetesPage() {
 
                 {/* Descripción */}
                 <div>
-                  <label className="block text-xs font-semibold text-foreground mb-1.5">
-                    Descripción del Paquete / Contenido (Opcional)
+                  <label htmlFor="paq-descripcion" className="mb-1.5 block text-sm font-semibold text-on-surface">
+                    Descripción del paquete (opcional)
                   </label>
                   <textarea
+                    id="paq-descripcion"
                     rows={2}
                     placeholder="Opcional - con la fotografía basta, o describa brevemente el paquete"
                     value={descripcion}
@@ -710,7 +699,8 @@ export default function PaquetesPage() {
                       setDescripcion(e.target.value);
                       setErrors((prev) => ({ ...prev, descripcion: undefined }));
                     }}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    aria-invalid={Boolean(errors.descripcion)}
+                    className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
                   />
                   {errors.descripcion && (
                     <p role="alert" className="text-xs text-destructive font-medium flex items-center gap-1.5 mt-1 animate-fadeIn">
@@ -725,16 +715,16 @@ export default function PaquetesPage() {
               <div className="lg:col-span-5 space-y-4">
                 <div className="border-b border-border/60 pb-3">
                   <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-                    <Camera className="w-4 h-4 text-emerald-500" />
-                    Evidencia Visual de Garita
+                    <Camera className="w-4 h-4 text-primary-text" />
+                    Foto de evidencia
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Fotografía del paquete para respaldar la custodia y estado de entrega.
+                    Respalda el estado del paquete al recibirlo y al entregarlo.
                   </p>
                 </div>
 
                 {/* Viewport de Cámara o Foto */}
-                <div className="relative aspect-video rounded-xl border-2 border-dashed border-border bg-slate-900 overflow-hidden flex flex-col items-center justify-center text-slate-400">
+                <div className="relative flex aspect-video flex-col items-center justify-center overflow-hidden rounded-lg border border-dashed border-input bg-surface-container text-text-muted">
                   {camaraActiva ? (
                     <>
                       <video
@@ -745,14 +735,14 @@ export default function PaquetesPage() {
                         className="w-full h-full object-cover"
                       />
                       {/* HUD de encuadre */}
-                      <div className="absolute inset-4 pointer-events-none border-2 border-emerald-500/50 rounded-lg flex flex-col justify-between p-2">
+                      <div className="absolute inset-4 pointer-events-none border-2 border-[#A3B0FF]/70 rounded-lg flex flex-col justify-between p-2">
                         <div className="flex justify-between">
-                          <div className="w-4 h-4 border-t-2 border-l-2 border-emerald-400" />
-                          <div className="w-4 h-4 border-t-2 border-r-2 border-emerald-400" />
+                          <div className="w-4 h-4 border-t-2 border-l-2 border-[#A3B0FF]" />
+                          <div className="w-4 h-4 border-t-2 border-r-2 border-[#A3B0FF]" />
                         </div>
                         <div className="flex justify-between">
-                          <div className="w-4 h-4 border-b-2 border-l-2 border-emerald-400" />
-                          <div className="w-4 h-4 border-b-2 border-r-2 border-emerald-400" />
+                          <div className="w-4 h-4 border-b-2 border-l-2 border-[#A3B0FF]" />
+                          <div className="w-4 h-4 border-b-2 border-r-2 border-[#A3B0FF]" />
                         </div>
                       </div>
                     </>
@@ -766,18 +756,18 @@ export default function PaquetesPage() {
                       <button
                         type="button"
                         onClick={() => setFoto(null)}
-                        className="absolute top-2 right-2 p-1.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-900 transition-colors shadow"
-                        title="Eliminar foto"
+                        className="absolute right-2 top-2 flex h-10 w-10 items-center justify-center rounded-md border border-border bg-surface text-on-surface shadow-sm transition-colors hover:bg-surface-container"
+                        aria-label="Eliminar foto"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="h-4 w-4" aria-hidden="true" />
                       </button>
                     </div>
                   ) : (
                     <div className="p-6 text-center space-y-2">
-                      <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-md border border-dashed border-input bg-surface text-text-secondary">
                         <Camera className="w-6 h-6" />
                       </div>
-                      <p className="text-xs text-slate-400 max-w-[200px] mx-auto">
+                      <p className="text-xs text-text-muted max-w-[200px] mx-auto">
                         Tome una foto con la cámara de garita o suba una imagen.
                       </p>
                     </div>
@@ -792,18 +782,18 @@ export default function PaquetesPage() {
                       <button
                         type="button"
                         onClick={abrirCamara}
-                        className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm min-h-[44px]"
+                        className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg bg-btn-primary hover:bg-btn-primary-hover text-white transition-colors shadow-sm min-h-[44px]"
                       >
                         <Camera className="w-4 h-4" />
-                        Abrir Cámara
+                        Abrir cámara
                       </button>
-                      <label className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors cursor-pointer min-h-[44px]">
-                        <span>Subir Archivo</span>
+                      <label className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-input/60 bg-surface px-3.5 text-sm font-semibold text-on-surface shadow-xs transition-colors duration-150 hover:border-primary/70 hover:bg-surface-container sm:min-h-10 cursor-pointer focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                        <span>Subir archivo</span>
                         <input
                           type="file"
                           accept="image/*"
                           capture="environment"
-                          className="hidden"
+                          className="sr-only"
                           onChange={handleFileUpload}
                         />
                       </label>
@@ -815,10 +805,10 @@ export default function PaquetesPage() {
                       <button
                         type="button"
                         onClick={capturarFoto}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm min-h-[44px]"
+                        className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-btn-primary hover:bg-btn-primary-hover text-white transition-colors shadow-sm min-h-[44px]"
                       >
                         <Camera className="w-4 h-4" />
-                        Capturar Foto
+                        Capturar foto
                       </button>
                       <button
                         type="button"
@@ -840,7 +830,7 @@ export default function PaquetesPage() {
                       className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg border border-border bg-card hover:bg-muted text-foreground min-h-[44px]"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
-                      Repetir Foto
+                      Repetir foto
                     </button>
                   )}
                 </div>
@@ -852,17 +842,17 @@ export default function PaquetesPage() {
               <button
                 type="submit"
                 disabled={registrando}
-                className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-md hover:shadow-lg disabled:opacity-50 min-h-[44px]"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-btn-primary px-6 text-base font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-btn-primary-hover disabled:opacity-50"
               >
                 {registrando ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    Registrando y Notificando...
+                    Registrando y notificando...
                   </>
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    Registrar y Notificar Envío
+                    Registrar y Notificar envío
                   </>
                 )}
               </button>
@@ -875,34 +865,38 @@ export default function PaquetesPage() {
       {activeTab !== 'recibir' && (
         <div className="space-y-4">
           {/* Barra de Filtros */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-card p-4 rounded-xl border border-border/80 shadow-sm">
+          <div className="flex flex-col items-stretch justify-between gap-3 rounded-lg border border-border bg-surface p-3 shadow-sm sm:flex-row sm:items-center sm:p-4">
             <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
               <input
-                type="text"
-                placeholder="Buscar por apto, residente o guía..."
+                type="search"
+                aria-label="Buscar paquetes"
+                placeholder="Buscar por apto, residente o guía"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-8 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 pl-9 pr-10"
               />
               {search && (
                 <button
+                  type="button"
                   onClick={() => setSearch('')}
-                  className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                  aria-label="Limpiar búsqueda"
+                  className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center text-text-secondary hover:text-on-surface"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               )}
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
-                Tamaño:
+              <label htmlFor="paq-filtro-tamano" className="whitespace-nowrap text-sm font-semibold text-text-secondary">
+                Tamaño
               </label>
               <select
+                id="paq-filtro-tamano"
                 value={filtroTamano}
                 onChange={(e) => setFiltroTamano(e.target.value)}
-                className="px-3 py-2 text-xs font-medium rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 px-3 sm:w-48"
               >
                 <option value="TODOS">Todos los tamaños</option>
                 {TAMANOS.map((t) => (
@@ -914,16 +908,28 @@ export default function PaquetesPage() {
             </div>
           </div>
 
+          {loadingPaquetes && paquetes.length === 0 ? (
+            <div className="rounded-lg border border-border bg-surface shadow-sm">
+              <LoadingState message="Cargando encomiendas..." />
+            </div>
+          ) : errorPaquetes && paquetes.length === 0 ? (
+            <ErrorState
+              title="No se pudieron cargar las encomiendas"
+              message={errorPaquetes.message || 'Revise la conexión e intente de nuevo.'}
+              onRetry={refetchPaquetes}
+            />
+          ) : (
+          <>
           {/* Vista Desktop: Tabla Analítica */}
-          <div className="hidden md:block bg-card rounded-xl border border-border/80 shadow-sm overflow-hidden">
+          <div className="hidden overflow-x-auto rounded-lg border border-border bg-surface shadow-sm md:block">
             <table className="w-full text-left text-sm">
-              <thead className="bg-muted/40 border-b border-border/80 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <thead className="border-b border-border bg-surface-container text-xs font-bold text-text-secondary">
                 <tr>
                   <th className="px-4 py-3">Unidad</th>
                   <th className="px-4 py-3">Destinatario</th>
                   <th className="px-4 py-3">Mensajería</th>
                   <th className="px-4 py-3">Descripción</th>
-                  <th className="px-4 py-3">Fecha Recepción</th>
+                  <th className="px-4 py-3">Recepción</th>
                   <th className="px-4 py-3">Foto</th>
                   <th className="px-4 py-3">Estado</th>
                   <th className="px-4 py-3 text-right">Acción</th>
@@ -932,14 +938,26 @@ export default function PaquetesPage() {
               <tbody className="divide-y divide-border/60">
                 {paquetesFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
-                      <Inbox className="w-10 h-10 mx-auto text-muted-foreground/40 mb-2" />
-                      <p className="font-semibold text-foreground">No se encontraron paquetes</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {activeTab === 'pendientes'
-                          ? 'No hay paquetes pendientes en custodia en este momento.'
-                          : 'No hay paquetes entregados registrados.'}
-                      </p>
+                    <td colSpan={8} className="p-0">
+                      <EmptyState
+                        icon={Inbox}
+                        title={search || filtroTamano !== 'TODOS' ? 'Ningún paquete coincide con los filtros' : activeTab === 'pendientes' ? 'No hay paquetes en custodia' : 'Aún no hay entregas registradas'}
+                        subtitle={
+                          search || filtroTamano !== 'TODOS'
+                            ? 'Cambie la búsqueda o el tamaño.'
+                            : activeTab === 'pendientes'
+                            ? 'Los paquetes que reciba aparecerán aquí hasta su entrega.'
+                            : 'Las entregas confirmadas con PIN aparecerán aquí.'
+                        }
+                        className="py-10"
+                      >
+                        {activeTab === 'pendientes' && !search && filtroTamano === 'TODOS' && (
+                          <button type="button" onClick={() => setActiveTab('recibir')} className={'inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-input/60 bg-surface px-3.5 text-sm font-semibold text-on-surface shadow-xs transition-colors duration-150 hover:border-primary/70 hover:bg-surface-container sm:min-h-10 mt-4'}>
+                            <PlusCircle className="h-4 w-4" aria-hidden="true" />
+                            Registrar recepción
+                          </button>
+                        )}
+                      </EmptyState>
                     </td>
                   </tr>
                 ) : (
@@ -947,7 +965,7 @@ export default function PaquetesPage() {
                     const id = p.idPaquete || p.idMensaje;
                     const isEntregado = p.entregado || p.estado === 'ENTREGADO';
                     return (
-                      <tr key={id} className="hover:bg-muted/30 transition-colors">
+                      <tr key={id} className="transition-colors hover:bg-surface-container">
                         <td className="px-4 py-3 font-semibold text-foreground whitespace-nowrap">
                           {formatApto(p.numeroApartamento)}
                         </td>
@@ -955,11 +973,11 @@ export default function PaquetesPage() {
                           {p.nombreResidente || p.nombreDestinatario || 'Residente'}
                         </td>
                         <td className="px-4 py-3 text-foreground whitespace-nowrap">
-                          <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                          <span className="font-medium text-on-surface">
                             {p.empresaMensajeria || 'Mensajería'}
                           </span>
                           {p.numeroGuia && (
-                            <span className="block text-xs font-mono text-muted-foreground">
+                            <span className="block text-xs tabular-nums text-muted-foreground">
                               {p.numeroGuia}
                             </span>
                           )}
@@ -967,15 +985,15 @@ export default function PaquetesPage() {
                         <td className="px-4 py-3 text-foreground max-w-xs truncate">
                           <span className="font-medium">{p.descripcion || p.titulo || 'Sin descripción'}</span>
                           {p.tamano && (
-                            <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] font-semibold bg-muted text-muted-foreground rounded">
+                            <Badge variant="secondary" className="ml-2">
                               {p.tamano}
-                            </span>
+                            </Badge>
                           )}
                         </td>
                         <td className="px-4 py-3 text-xs whitespace-nowrap">
                           <div className="font-semibold text-foreground">{formatDate(p.fechaRecepcion || p.fechaCreacion)}</div>
-                          <div className="text-[11px] text-muted-foreground flex items-center gap-1 font-mono mt-0.5">
-                            <Clock className="w-3 h-3 text-emerald-500 shrink-0" />
+                          <div className="text-xs text-muted-foreground flex items-center gap-1 tabular-nums mt-0.5">
+                            <Clock className="h-3 w-3 shrink-0 text-text-muted" aria-hidden="true" />
                             {formatTime(p.fechaRecepcion || p.fechaCreacion)}
                           </div>
                         </td>
@@ -983,34 +1001,28 @@ export default function PaquetesPage() {
                           {p.fotoPaqueteUrl || p.fotoCaptura ? (
                             <img
                               src={imageSrc(p.fotoPaqueteUrl || p.fotoCaptura)}
-                              alt="Foto paquete"
+                              alt="Foto del paquete"
                               onClick={() => setDetalleModal(p)}
-                              className="w-10 h-10 object-cover rounded-lg border border-border cursor-pointer hover:opacity-80 transition-opacity"
+                              className="h-10 w-10 cursor-pointer rounded-md border border-border object-cover transition-opacity hover:opacity-80"
                             />
                           ) : (
                             <span className="text-xs text-muted-foreground italic">Sin foto</span>
                           )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                              isEntregado
-                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                            }`}
-                          >
-                            {isEntregado ? 'Entregado' : 'En Custodia'}
-                          </span>
+                          <Badge variant={isEntregado ? 'success' : 'warning'}>
+                            {isEntregado ? 'Entregado' : 'En custodia'}
+                          </Badge>
                         </td>
                         <td className="px-4 py-3 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"
                               onClick={() => setDetalleModal(p)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors min-h-[36px]"
+                              className="inline-flex h-9 items-center gap-1 rounded-md border border-input/60 bg-surface px-2.5 text-xs font-semibold text-on-surface transition-colors hover:border-primary/70 hover:bg-surface-container"
                               title="Ver información completa y foto de evidencia"
                             >
-                              <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+                              <Eye className="h-3.5 w-3.5 text-text-secondary" aria-hidden="true" />
                               Detalle
                             </button>
                             {!isEntregado && (
@@ -1020,7 +1032,7 @@ export default function PaquetesPage() {
                                   setModalEntrega(p);
                                   setPinIngresado('');
                                 }}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm min-h-[36px]"
+                                className="inline-flex h-9 items-center gap-1.5 rounded-md bg-btn-primary px-3 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-btn-primary-hover"
                               >
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                 Entregar
@@ -1039,10 +1051,12 @@ export default function PaquetesPage() {
           {/* Vista Móvil: Tarjetas Adaptativas (Priority: Estado -> Info -> Acción) */}
           <div className="md:hidden space-y-3">
             {paquetesFiltrados.length === 0 ? (
-              <div className="bg-card rounded-xl border border-border/80 p-8 text-center text-muted-foreground">
-                <Inbox className="w-10 h-10 mx-auto text-muted-foreground/40 mb-2" />
-                <p className="font-semibold text-foreground">No hay paquetes que mostrar</p>
-              </div>
+              <EmptyState
+                icon={Inbox}
+                title={activeTab === 'pendientes' ? 'No hay paquetes en custodia' : 'Aún no hay entregas registradas'}
+                subtitle={search || filtroTamano !== 'TODOS' ? 'Cambie la búsqueda o el tamaño.' : undefined}
+                className="rounded-lg border border-border bg-surface py-8"
+              />
             ) : (
               paquetesFiltrados.map((p) => {
                 const id = p.idPaquete || p.idMensaje;
@@ -1050,7 +1064,7 @@ export default function PaquetesPage() {
                 return (
                   <div
                     key={id}
-                    className="bg-card rounded-xl border border-border/80 p-4 space-y-3 shadow-sm"
+                    className="space-y-3 rounded-lg border border-border bg-surface p-4 shadow-sm"
                   >
                     <div className="flex items-center justify-between border-b border-border/60 pb-2">
                       <div className="flex items-center gap-2">
@@ -1061,15 +1075,7 @@ export default function PaquetesPage() {
                           • {p.nombreResidente || p.nombreDestinatario || 'Residente'}
                         </span>
                       </div>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                          isEntregado
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                        }`}
-                      >
-                        {isEntregado ? 'Entregado' : 'En Custodia'}
-                      </span>
+                      <Badge variant={isEntregado ? 'success' : 'warning'}>{isEntregado ? 'Entregado' : 'En custodia'}</Badge>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-xs">
@@ -1079,15 +1085,15 @@ export default function PaquetesPage() {
                           {p.empresaMensajeria || 'Mensajería'}
                         </span>
                         {p.numeroGuia && (
-                          <span className="font-mono text-muted-foreground block text-[11px]">
+                          <span className="tabular-nums text-muted-foreground block text-xs">
                             {p.numeroGuia}
                           </span>
                         )}
                       </div>
                       <div>
-                        <span className="text-muted-foreground block text-[11px]">Recepción:</span>
+                        <span className="text-muted-foreground block text-xs">Recepción:</span>
                         <span className="text-foreground font-medium flex items-center gap-1 text-xs">
-                          <Clock className="w-3 h-3 text-emerald-500 shrink-0" />
+                          <Clock className="w-3 h-3 text-primary-text shrink-0" />
                           {formatDateTime(p.fechaRecepcion || p.fechaCreacion)}
                         </span>
                       </div>
@@ -1096,7 +1102,7 @@ export default function PaquetesPage() {
                     <div className="text-xs bg-muted/40 p-2.5 rounded-lg text-foreground">
                       <span className="font-medium">{p.descripcion || p.titulo || 'Sin descripción'}</span>
                       {p.tamano && (
-                        <span className="ml-2 px-1.5 py-0.5 text-[10px] font-semibold bg-card border border-border rounded text-muted-foreground">
+                        <span className="ml-2 px-1.5 py-0.5 text-xs font-semibold bg-card border border-border rounded text-muted-foreground">
                           {p.tamano}
                         </span>
                       )}
@@ -1106,12 +1112,12 @@ export default function PaquetesPage() {
                       <button
                         type="button"
                         onClick={() => setDetalleModal(p)}
-                        className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 min-h-[44px]"
+                        className="text-xs text-primary-text font-semibold flex items-center gap-1 min-h-[44px]"
                       >
                         {p.fotoPaqueteUrl || p.fotoCaptura ? (
                           <>
                             <Camera className="w-3.5 h-3.5" />
-                            Ver Foto
+                            Ver foto
                           </>
                         ) : (
                           <>
@@ -1128,10 +1134,10 @@ export default function PaquetesPage() {
                             setModalEntrega(p);
                             setPinIngresado('');
                           }}
-                          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm min-h-[44px]"
+                          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-btn-primary hover:bg-btn-primary-hover text-white shadow-sm min-h-[44px]"
                         >
                           <CheckCircle2 className="w-4 h-4" />
-                          Entregar Paquete
+                          Entregar paquete
                         </button>
                       ) : (
                         <button
@@ -1139,7 +1145,7 @@ export default function PaquetesPage() {
                           onClick={() => setDetalleModal(p)}
                           className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-card text-foreground min-h-[44px]"
                         >
-                          Ver Detalle
+                          Ver detalle
                         </button>
                       )}
                     </div>
@@ -1148,6 +1154,8 @@ export default function PaquetesPage() {
               })
             )}
           </div>
+          </>
+          )}
         </div>
       )}
 
@@ -1155,17 +1163,17 @@ export default function PaquetesPage() {
       <Modal
         open={!!modalSuccessPin}
         onClose={() => setModalSuccessPin(null)}
-        title="Encomienda Registrada Exitosamente"
+        title="Encomienda registrada"
       >
         {modalSuccessPin && (
           <div className="space-y-5 text-center p-2">
-            <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto border border-emerald-500/20">
+            <div className="w-14 h-14 rounded-full bg-tint-green-bg text-tint-green-fg flex items-center justify-center mx-auto border border-tint-green-fg/25">
               <ShieldCheck className="w-7 h-7" />
             </div>
 
             <div className="space-y-1">
               <h3 className="text-lg font-bold text-foreground">
-                Paquete en Custodia de Garita
+                Paquete en custodia de la garita
               </h3>
               <p className="text-xs text-muted-foreground">
                 Se ha generado el código PIN confidencial y se notificó a los residentes de la unidad.
@@ -1173,16 +1181,16 @@ export default function PaquetesPage() {
             </div>
 
             {/* Tarjeta de Seguridad Zero-Knowledge: El PIN no se expone al portero */}
-            <div className="p-4 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/30 border border-emerald-500/30 space-y-2 text-left">
-              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold text-xs uppercase tracking-wider">
-                <Lock className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Código de Retiro Protegido (Zero-Knowledge)</span>
+            <div className="space-y-2 rounded-md border border-tint-blue-fg/25 bg-tint-blue-bg p-4 text-left">
+              <div className="flex items-center gap-2 text-primary-text font-semibold text-xs">
+                <Lock className="w-4 h-4 text-primary-text shrink-0" />
+                <span>Código de Retiro Protegido</span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Por seguridad de la unidad, el código PIN de 4 dígitos <strong>no es visible en portería</strong>. Se generó de forma confidencial y se envió a las notificaciones y buzón de los residentes del apartamento.
               </p>
-              <div className="p-2.5 rounded-lg bg-background/80 border border-border/60 text-[11px] text-muted-foreground flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+              <div className="p-2.5 rounded-lg bg-background/80 border border-border/60 text-xs text-muted-foreground flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-primary-text shrink-0" />
                 <span>El residente o conviviente autorizado deberá suministrar este PIN al retirar su paquete para que puedas confirmar la entrega.</span>
               </div>
             </div>
@@ -1201,7 +1209,7 @@ export default function PaquetesPage() {
                 </span>
               </div>
               {modalSuccessPin.paquete?.numeroGuia && (
-                <div className="flex justify-between font-mono">
+                <div className="flex justify-between tabular-nums">
                   <span className="text-muted-foreground">Guía:</span>
                   <span className="text-foreground">{modalSuccessPin.paquete.numeroGuia}</span>
                 </div>
@@ -1211,7 +1219,7 @@ export default function PaquetesPage() {
             <button
               type="button"
               onClick={() => setModalSuccessPin(null)}
-              className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm transition-colors min-h-[44px]"
+              className="w-full py-2.5 rounded-xl bg-btn-primary hover:bg-btn-primary-hover text-white font-semibold text-sm transition-colors min-h-[44px]"
             >
               Continuar
             </button>
@@ -1223,7 +1231,7 @@ export default function PaquetesPage() {
       <Modal
         open={!!modalEntrega}
         onClose={() => setModalEntrega(null)}
-        title="Registrar Entrega de Paquete"
+        title="Registrar entrega de paquete"
       >
         {modalEntrega && (
           <div className="space-y-4 p-1">
@@ -1256,7 +1264,7 @@ export default function PaquetesPage() {
                   <button
                     type="button"
                     onClick={() => setDetalleModal(modalEntrega)}
-                    className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold"
+                    className="flex items-center gap-1.5 text-xs text-primary-text hover:underline font-semibold"
                   >
                     <img
                       src={imageSrc(modalEntrega.fotoPaqueteUrl || modalEntrega.fotoCaptura)}
@@ -1270,21 +1278,25 @@ export default function PaquetesPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs font-semibold text-foreground">
-                PIN de Seguridad Presentado por el Residente (Obligatorio)
+              <label htmlFor="paq-pin" className="block text-sm font-semibold text-on-surface">
+                PIN de retiro que presenta el residente <span className="text-destructive" aria-hidden="true">*</span>
               </label>
               <div className="relative">
-                <KeyRound className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
                 <input
+                  id="paq-pin"
                   type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  aria-describedby="paq-pin-hint"
                   maxLength={4}
                   placeholder="Ingrese el PIN de 4 dígitos"
                   value={pinIngresado}
                   onChange={(e) => setPinIngresado(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  className="w-full pl-9 pr-3 py-2 text-sm font-mono tracking-widest text-center rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  className="h-12 w-full rounded-md border border-input bg-surface pl-9 pr-3 text-center text-xl font-bold tracking-[0.4em] text-on-surface tabular-nums placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-text-hint focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
                 />
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p id="paq-pin-hint" className="text-xs text-muted-foreground">
                 El residente debe suministrar el código PIN de 4 dígitos recibido en su notificación para autorizar la entrega.
               </p>
             </div>
@@ -1301,12 +1313,12 @@ export default function PaquetesPage() {
                 type="button"
                 onClick={handleConfirmarEntrega}
                 disabled={entregando}
-                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm disabled:opacity-50 min-h-[44px]"
+                className="inline-flex items-center gap-2 px-5 py-2 text-xs font-semibold rounded-lg bg-btn-primary hover:bg-btn-primary-hover text-white transition-colors shadow-sm disabled:opacity-50 min-h-[44px]"
               >
                 {entregando ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    Confirmando Entrega...
+                    Confirmando entrega...
                   </>
                 ) : (
                   <>
@@ -1324,12 +1336,12 @@ export default function PaquetesPage() {
       <Modal
         open={!!detalleModal}
         onClose={() => setDetalleModal(null)}
-        title="Detalle de Encomienda"
+        title="Detalle de la encomienda"
       >
         {detalleModal && (
           <div className="space-y-4 p-1">
             {detalleModal.fotoPaqueteUrl || detalleModal.fotoCaptura ? (
-              <div className="aspect-video w-full rounded-xl overflow-hidden border border-border bg-slate-950">
+              <div className="aspect-video w-full rounded-xl overflow-hidden border border-border bg-surface-dim">
                 <img
                   src={imageSrc(detalleModal.fotoPaqueteUrl || detalleModal.fotoCaptura)}
                   alt="Foto del paquete"
@@ -1338,8 +1350,8 @@ export default function PaquetesPage() {
               </div>
             ) : (
               <div className="p-4 rounded-xl border border-dashed border-border bg-muted/20 text-center text-xs text-muted-foreground">
-                <Camera className="w-5 h-5 mx-auto text-muted-foreground/50 mb-1" />
-                <span>Sin fotografía de evidencia registrada</span>
+                <Camera className="mx-auto mb-1 h-5 w-5 text-text-muted" aria-hidden="true" />
+                <span>Sin foto de evidencia</span>
               </div>
             )}
 
@@ -1362,7 +1374,7 @@ export default function PaquetesPage() {
               </div>
               <div className="p-2.5 rounded-lg bg-muted/40 border border-border/60">
                 <span className="text-muted-foreground block">Número de Guía:</span>
-                <span className="font-mono text-foreground">{detalleModal.numeroGuia || 'N/A'}</span>
+                <span className="tabular-nums text-foreground">{detalleModal.numeroGuia || 'N/A'}</span>
               </div>
             </div>
 
@@ -1373,11 +1385,11 @@ export default function PaquetesPage() {
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-muted-foreground pt-2 border-t border-border/60">
               <span className="flex items-center gap-1.5 font-medium text-foreground">
-                <Clock className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <Clock className="w-3.5 h-3.5 text-primary-text shrink-0" />
                 Recibido: {formatDateTime(detalleModal.fechaRecepcion || detalleModal.fechaCreacion)}
               </span>
               {detalleModal.fechaEntrega && (
-                <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                <span className="flex items-center gap-1.5 text-primary-text font-medium">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                   Entregado: {formatDateTime(detalleModal.fechaEntrega)}
                 </span>

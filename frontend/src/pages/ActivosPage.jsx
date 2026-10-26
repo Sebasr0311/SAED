@@ -20,6 +20,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { Badge } from '../components/ui/badge.tsx';
@@ -27,6 +28,7 @@ import { Button } from '../components/ui/Button.jsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import LoadingState from '../components/ui/LoadingState.jsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
 import { api } from '../lib/api.js';
 import { formatCurrency, formatDate } from '../lib/utils.js';
 import { toast } from 'sonner';
@@ -76,14 +78,18 @@ export default function ActivosPage() {
   const [form, setForm] = useState(initialForm);
   const [estadoForm, setEstadoForm] = useState({ estado: 'OPERATIVO', motivo: '' });
 
+  const [loadError, setLoadError] = useState(null);
+
   const cargarActivos = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const res = await api.get('/activos');
       const items = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
       setActivos(items);
     } catch (error) {
       console.error('Error al cargar activos:', error);
+      setLoadError(error);
       toast.error('No se pudieron cargar los activos de la copropiedad');
     } finally {
       setLoading(false);
@@ -279,22 +285,22 @@ export default function ActivosPage() {
     switch (estado) {
       case 'OPERATIVO':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25">
+            <span className="h-1.5 w-1.5 rounded-full bg-btn-success" />
             Operativo
           </span>
         );
       case 'MANTENIMIENTO':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25">
+            <span className="h-1.5 w-1.5 rounded-full bg-btn-warn animate-pulse" />
             En Mantenimiento
           </span>
         );
       case 'DADO_DE_BAJA':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-surface-dim text-text-secondary border border-border">
+            <span className="h-1.5 w-1.5 rounded-full bg-tint-neutral-fg" />
             Dado de Baja
           </span>
         );
@@ -304,7 +310,7 @@ export default function ActivosPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <PageContainer className="pb-12">
       {/* Header */}
       <PageHeader
         title="Activos e Inventario Físico"
@@ -323,28 +329,28 @@ export default function ActivosPage() {
           title="Total Activos"
           value={stats.total}
           subtitle={`Inventario valorado en ${formatCurrency(stats.valorTotal)}`}
-          icon={<Boxes className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />}
+          icon={<Boxes className="h-5 w-5 text-primary-text" />}
           variant="primary"
         />
         <MetricCard
           title="Operativos"
           value={stats.operativos}
           subtitle="Disponibles y en funcionamiento"
-          icon={<CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />}
+          icon={<CheckCircle2 className="h-5 w-5 text-tint-green-fg" />}
           variant="success"
         />
         <MetricCard
           title="En Mantenimiento"
           value={stats.enMantenimiento}
           subtitle="En revisión técnica o reparación"
-          icon={<AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />}
+          icon={<AlertTriangle className="h-5 w-5 text-tint-amber-fg" />}
           variant="warning"
         />
         <MetricCard
           title="Dados de Baja"
           value={stats.dadosDeBaja}
           subtitle="Retirados del inventario activo"
-          icon={<Ban className="h-5 w-5 text-slate-500 dark:text-slate-400" />}
+          icon={<Ban className="h-5 w-5 text-text-secondary" />}
           variant="neutral"
         />
       </div>
@@ -407,29 +413,35 @@ export default function ActivosPage() {
       </div>
 
       {/* Tabla de Activos */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
-        {loading ? (
+      <div className="bg-card rounded-lg border border-border overflow-hidden">
+        {loading && activos.length === 0 ? (
           <LoadingState message="Cargando inventario de activos..." />
+        ) : loadError && activos.length === 0 ? (
+          <ErrorState
+            className="m-4"
+            title="No se pudieron cargar los activos"
+            message={loadError?.message || 'Verifique su conexión e intente nuevamente.'}
+            onRetry={cargarActivos}
+          />
         ) : filteredActivos.length === 0 ? (
           <EmptyState
-            icon={<Boxes className="h-12 w-12 text-muted-foreground/60" />}
+            icon={Boxes}
             title="No se encontraron activos"
-            description={
+            subtitle={
               searchTerm || filterEstado !== 'TODOS' || filterCategoria !== 'TODAS'
                 ? 'Intente ajustar los filtros de búsqueda.'
                 : 'No hay activos físicos registrados en esta copropiedad.'
             }
-            action={
-              <Button onClick={handleOpenCreate} size="sm" className="gap-2">
+          >
+            <div className="mt-4 flex justify-center empty:hidden"><Button onClick={handleOpenCreate} size="sm" className="gap-2">
                 <Plus className="h-4 w-4" />
                 Registrar Primer Activo
-              </Button>
-            }
-          />
+              </Button></div>
+          </EmptyState>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="bg-muted/50 text-muted-foreground text-xs uppercase border-b border-border">
+              <thead className="bg-muted/50 text-muted-foreground text-xs border-b border-border">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Código</th>
                   <th className="px-4 py-3 font-semibold">Nombre del Activo</th>
@@ -505,7 +517,7 @@ export default function ActivosPage() {
                             title={isDadoDeBaja ? 'Estado terminal no modificable' : 'Cambiar estado'}
                             className="h-8 w-8 p-0"
                           >
-                            <ArrowLeftRight className="h-4 w-4 text-amber-600 hover:text-amber-700" />
+                            <ArrowLeftRight className="h-4 w-4 text-tint-amber-fg hover:text-tint-amber-fg" />
                           </Button>
 
                           <Button
@@ -514,7 +526,7 @@ export default function ActivosPage() {
                             onClick={() => setDeleteTarget(activo)}
                             disabled={isDadoDeBaja}
                             title={isDadoDeBaja ? 'Ya se encuentra dado de baja' : 'Dar de baja'}
-                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                            className="h-8 w-8 p-0 text-tint-red-fg hover:text-tint-red-fg hover:bg-tint-red-bg"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -540,7 +552,7 @@ export default function ActivosPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1 text-foreground">
-                Código del Activo <span className="text-red-500">*</span>
+                Código del Activo <span className="text-tint-red-fg">*</span>
               </label>
               <input
                 type="text"
@@ -549,7 +561,7 @@ export default function ActivosPage() {
                 placeholder="Ej. ASC-001, BOM-02, CCTV-EXT"
                 value={form.codigoActivo}
                 onChange={(e) => setForm({ ...form, codigoActivo: e.target.value.toUpperCase() })}
-                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 uppercase font-mono"
+                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono"
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Identificador único del activo dentro de la copropiedad.
@@ -579,7 +591,7 @@ export default function ActivosPage() {
 
           <div>
             <label className="block text-sm font-medium mb-1 text-foreground">
-              Nombre o Descripción del Activo <span className="text-red-500">*</span>
+              Nombre o Descripción del Activo <span className="text-tint-red-fg">*</span>
             </label>
             <input
               type="text"
@@ -662,7 +674,7 @@ export default function ActivosPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1 text-foreground">
-                Código del Activo <span className="text-red-500">*</span>
+                Código del Activo <span className="text-tint-red-fg">*</span>
               </label>
               <input
                 type="text"
@@ -670,7 +682,7 @@ export default function ActivosPage() {
                 maxLength={50}
                 value={form.codigoActivo}
                 onChange={(e) => setForm({ ...form, codigoActivo: e.target.value.toUpperCase() })}
-                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 uppercase font-mono"
+                className="w-full px-3 py-2 text-sm bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono"
               />
             </div>
 
@@ -696,7 +708,7 @@ export default function ActivosPage() {
 
           <div>
             <label className="block text-sm font-medium mb-1 text-foreground">
-              Nombre del Activo <span className="text-red-500">*</span>
+              Nombre del Activo <span className="text-tint-red-fg">*</span>
             </label>
             <input
               type="text"
@@ -772,7 +784,7 @@ export default function ActivosPage() {
 
           <div>
             <label className="block text-sm font-medium mb-1 text-foreground">
-              Nuevo Estado <span className="text-red-500">*</span>
+              Nuevo Estado <span className="text-tint-red-fg">*</span>
             </label>
             <select
               value={estadoForm.estado}
@@ -786,7 +798,7 @@ export default function ActivosPage() {
           </div>
 
           {estadoForm.estado === 'DADO_DE_BAJA' && (
-            <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
+            <div className="p-3 rounded-lg bg-tint-amber-bg border border-tint-amber-fg/25 text-xs text-tint-amber-fg flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>
                 <strong>Atención:</strong> La baja de un activo es un estado terminal e irreversible. No podrá volver a activarse.
@@ -835,7 +847,7 @@ export default function ActivosPage() {
             {/* Header del Activo */}
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 p-4 bg-muted/40 rounded-xl border border-border">
               <div>
-                <span className="font-mono text-xs text-primary font-semibold tracking-wider">
+                <span className="font-mono text-xs text-primary font-semibold">
                   {selectedActivo.codigoActivo}
                 </span>
                 <h3 className="text-lg font-bold text-foreground mt-0.5">
@@ -935,6 +947,6 @@ export default function ActivosPage() {
         confirmLabel="Dar de Baja"
         danger={true}
       />
-    </div>
+    </PageContainer>
   );
 }

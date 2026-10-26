@@ -2,18 +2,21 @@ import { useEffect, useState } from 'react';
 import api from '../lib/api.js';
 import { useTiposDocumento } from '../lib/hooks.js';
 import { valDocumento, getDocPlaceholder } from '../lib/validation.js';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card.tsx';
+import { Card, CardHeader, CardContent } from '../components/ui/card.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Button } from '../components/ui/button.tsx';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../components/ui/dialog.tsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
 import {
   Users,
   UserPlus,
   Search,
   Shield,
   Building,
-  Mail,
-  Phone,
   AlertCircle,
   CheckCircle2,
   Power,
@@ -21,7 +24,6 @@ import {
   Lock,
   Pencil,
   X,
-  Building2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -55,14 +57,14 @@ function PropertyMultiSelect({ properties, selectedIds, onChange }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <label className="block text-xs font-semibold text-muted-foreground uppercase">
+        <label className="block text-xs font-semibold text-muted-foreground">
           Propiedades Asignadas ({selectedIds.length} seleccionada{selectedIds.length === 1 ? '' : 's'})
         </label>
         <div className="flex items-center gap-2 text-xs">
           <button
             type="button"
             onClick={selectAll}
-            className="text-[11px] text-primary hover:underline font-medium"
+            className="text-xs text-primary hover:underline font-medium"
           >
             Seleccionar todas
           </button>
@@ -70,7 +72,7 @@ function PropertyMultiSelect({ properties, selectedIds, onChange }) {
           <button
             type="button"
             onClick={clearAll}
-            className="text-[11px] text-muted-foreground hover:text-foreground"
+            className="text-xs text-muted-foreground hover:text-foreground"
           >
             Deseleccionar todas
           </button>
@@ -115,7 +117,7 @@ function PropertyMultiSelect({ properties, selectedIds, onChange }) {
                     {p.nombre}
                   </span>
                   {p.ciudad && (
-                    <span className="text-[10px] text-muted-foreground ml-1.5">
+                    <span className="text-xs text-muted-foreground ml-1.5">
                       ({p.ciudad})
                     </span>
                   )}
@@ -135,7 +137,7 @@ function PropertyMultiSelect({ properties, selectedIds, onChange }) {
               <Badge
                 key={id}
                 variant="secondary"
-                className="text-[11px] py-0.5 px-2 flex items-center gap-1.5 bg-primary/10 text-primary border border-primary/20"
+                className="text-xs py-0.5 px-2 flex items-center gap-1.5 bg-primary/10 text-primary border border-primary/20"
               >
                 <Building className="w-3 h-3 text-primary/70" />
                 <span>{prop.nombre}</span>
@@ -152,7 +154,7 @@ function PropertyMultiSelect({ properties, selectedIds, onChange }) {
           })}
         </div>
       ) : (
-        <div className="p-2 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs flex items-center gap-2">
+        <div className="p-2 rounded-md bg-tint-amber-bg border border-tint-amber-fg/25 text-tint-amber-fg text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>Sin propiedades: el perfil quedará en estado <strong>Inactivo</strong> sin acceso a copropiedades.</span>
         </div>
@@ -445,87 +447,97 @@ export default function OrgAdminsPage() {
     );
   });
 
+  const headerBase = {
+    title: 'Administradores de la organización',
+    subtitle: 'Usuarios y asignaciones de administración en las copropiedades de su organización.',
+  };
+
   if (loading) {
     return (
-      <div className="p-6 space-y-6">
-        <Skeleton className="h-8 w-64 mb-2" />
-        <Skeleton className="h-64 rounded-xl" />
-      </div>
+      <PageContainer>
+        <PageHeader {...headerBase} />
+        <div role="status" aria-busy="true" aria-label="Cargando administradores" className="space-y-3">
+          <Skeleton className="h-10 w-full max-w-md" />
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      </PageContainer>
+    );
+  }
+
+  if (error && admins.length === 0) {
+    return (
+      <PageContainer>
+        <PageHeader {...headerBase} />
+        <ErrorState title="No se pudieron cargar los administradores" message={error} onRetry={loadData} />
+      </PageContainer>
     );
   }
 
   return (
-    <div className="p-6 space-y-8 animate-fadeIn">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              Administradores de la Organización
-            </h1>
-            <Badge variant="outline" className="text-xs px-2.5 py-0.5 font-medium">
-              {admins.length} {admins.length === 1 ? 'administrador' : 'administradores'}
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gestión de usuarios y asignaciones operativas multi-propiedad a las diferentes copropiedades de su organización.
-          </p>
-        </div>
-        <div>
-          <Button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2">
-            <UserPlus className="w-4 h-4" />
-            <span>Nuevo Administrador</span>
+    <PageContainer>
+      <PageHeader
+        {...headerBase}
+        badge={
+          <Badge variant="outline" className="tabular-nums">
+            {admins.length} {admins.length === 1 ? 'administrador' : 'administradores'}
+          </Badge>
+        }
+        action={
+          <Button onClick={() => setIsModalOpen(true)} className="min-h-10">
+            <UserPlus aria-hidden="true" />
+            Nuevo administrador
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Notifications */}
-      {successMsg && (
-        <div className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 px-4 py-3 rounded-lg flex items-center gap-3 animate-fadeIn">
-          <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-          <span className="text-sm font-medium">{successMsg}</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="bg-destructive/15 border border-destructive text-destructive px-4 py-3 rounded-lg flex items-center gap-3 animate-fadeIn">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <span className="text-sm font-medium">{error}</span>
-        </div>
-      )}
+      <div aria-live="polite" className="space-y-3 empty:hidden">
+        {successMsg && (
+          <div className="flex items-center gap-3 rounded-md border border-tint-green-fg/25 bg-tint-green-bg px-4 py-3 text-tint-green-fg">
+            <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden="true" />
+            <span className="text-sm font-semibold">{successMsg}</span>
+          </div>
+        )}
+        {error && <ErrorState compact title="No se pudo completar la operación" message={error} />}
+      </div>
 
       {/* Filter Tabs & Search */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-lg border border-border">
+        <div role="group" aria-label="Filtrar por estado" className="flex flex-wrap items-center gap-1 rounded-md border border-border bg-surface-dim p-1">
           <button
             type="button"
+            aria-pressed={statusFilter === 'TODOS'}
             onClick={() => setStatusFilter('TODOS')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+            className={`min-h-9 rounded px-3 text-xs font-semibold tabular-nums transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               statusFilter === 'TODOS'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-surface text-primary-text shadow-sm'
+                : 'text-text-secondary hover:text-on-surface'
             }`}
           >
             Todos ({admins.length})
           </button>
           <button
             type="button"
+            aria-pressed={statusFilter === 'ACTIVOS'}
             onClick={() => setStatusFilter('ACTIVOS')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+            className={`min-h-9 rounded px-3 text-xs font-semibold tabular-nums transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               statusFilter === 'ACTIVOS'
-                ? 'bg-background text-emerald-600 dark:text-emerald-400 shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-surface text-tint-green-fg shadow-sm'
+                : 'text-text-secondary hover:text-on-surface'
             }`}
           >
             Activos ({activeCount})
           </button>
           <button
             type="button"
+            aria-pressed={statusFilter === 'INACTIVOS'}
             onClick={() => setStatusFilter('INACTIVOS')}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+            className={`min-h-9 rounded px-3 text-xs font-semibold tabular-nums transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               statusFilter === 'INACTIVOS'
-                ? 'bg-background text-amber-600 dark:text-amber-400 shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-surface text-tint-amber-fg shadow-sm'
+                : 'text-text-secondary hover:text-on-surface'
             }`}
           >
             Inactivos / Sin propiedades ({inactiveCount})
@@ -533,13 +545,14 @@ export default function OrgAdminsPage() {
         </div>
 
         <div className="relative w-full max-w-sm">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
           <input
-            type="text"
+            type="search"
+            aria-label="Buscar administradores"
             placeholder="Buscar por nombre, usuario, email o propiedad..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className="h-10 w-full rounded-md border border-input bg-surface pl-9 pr-3 text-sm text-on-surface focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
           />
         </div>
       </div>
@@ -547,24 +560,32 @@ export default function OrgAdminsPage() {
       {/* Table */}
       <Card className="border border-border/80 shadow-sm">
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-muted-foreground bg-muted/30 border-b border-border">
+          <div className="max-h-[70vh] overflow-auto rounded-lg">
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <th className="px-6 py-3 font-semibold">Administrador</th>
-                  <th className="px-6 py-3 font-semibold">Usuario / Acceso</th>
-                  <th className="px-6 py-3 font-semibold">Rol</th>
-                  <th className="px-6 py-3 font-semibold">Propiedad(es) Asignada(s)</th>
-                  <th className="px-6 py-3 font-semibold">Contacto</th>
-                  <th className="px-6 py-3 font-semibold text-center">Estado</th>
-                  <th className="px-6 py-3 font-semibold text-right">Acciones</th>
+                  <th scope="col">Administrador</th>
+                  <th scope="col">Usuario / Acceso</th>
+                  <th scope="col">Rol</th>
+                  <th scope="col">Propiedad(es) Asignada(s)</th>
+                  <th scope="col">Contacto</th>
+                  <th scope="col" className="text-center">Estado</th>
+                  <th scope="col" className="text-right">Acciones</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-6 py-8 text-center text-muted-foreground">
-                      No se encontraron administradores con los filtros aplicados.
+                    <td colSpan="7">
+                      <EmptyState
+                        icon={Users}
+                        title={admins.length === 0 ? 'Aún no hay administradores' : 'Sin coincidencias'}
+                        subtitle={
+                          admins.length === 0
+                            ? 'Registre un administrador y asígnele una o varias propiedades.'
+                            : 'No se encontraron administradores con los filtros aplicados.'
+                        }
+                      />
                     </td>
                   </tr>
                 ) : (
@@ -574,24 +595,24 @@ export default function OrgAdminsPage() {
                       (a.asignacionEstado === 'INACTIVA' || !a.idPropiedades || a.idPropiedades.length === 0);
 
                     return (
-                      <tr key={a.idAsignacion || a.idUsuario} className="hover:bg-muted/20 transition-colors">
-                        <td className="px-6 py-4">
+                      <tr key={a.idAsignacion || a.idUsuario}>
+                        <td>
                           <div className="font-medium text-foreground">
                             {a.primerNombre} {a.primerApellido}
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td>
                           <span className="font-mono text-xs font-semibold text-foreground">
                             @{a.nombreUsuario}
                           </span>
                           <div className="text-xs text-muted-foreground">{a.email}</div>
                         </td>
-                        <td className="px-6 py-4 text-xs">
-                          <Badge variant="outline" className="text-[11px] font-medium">
+                        <td className="text-xs">
+                          <Badge variant="outline" className="text-xs font-medium">
                             {a.rolNombre || a.rolCodigo}
                           </Badge>
                         </td>
-                        <td className="px-6 py-4 text-xs">
+                        <td className="text-xs">
                           {(() => {
                             if (a.rolCodigo === 'ADMIN_ORGANIZACION') {
                               return <span className="text-muted-foreground italic">Toda la Organización</span>;
@@ -611,7 +632,7 @@ export default function OrgAdminsPage() {
 
                             if (assignedProps.length === 0) {
                               return (
-                                <Badge variant="outline" className="text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20 text-[11px] font-medium">
+                                <Badge variant="outline" className="text-tint-amber-fg bg-tint-amber-bg border-tint-amber-fg/25 text-xs font-medium">
                                   Sin propiedades asignadas
                                 </Badge>
                               );
@@ -640,14 +661,14 @@ export default function OrgAdminsPage() {
                             );
                           })()}
                         </td>
-                        <td className="px-6 py-4 text-xs text-muted-foreground">
+                        <td className="text-xs text-muted-foreground">
                           {a.telefono || 'Sin teléfono'}
                         </td>
-                        <td className="px-6 py-4 text-center">
+                        <td className="text-center">
                           {isInactiveNoProps ? (
                             <Badge
                               variant="secondary"
-                              className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20 text-[11px] font-semibold"
+                              className="bg-tint-amber-bg text-tint-amber-fg border-tint-amber-fg/25 text-xs font-semibold"
                             >
                               INACTIVO (Sin propiedades)
                             </Badge>
@@ -656,7 +677,7 @@ export default function OrgAdminsPage() {
                               variant={a.asignacionEstado === 'ACTIVA' ? 'default' : 'secondary'}
                               className={
                                 a.asignacionEstado === 'ACTIVA'
-                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-xs'
+                                  ? 'bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25 text-xs'
                                   : 'text-xs'
                               }
                             >
@@ -664,9 +685,9 @@ export default function OrgAdminsPage() {
                             </Badge>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-right">
+                        <td className="text-right">
                           {a.rolCodigo === 'ADMIN_ORGANIZACION' ? (
-                            <Badge variant="outline" className="text-[11px] font-medium bg-primary/5 text-primary border-primary/20">
+                            <Badge variant="outline" className="text-xs font-medium bg-primary/5 text-primary border-primary/20">
                               Cuenta Titular
                             </Badge>
                           ) : (
@@ -698,10 +719,11 @@ export default function OrgAdminsPage() {
                                   setAuthPassword('');
                                   setDeleteError(null);
                                 }}
-                                className="text-xs text-destructive hover:bg-destructive/10 hover:text-destructive h-8 w-8 p-0"
+                                className="h-10 w-10 p-0 text-xs text-destructive hover:bg-tint-red-bg hover:text-destructive sm:h-8 sm:w-8"
                                 title="Eliminar cuenta de administrador"
+                                aria-label={`Eliminar cuenta de ${a.primerNombre} ${a.primerApellido}`}
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                               </Button>
                             </div>
                           )}
@@ -717,28 +739,25 @@ export default function OrgAdminsPage() {
       </Card>
 
       {/* Create Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <Card className="w-full max-w-lg bg-background border-border shadow-xl">
+      <Dialog open={!!isModalOpen} onOpenChange={(o) => { if (!o) !creating && setIsModalOpen(false); }}>
+        <DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto p-0">
+          <Card className="border-0 shadow-none">
             <CardHeader className="border-b border-border pb-4">
-              <CardTitle className="text-lg font-bold text-foreground">
+              <DialogTitle className="text-lg font-bold text-foreground">
                 Registrar Nuevo Administrador
-              </CardTitle>
+              </DialogTitle>
             </CardHeader>
             <CardContent className="pt-6">
               {createError && (
-                <div className="bg-destructive/15 border border-destructive text-destructive px-3 py-2 rounded-lg text-xs flex items-center gap-2 mb-4">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span>{createError}</span>
-                </div>
+                <ErrorState compact className="mb-4" title="No se pudo completar la acción" message={createError} />
               )}
               <form onSubmit={handleCreate} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                    <label htmlFor="oadm-primer-nombre" className="mb-1 block text-sm font-semibold text-on-surface">
                       Primer Nombre *
                     </label>
-                    <input
+                    <input id="oadm-primer-nombre"
                       type="text"
                       required
                       placeholder="Ej. Juan"
@@ -748,10 +767,10 @@ export default function OrgAdminsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                    <label htmlFor="oadm-primer-apellido" className="mb-1 block text-sm font-semibold text-on-surface">
                       Primer Apellido *
                     </label>
-                    <input
+                    <input id="oadm-primer-apellido"
                       type="text"
                       required
                       placeholder="Ej. Pérez"
@@ -764,10 +783,10 @@ export default function OrgAdminsPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                    <label htmlFor="oadm-tipo-de-documento" className="mb-1 block text-sm font-semibold text-on-surface">
                       Tipo de Documento *
                     </label>
-                    <select
+                    <select id="oadm-tipo-de-documento"
                       value={newAdmin.idTipoDocumento}
                       onChange={(e) => setNewAdmin({ ...newAdmin, idTipoDocumento: Number(e.target.value) })}
                       className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
@@ -780,10 +799,10 @@ export default function OrgAdminsPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                    <label htmlFor="oadm-numero-de-documento" className="mb-1 block text-sm font-semibold text-on-surface">
                       Número de Documento *
                     </label>
-                    <input
+                    <input id="oadm-numero-de-documento"
                       type="text"
                       required
                       placeholder={getDocPlaceholder(tiposDoc.find((t) => Number(t.idTipoDoc) === Number(newAdmin.idTipoDocumento))?.codigo || 'CC')}
@@ -796,10 +815,10 @@ export default function OrgAdminsPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                    <label htmlFor="oadm-telefono" className="mb-1 block text-sm font-semibold text-on-surface">
                       Teléfono
                     </label>
-                    <input
+                    <input id="oadm-telefono"
                       type="text"
                       placeholder="Ej. 3001234567"
                       value={newAdmin.telefono}
@@ -808,10 +827,10 @@ export default function OrgAdminsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                    <label htmlFor="oadm-correo-electronico" className="mb-1 block text-sm font-semibold text-on-surface">
                       Correo Electrónico *
                     </label>
-                    <input
+                    <input id="oadm-correo-electronico"
                       type="email"
                       required
                       placeholder="admin@ejemplo.com"
@@ -824,10 +843,10 @@ export default function OrgAdminsPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                    <label htmlFor="oadm-usuario-de-ingreso" className="mb-1 block text-sm font-semibold text-on-surface">
                       Usuario de Ingreso *
                     </label>
-                    <input
+                    <input id="oadm-usuario-de-ingreso"
                       type="text"
                       required
                       placeholder="Ej. jperez"
@@ -838,10 +857,10 @@ export default function OrgAdminsPage() {
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold text-muted-foreground uppercase">
+                      <label className="block text-xs font-semibold text-muted-foreground">
                         Contraseña
                       </label>
-                      <span className="text-[11px] text-muted-foreground">Opcional</span>
+                      <span className="text-xs text-muted-foreground">Opcional</span>
                     </div>
                     <input
                       type="password"
@@ -850,7 +869,7 @@ export default function OrgAdminsPage() {
                       onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
                       className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     />
-                    <p className="text-[11px] text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Si se deja vacía, el sistema generará una clave aleatoria y la enviará al correo.
                     </p>
                   </div>
@@ -858,7 +877,7 @@ export default function OrgAdminsPage() {
 
                 {/* Rol asignado */}
                 <div>
-                  <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                  <label className="mb-1 block text-sm font-semibold text-on-surface">
                     Rol Asignado
                   </label>
                   <div className="w-full px-3 py-2 border border-input rounded-lg bg-muted/40 text-sm font-medium text-foreground flex items-center justify-between">
@@ -866,11 +885,11 @@ export default function OrgAdminsPage() {
                       <Shield className="w-3.5 h-3.5 text-primary" />
                       Admin Propiedad
                     </span>
-                    <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+                    <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
                       Multi-Copropiedad
                     </Badge>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Gestión operativa para una o varias copropiedades de la organización.
                   </p>
                 </div>
@@ -893,24 +912,24 @@ export default function OrgAdminsPage() {
               </form>
             </CardContent>
           </Card>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Eliminación con Doble Autorización */}
-      {adminAEliminar && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <Card className="w-full max-w-md bg-background border-border shadow-2xl">
+      <Dialog open={!!adminAEliminar} onOpenChange={(o) => { if (!o) !deleteLoading && (setAdminAEliminar(null), setAuthPassword(''), setDeleteError(null)); }}>
+        <DialogContent className="max-h-[90dvh] max-w-md overflow-y-auto p-0">
+          <Card className="border-0 shadow-none">
             <CardHeader className="border-b border-border pb-4">
               <div className="flex items-center gap-2 text-destructive">
                 <AlertCircle className="w-5 h-5" />
-                <CardTitle className="text-lg font-bold text-foreground">
+                <DialogTitle className="text-lg font-bold text-foreground">
                   Doble Autorización Requerida
-                </CardTitle>
+                </DialogTitle>
               </div>
-              <CardDescription className="text-xs text-muted-foreground mt-1">
+              <DialogDescription className="text-xs text-muted-foreground mt-1">
                 Está a punto de eliminar la cuenta de administrador de propiedad de{' '}
                 <strong className="text-foreground">{adminAEliminar.primerNombre} {adminAEliminar.primerApellido}</strong> (@{adminAEliminar.nombreUsuario}).
-              </CardDescription>
+              </DialogDescription>
             </CardHeader>
             <form onSubmit={handleEliminarConfirmado}>
               <CardContent className="pt-5 space-y-4">
@@ -921,11 +940,11 @@ export default function OrgAdminsPage() {
                   </div>
                 )}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <label htmlFor="oadm-ingrese-su-contrasena-de" className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                     <Lock className="w-3.5 h-3.5 text-primary" />
                     Ingrese su contraseña de Administrador de Organización:
                   </label>
-                  <input
+                  <input id="oadm-ingrese-su-contrasena-de"
                     type="password"
                     autoFocus
                     required
@@ -934,7 +953,7 @@ export default function OrgAdminsPage() {
                     onChange={(e) => setAuthPassword(e.target.value)}
                     className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-destructive/30"
                   />
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Esta acción de seguridad protege las copropiedades y no se puede deshacer.
                   </p>
                 </div>
@@ -957,7 +976,7 @@ export default function OrgAdminsPage() {
                     variant="destructive"
                     size="sm"
                     disabled={deleteLoading || !authPassword.trim()}
-                    className="bg-destructive hover:bg-destructive/90 text-white font-medium"
+                    className="bg-btn-danger hover:bg-btn-danger-hover text-white font-medium"
                   >
                     {deleteLoading ? 'Verificando...' : 'Confirmar y Eliminar'}
                   </Button>
@@ -965,22 +984,22 @@ export default function OrgAdminsPage() {
               </CardContent>
             </form>
           </Card>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Edición y Asignación Multi-Propiedad */}
-      {adminAEditar && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <Card className="w-full max-w-lg bg-background border-border shadow-xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={!!adminAEditar} onOpenChange={(o) => { if (!o) !editLoading && setAdminAEditar(null); }}>
+        <DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto p-0">
+          <Card className="border-0 shadow-none">
             <CardHeader className="border-b border-border pb-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-lg font-bold text-foreground">
+                  <DialogTitle className="text-lg font-bold text-foreground">
                     Editar / Reasignar Administrador
-                  </CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                     Modifique los datos de contacto o asigne/desvincule edificios y conjuntos.
-                  </CardDescription>
+                  </DialogDescription>
                 </div>
                 <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
                   {adminAEditar.rolNombre || 'Admin Propiedad'}
@@ -989,18 +1008,15 @@ export default function OrgAdminsPage() {
             </CardHeader>
             <CardContent className="pt-6">
               {editError && (
-                <div className="bg-destructive/15 border border-destructive text-destructive px-3 py-2 rounded-lg text-xs flex items-center gap-2 mb-4">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span>{editError}</span>
-                </div>
+                <ErrorState compact className="mb-4" title="No se pudo completar la acción" message={editError} />
               )}
               <form onSubmit={handleUpdate} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                    <label htmlFor="oadm-primer-nombre-2" className="mb-1 block text-sm font-semibold text-on-surface">
                       Primer Nombre *
                     </label>
-                    <input
+                    <input id="oadm-primer-nombre-2"
                       type="text"
                       required
                       placeholder="Ej. Juan"
@@ -1010,10 +1026,10 @@ export default function OrgAdminsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                    <label htmlFor="oadm-primer-apellido-2" className="mb-1 block text-sm font-semibold text-on-surface">
                       Primer Apellido *
                     </label>
-                    <input
+                    <input id="oadm-primer-apellido-2"
                       type="text"
                       required
                       placeholder="Ej. Pérez"
@@ -1026,10 +1042,10 @@ export default function OrgAdminsPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                    <label htmlFor="oadm-correo-electronico-2" className="mb-1 block text-sm font-semibold text-on-surface">
                       Correo Electrónico
                     </label>
-                    <input
+                    <input id="oadm-correo-electronico-2"
                       type="email"
                       placeholder="correo@ejemplo.com"
                       value={editForm.email}
@@ -1038,10 +1054,10 @@ export default function OrgAdminsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                    <label htmlFor="oadm-telefono-movil" className="mb-1 block text-sm font-semibold text-on-surface">
                       Teléfono / Móvil
                     </label>
-                    <input
+                    <input id="oadm-telefono-movil"
                       type="tel"
                       placeholder="Ej. 3001234567"
                       value={editForm.telefono}
@@ -1059,10 +1075,10 @@ export default function OrgAdminsPage() {
                 />
 
                 <div>
-                  <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                  <label htmlFor="oadm-estado-de-la-asignacion" className="mb-1 block text-sm font-semibold text-on-surface">
                     Estado de la Asignación
                   </label>
-                  <select
+                  <select id="oadm-estado-de-la-asignacion"
                     value={editForm.estado}
                     onChange={(e) => setEditForm({ ...editForm, estado: e.target.value })}
                     className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
@@ -1075,10 +1091,10 @@ export default function OrgAdminsPage() {
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase">
+                    <label className="block text-xs font-semibold text-muted-foreground">
                       Nueva Contraseña
                     </label>
-                    <span className="text-[11px] text-muted-foreground">Opcional</span>
+                    <span className="text-xs text-muted-foreground">Opcional</span>
                   </div>
                   <input
                     type="password"
@@ -1087,7 +1103,7 @@ export default function OrgAdminsPage() {
                     onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
                     className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
-                  <p className="text-[11px] text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Solo ingrese un valor si desea restablecer la clave de acceso del administrador.
                   </p>
                 </div>
@@ -1103,8 +1119,8 @@ export default function OrgAdminsPage() {
               </form>
             </CardContent>
           </Card>
-        </div>
-      )}
-    </div>
+        </DialogContent>
+      </Dialog>
+    </PageContainer>
   );
 }

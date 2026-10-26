@@ -9,7 +9,17 @@ import { classNames } from '../../lib/utils.js';
  *   <EmptyState icon="inbox" title="Sin datos" subtitle="..." />
  *   <EmptyState title="No hay apartamentos" />  // icono por defecto
  */
-export default function EmptyState({ icon = 'inbox', title, subtitle, className = '', children }) {
+export default function EmptyState({
+  icon = 'inbox',
+  title,
+  subtitle,
+  description,
+  action,
+  className = '',
+  children,
+}) {
+  // `description` is an alias of `subtitle`; `action` renders after any children.
+  const sub = subtitle || description;
   function renderIcon() {
     if (!icon) return null;
     if (React.isValidElement(icon)) return icon;
@@ -18,7 +28,7 @@ export default function EmptyState({ icon = 'inbox', title, subtitle, className 
     }
     if (typeof icon === 'function' || typeof icon === 'object') {
       const IconComponent = icon;
-      return <IconComponent className="h-8 w-8 text-muted-foreground" aria-hidden="true" />;
+      return <IconComponent className="h-6 w-6 text-text-secondary" aria-hidden="true" />;
     }
     return null;
   }
@@ -29,8 +39,9 @@ export default function EmptyState({ icon = 'inbox', title, subtitle, className 
         {renderIcon()}
       </div>
       <div className="empty-title">{title}</div>
-      {subtitle && <p className="empty-subtitle">{subtitle}</p>}
+      {sub && <p className="empty-subtitle">{sub}</p>}
       {children}
+      {action && <div className="mt-3 flex flex-wrap justify-center gap-2">{action}</div>}
     </div>
   );
 }
