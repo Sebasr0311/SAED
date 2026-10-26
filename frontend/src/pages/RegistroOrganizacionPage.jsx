@@ -2,26 +2,21 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import {
   Building2,
-  ShieldCheck,
+  Check,
   CheckCircle2,
   AlertCircle,
   ArrowRight,
   ArrowLeft,
   Crown,
   Layers,
-  Sparkles,
   CreditCard,
-  Mail,
-  Phone,
   User,
-  FileText,
   MapPin,
-  Lock,
+  Mail,
   Loader2,
-  ExternalLink,
   RefreshCw,
-  UserCheck,
-  Check,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import api from '../lib/api.js';
 import {
@@ -41,18 +36,38 @@ import {
   getDocPlaceholder,
   getDocHint,
 } from '../lib/validation.js';
-import { Button } from '../components/ui/button.tsx';
-import { Input } from '../components/ui/input.tsx';
-import { Label } from '../components/ui/label.tsx';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/card.tsx';
-import { Badge } from '../components/ui/badge.tsx';
-import { Separator } from '../components/ui/separator.tsx';
 import { toast } from 'sonner';
 import { animate } from 'animejs';
+import { useSaedTheme } from '../lib/theme.js';
+import '../components/landing/manual.css';
+import '../components/landing/manual-public.css';
+
+const SAED_EMBLEM = '/imagenes/saed_logo_emblem_only.png';
+
+const STEPS = [
+  { num: 1, label: 'Plan y ciclo' },
+  { num: 2, label: 'Organización' },
+  { num: 3, label: 'Administrador' },
+  { num: 4, label: 'Activación' },
+];
+
+function prefersReducedMotion() {
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
+
+function trialLabel(plan) {
+  const dias = plan?.diasPrueba || plan?.DIAS_PRUEBA;
+  return dias ? `Prueba de ${dias} días` : 'Prueba gratuita';
+}
 
 export default function RegistroOrganizacionPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useSaedTheme();
 
   // URL Params pre-select
   const initialPlanCode = searchParams.get('plan') || 'PRO';
@@ -66,7 +81,9 @@ export default function RegistroOrganizacionPage() {
 
   // Selection
   const [selectedPlanId, setSelectedPlanId] = useState(null);
-  const [billingCycle, setBillingCycle] = useState(initialCycle.toUpperCase() === 'MENSUAL' ? 'MENSUAL' : 'ANUAL');
+  const [billingCycle, setBillingCycle] = useState(
+    initialCycle.toUpperCase() === 'MENSUAL' ? 'MENSUAL' : 'ANUAL'
+  );
 
   // Tipo de Registro: 'JURIDICA' (Empresa / Persona Jurídica) | 'NATURAL' (Persona Natural / Propietario Dueño de Edificio)
   const [tipoRegistro, setTipoRegistro] = useState('JURIDICA');
@@ -115,12 +132,16 @@ export default function RegistroOrganizacionPage() {
   // Load official departments from API on mount
   useEffect(() => {
     let isMounted = true;
-    fetchDepartamentos().then((depts) => {
-      if (isMounted && Array.isArray(depts) && depts.length > 0) {
-        setDeptosList(depts.map((d) => d.name));
-      }
-    }).catch(() => {});
-    return () => { isMounted = false; };
+    fetchDepartamentos()
+      .then((depts) => {
+        if (isMounted && Array.isArray(depts) && depts.length > 0) {
+          setDeptosList(depts.map((d) => d.name));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Load municipalities whenever selected department changes
@@ -144,7 +165,9 @@ export default function RegistroOrganizacionPage() {
       .finally(() => {
         if (isMounted) setLoadingCiudades(false);
       });
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [orgForm.departamento]);
 
   // Submission & Payment State
@@ -155,73 +178,14 @@ export default function RegistroOrganizacionPage() {
   const [pollingPago, setPollingPago] = useState(false);
   const pollingRef = useRef(null);
 
-  // Animation references & micro-interactions (Anime.js v4)
-  const stepContainerRef = useRef(null);
-
-  // Microanimación de entrada al cambiar de paso
-  useEffect(() => {
-    if (stepContainerRef.current) {
-      try {
-        animate(stepContainerRef.current, {
-          opacity: [0, 1],
-          translateY: [12, 0],
-          duration: 350,
-          ease: 'outCubic',
-        });
-      } catch {
-        // Animación opcional de transición de paso
-      }
-    }
-  }, [step]);
-
-  // Microanimación de cambio de precio al alternar ciclo de facturación
-  useEffect(() => {
-    try {
-      const priceElements = document.querySelectorAll('.price-tag-anim');
-      if (priceElements && priceElements.length > 0) {
-        animate(priceElements, {
-          scale: [0.94, 1.04, 1],
-          opacity: [0.75, 1],
-          duration: 300,
-          ease: 'outQuad',
-        });
-      }
-    } catch {
-      // Animación opcional de selector de ciclo
-    }
-  }, [billingCycle]);
-
-  // Micro-interacción elástica al seleccionar tarjeta de plan
-  const handleSelectPlan = (planId, e) => {
+  // Plan and registration-type selection (feedback is the selected state itself).
+  const handleSelectPlan = (planId) => {
     setSelectedPlanId(planId);
-    if (e?.currentTarget) {
-      try {
-        animate(e.currentTarget, {
-          scale: [0.98, 1.015, 1],
-          duration: 250,
-          ease: 'outBack',
-        });
-      } catch {
-        // Animación elástica opcional
-      }
-    }
   };
 
-  // Micro-interacción al seleccionar modalidad de registro
-  const handleSelectTipoRegistro = (tipo, e) => {
+  const handleSelectTipoRegistro = (tipo) => {
     setTipoRegistro(tipo);
     setOrgForm((prev) => ({ ...prev, tipoPersona: tipo }));
-    if (e?.currentTarget) {
-      try {
-        animate(e.currentTarget, {
-          scale: [0.98, 1.015, 1],
-          duration: 250,
-          ease: 'outBack',
-        });
-      } catch {
-        // Animación elástica opcional
-      }
-    }
   };
 
   // 1. Fetch available plans from Oracle backend API
@@ -251,7 +215,9 @@ export default function RegistroOrganizacionPage() {
       }
     } catch (err) {
       console.error('Error cargando catálogo oficial de planes:', err);
-      setPlanesError('No se pudo conectar con el catálogo de planes en el servidor. Por favor verifica tu conexión y reintenta.');
+      setPlanesError(
+        'No se pudo conectar con el catálogo de planes en el servidor. Por favor verifica tu conexión y reintenta.'
+      );
     } finally {
       setLoadingPlanes(false);
     }
@@ -296,7 +262,9 @@ export default function RegistroOrganizacionPage() {
         return;
       }
       try {
-        const res = await api.get(`/auth/onboarding/estado-pago?referencia=${encodeURIComponent(registroResultado.referencia)}`);
+        const res = await api.get(
+          `/auth/onboarding/estado-pago?referencia=${encodeURIComponent(registroResultado.referencia)}`
+        );
         const data = res?.data || res;
         const status = data?.estadoPasarela || data?.estado;
         if (status === 'APROBADO' || data?.estadoOrganizacion === 'ACTIVA') {
@@ -355,11 +323,17 @@ export default function RegistroOrganizacionPage() {
       if (!vApe1.ok) errs.primerApellidoDueno = vApe1.mensaje;
 
       if (orgForm.segundoApellidoDueno?.trim()) {
-        const vApe2 = valApellido(orgForm.segundoApellidoDueno, 'El segundo apellido', { required: false });
+        const vApe2 = valApellido(orgForm.segundoApellidoDueno, 'El segundo apellido', {
+          required: false,
+        });
         if (!vApe2.ok) errs.segundoApellidoDueno = vApe2.mensaje;
       }
 
-      const vDoc = valDocumento(orgForm.numeroDocumentoDueno, orgForm.tipoDocumentoDueno, 'El documento de identidad');
+      const vDoc = valDocumento(
+        orgForm.numeroDocumentoDueno,
+        orgForm.tipoDocumentoDueno,
+        'El documento de identidad'
+      );
       if (!vDoc.ok) errs.numeroDocumentoDueno = vDoc.mensaje;
 
       const vMail = valEmail(orgForm.emailContacto);
@@ -394,7 +368,11 @@ export default function RegistroOrganizacionPage() {
       if (!vApe2.ok) errs.segundoApellido = vApe2.mensaje;
     }
 
-    const vDoc = valDocumento(adminForm.numeroDocumento, adminForm.tipoDocumento, 'El número de documento');
+    const vDoc = valDocumento(
+      adminForm.numeroDocumento,
+      adminForm.tipoDocumento,
+      'El número de documento'
+    );
     if (!vDoc.ok) errs.numeroDocumento = vDoc.mensaje;
 
     if (!adminForm.adminUsername || adminForm.adminUsername.trim().length < 3) {
@@ -418,26 +396,34 @@ export default function RegistroOrganizacionPage() {
   const renderFieldFeedback = (touchedKey, errorMsg, hintMsg) => {
     if (touched[touchedKey] && errorMsg) {
       return (
-        <p className="text-[11px] text-rose-400 flex items-center gap-1 mt-1 animate-in fade-in duration-200 font-medium">
-          <AlertCircle className="w-3 h-3 shrink-0" />
+        <p id={`fb-${touchedKey}`} className="m-pub-error">
+          <AlertCircle aria-hidden="true" />
           <span>{errorMsg}</span>
         </p>
       );
     }
     if (hintMsg) {
-      return <p className="text-[11px] text-slate-500 mt-1">{hintMsg}</p>;
+      return (
+        <p id={`fb-${touchedKey}`} className="m-pub-hint">
+          {hintMsg}
+        </p>
+      );
     }
     return null;
   };
 
   const getInputClass = (touchedKey, errorMsg) => {
     const isErr = touched[touchedKey] && !!errorMsg;
-    return `bg-slate-950 text-white rounded-xl text-xs py-3 transition-colors ${
-      isErr
-        ? 'border-rose-500 focus:border-rose-400 focus:ring-1 focus:ring-rose-500/30 field-error-shake'
-        : 'border-slate-800 focus:border-cyan-400'
-    }`;
+    return isErr ? 'm-pub-input field-error-shake' : 'm-pub-input';
   };
+
+  // Ties each control to its hint/error line and exposes the invalid state.
+  const fieldA11y = (touchedKey, errorMsg) => ({
+    'aria-invalid': Boolean(touched[touchedKey] && errorMsg),
+    'aria-describedby': `fb-${touchedKey}`,
+  });
+
+  const selectClass = 'm-pub-input';
 
   // Handler to advance from Step 2 to Step 3
   const handleAvanzarPaso2 = () => {
@@ -465,7 +451,7 @@ export default function RegistroOrganizacionPage() {
       setTimeout(() => {
         try {
           const errInputs = document.querySelectorAll('.field-error-shake');
-          if (errInputs && errInputs.length > 0) {
+          if (errInputs && errInputs.length > 0 && !prefersReducedMotion()) {
             animate(errInputs, {
               translateX: [-5, 5, -4, 4, -2, 2, 0],
               duration: 340,
@@ -484,7 +470,9 @@ export default function RegistroOrganizacionPage() {
       setAdminForm((prev) => {
         const pNom = orgForm.primerNombreDueno.trim();
         const pApe = orgForm.primerApellidoDueno.trim();
-        const suggestedUser = prev.adminUsername || `${pNom}.${pApe}`.toLowerCase().replace(/[^a-z0-9._-]/g, '');
+        const suggestedUser =
+          prev.adminUsername ||
+          `${pNom}.${pApe}`.toLowerCase().replace(/[^a-z0-9._-]/g, '');
         return {
           ...prev,
           primerNombre: pNom,
@@ -533,7 +521,7 @@ export default function RegistroOrganizacionPage() {
       setTimeout(() => {
         try {
           const errInputs = document.querySelectorAll('.field-error-shake');
-          if (errInputs && errInputs.length > 0) {
+          if (errInputs && errInputs.length > 0 && !prefersReducedMotion()) {
             animate(errInputs, {
               translateX: [-5, 5, -4, 4, -2, 2, 0],
               duration: 340,
@@ -589,7 +577,10 @@ export default function RegistroOrganizacionPage() {
       }
     } catch (err) {
       console.error('Error registrando organización:', err);
-      const errMsg = err.response?.data?.message || err.message || 'Error al procesar el registro. Verifica los datos e intenta de nuevo.';
+      const errMsg =
+        err.response?.data?.message ||
+        err.message ||
+        'Error al procesar el registro. Verifica los datos e intenta de nuevo.';
       setSubmitError(errMsg);
       toast.error(errMsg);
     } finally {
@@ -602,21 +593,26 @@ export default function RegistroOrganizacionPage() {
     try {
       if (typeof window.WidgetCheckout !== 'undefined') {
         const rawPhone = (adminForm.telefono || '').replace(/\D/g, '');
-        const cleanPhone = rawPhone.length > 10 && rawPhone.startsWith('57')
-          ? rawPhone.slice(2)
-          : rawPhone;
+        const cleanPhone =
+          rawPhone.length > 10 && rawPhone.startsWith('57') ? rawPhone.slice(2) : rawPhone;
 
         const customerData = {
           email: txData.adminEmail,
-          fullName: `${adminForm.primerNombre || ''} ${adminForm.primerApellido || ''}`.trim() || undefined,
-          ...(cleanPhone ? {
-            phoneNumber: cleanPhone,
-            phoneNumberPrefix: '+57',
-          } : {}),
-          ...(adminForm.numeroDocumento ? {
-            legalId: adminForm.numeroDocumento.trim(),
-            legalIdType: adminForm.tipoDocumento || 'CC',
-          } : {}),
+          fullName:
+            `${adminForm.primerNombre || ''} ${adminForm.primerApellido || ''}`.trim() ||
+            undefined,
+          ...(cleanPhone
+            ? {
+                phoneNumber: cleanPhone,
+                phoneNumberPrefix: '+57',
+              }
+            : {}),
+          ...(adminForm.numeroDocumento
+            ? {
+                legalId: adminForm.numeroDocumento.trim(),
+                legalIdType: adminForm.tipoDocumento || 'CC',
+              }
+            : {}),
         };
 
         const checkout = new window.WidgetCheckout({
@@ -641,7 +637,9 @@ export default function RegistroOrganizacionPage() {
               toast.error('Ocurrió un error procesando el pago en la pasarela.');
             }
             try {
-              const res = await api.get(`/auth/onboarding/estado-pago?referencia=${encodeURIComponent(txData.referencia)}`);
+              const res = await api.get(
+                `/auth/onboarding/estado-pago?referencia=${encodeURIComponent(txData.referencia)}`
+              );
               const data = res?.data || res;
               const status = data?.estadoPasarela || data?.estado;
               if (status === 'APROBADO' || data?.estadoOrganizacion === 'ACTIVA') {
@@ -667,683 +665,432 @@ export default function RegistroOrganizacionPage() {
       }
     } catch (e) {
       console.warn('Error inicializando widget Wompi:', e);
-      toast.error('No se pudo inicializar la pasarela de pagos. Por favor intenta abrirla nuevamente.');
+      toast.error(
+        'No se pudo inicializar la pasarela de pagos. Por favor intenta abrirla nuevamente.'
+      );
+    }
+  };
+  const verificarEstadoPago = async () => {
+    try {
+      const res = await api.get(
+        `/auth/onboarding/estado-pago?referencia=${encodeURIComponent(registroResultado.referencia)}`
+      );
+      const data = res?.data || res;
+      const status = data?.estadoPasarela || data?.estado;
+      if (status === 'APROBADO' || data?.estadoOrganizacion === 'ACTIVA') {
+        setPagoAprobado(true);
+        toast.success('¡Pago confirmado exitosamente!');
+      } else {
+        toast.info('La transacción aún está en proceso o pendiente.');
+      }
+    } catch {
+      toast.error('Error verificando estado.');
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#070B14] text-slate-100 flex flex-col selection:bg-cyan-500/30 selection:text-cyan-200">
-      {/* Header Minimalista */}
-      <header className="sticky top-0 z-50 bg-[#070B14]/90 backdrop-blur-xl border-b border-slate-800/80 shadow-xl py-4">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3 group focus:outline-none">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-sky-400 to-blue-600 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-sky-500/20">
-              <Building2 className="w-5 h-5 text-slate-950" />
-            </div>
-            <div>
-              <span className="text-lg font-extrabold tracking-tight font-['Plus_Jakarta_Sans'] text-white">
-                SAED <span className="text-cyan-400 text-sm font-semibold">2.0</span>
-              </span>
-              <p className="text-[10px] text-slate-400 font-mono tracking-widest uppercase">
-                SaaS Onboarding
-              </p>
-            </div>
-          </Link>
+  const totalLabel =
+    pricing.totalPesos > 0
+      ? `$${pricing.totalPesos.toLocaleString('es-CO')} COP`
+      : trialLabel(currentPlan);
 
-          <div className="flex items-center gap-3 sm:gap-4">
-            <Link
-              to="/suscripciones"
-              className="text-xs font-semibold text-slate-300 hover:text-white transition-colors flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-700/70"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 text-cyan-400" />
-              <span className="hidden xs:inline">Volver a Planes</span>
+  return (
+    <div className={`saed-manual m-root ${theme === 'dark' ? 'dark' : ''}`}>
+      <header className="m-strip">
+        <div className="m-container m-strip-inner">
+          <Link to="/" className="m-brand">
+            <img src={SAED_EMBLEM} alt="" className="m-brand-mark" width="32" height="32" />
+            <span className="m-brand-name">SAED</span>
+            <span className="m-brand-ver">2.0</span>
+            <span className="m-sr">, ir al inicio</span>
+          </Link>
+          <div className="m-strip-actions">
+            <Link to="/suscripciones" className="m-btn m-btn--quiet m-hide-mobile">
+              <ArrowLeft aria-hidden="true" />
+              <span>Volver a planes</span>
             </Link>
-            <span className="text-xs text-slate-400 hidden sm:inline">
-              ¿Ya tienes cuenta activa?
-            </span>
-            <Link
-              to="/login"
-              className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition-colors py-1.5 px-3 rounded-lg border border-cyan-500/30 hover:border-cyan-500/60"
-            >
-              Iniciar Sesión
+            <Link to="/login" className="m-btn m-btn--glass">
+              Iniciar sesión
             </Link>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="m-icon-btn"
+              aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+            >
+              {theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        {/* Wizard Steps Progress Bar */}
-        <div className="mb-10">
-          <div className="flex items-center justify-between max-w-2xl mx-auto relative">
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 h-0.5 bg-slate-800 w-full z-0" />
-            <div
-              className="absolute left-0 top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-300 z-0"
-              style={{ width: `${((step - 1) / 3) * 100}%` }}
-            />
-
-            {[
-              { num: 1, label: 'Plan & Ciclo' },
-              { num: 2, label: 'Organización' },
-              { num: 3, label: 'Administrador' },
-              { num: 4, label: 'Activación' },
-            ].map((s) => (
-              <div key={s.num} className="relative z-10 flex flex-col items-center gap-1.5">
-                <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
-                    step > s.num
-                      ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/30'
-                      : step === s.num
-                      ? 'bg-slate-900 border-2 border-cyan-400 text-cyan-400 shadow-md shadow-cyan-500/20'
-                      : 'bg-slate-900 border border-slate-700 text-slate-500'
-                  }`}
-                >
-                  {step > s.num ? <CheckCircle2 className="w-5 h-5" /> : s.num}
-                </div>
-                <span
-                  className={`text-[11px] font-medium transition-colors ${
-                    step >= s.num ? 'text-slate-200 font-semibold' : 'text-slate-500'
-                  }`}
-                >
-                  {s.label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div ref={stepContainerRef} key={step}>
-        {/* ========================================================================= */}
-        {/* PASO 1: Selección de Plan y Ciclo */}
-        {/* ========================================================================= */}
-        {step === 1 && (
-          <div className="space-y-8 animate-in fade-in duration-300">
-            <div className="text-center max-w-xl mx-auto space-y-2">
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white font-['Plus_Jakarta_Sans']">
-                Elige la escala para tu organización
-              </h1>
-              <p className="text-sm text-slate-400">
-                Acceso inmediato, multi-propiedad y control total de accesos y finanzas.
-              </p>
-            </div>
-
-            {/* Toggle Ciclo de Facturación */}
-            <div className="flex items-center justify-center">
-              <div className="p-1.5 rounded-2xl bg-slate-900 border border-slate-800 flex items-center gap-2 shadow-inner">
-                <button
-                  type="button"
-                  onClick={() => setBillingCycle('MENSUAL')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                    billingCycle === 'MENSUAL'
-                      ? 'bg-cyan-500 text-slate-950 shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Facturación Mensual
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBillingCycle('ANUAL')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                    billingCycle === 'ANUAL'
-                      ? 'bg-gradient-to-r from-cyan-400 to-sky-500 text-slate-950 shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <span>Facturación Anual</span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide ${
-                      billingCycle === 'ANUAL'
-                        ? 'bg-slate-950 text-cyan-300 shadow-sm'
-                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    }`}
+      <main className="m-container m-pub-main">
+        <div className="m-pub-spread">
+          {/* Left page: assembly steps and the order being built */}
+          <aside className="m-pub-rail m-studs" aria-label="Pasos del registro">
+            <p className="m-pub-rail-title">Registro de la organización</p>
+            <ol className="m-pub-steps">
+              {STEPS.map((s) => {
+                const state = step > s.num ? 'done' : step === s.num ? 'now' : 'next';
+                return (
+                  <li
+                    key={s.num}
+                    className="m-pub-step"
+                    data-state={state}
+                    aria-current={state === 'now' ? 'step' : undefined}
                   >
-                    -20% DCTO
-                  </span>
-                </button>
-              </div>
-            </div>
+                    <span className="m-pub-step-mark">
+                      <span className="m-pub-step-num" aria-hidden="true">
+                        {state === 'done' ? <Check /> : s.num}
+                      </span>
+                    </span>
+                    <span className="m-pub-step-label">
+                      {s.label}
+                      <span className="m-sr">
+                        {state === 'done' ? ', completado' : state === 'now' ? ', paso actual' : ''}
+                      </span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
 
-            {/* Grid de Planes */}
-            {loadingPlanes ? (
-              <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
-                <span className="text-xs">Cargando catálogo oficial de planes...</span>
-              </div>
-            ) : planesError ? (
-              <div className="max-w-md mx-auto my-8 p-8 rounded-3xl bg-red-950/30 border border-red-800/60 text-center space-y-4 shadow-xl">
-                <AlertCircle className="w-10 h-10 text-red-400 mx-auto" />
-                <h4 className="text-base font-bold text-white">Catálogo comercial no disponible</h4>
-                <p className="text-xs text-slate-300 leading-relaxed">{planesError}</p>
-                <button
-                  type="button"
-                  onClick={loadPlanes}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 transition-all shadow-md"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Reintentar conexión al catálogo
-                </button>
-              </div>
-            ) : planes.length === 0 ? (
-              <div className="max-w-md mx-auto my-8 p-8 rounded-3xl bg-slate-900/60 border border-slate-800 text-center space-y-2">
-                <Building2 className="w-10 h-10 text-slate-500 mx-auto" />
-                <h4 className="text-base font-bold text-white">No hay planes disponibles</h4>
-                <p className="text-xs text-slate-400">Actualmente no existen planes activos en la plataforma.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {planes.map((plan) => {
-                  const isSelected = selectedPlanId === plan.idPlan;
-                  const isCommercial = (plan.precioMensual || 0) > 0;
-                  const annualRate = plan.precioAnual || Math.round((plan.precioMensual || 0) * 12 * 0.8);
-                  const displayRate = isCommercial
-                    ? billingCycle === 'ANUAL'
-                      ? Math.round(annualRate / 12)
-                      : plan.precioMensual
-                    : 0;
-
-                  return (
-                    <div
-                      key={plan.idPlan}
-                      onClick={(e) => handleSelectPlan(plan.idPlan, e)}
-                      className={`relative rounded-3xl p-6 transition-all cursor-pointer border flex flex-col justify-between ${
-                        isSelected
-                          ? 'bg-slate-900/90 border-cyan-400 ring-2 ring-cyan-400/40 shadow-2xl shadow-cyan-950/40'
-                          : 'bg-slate-900/40 border-slate-800 hover:border-slate-700 hover:bg-slate-900/60'
-                      }`}
-                    >
-                      {plan.codigo === 'PRO' && (
-                        <Badge className="absolute -top-3 right-6 bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-md">
-                          Recomendado
-                        </Badge>
-                      )}
-
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
-                            {plan.codigo === 'ENTERPRISE' ? (
-                              <Crown className="w-5 h-5" />
-                            ) : plan.codigo === 'PRO' ? (
-                              <Layers className="w-5 h-5" />
-                            ) : (
-                              <Building2 className="w-5 h-5" />
-                            )}
-                          </div>
-                          <Badge variant="outline" className="text-xs font-mono font-bold text-slate-400 border-slate-700 uppercase">
-                            {plan.codigo}
-                          </Badge>
-                        </div>
-
-                        <div>
-                          <h3 className="text-lg font-bold text-white font-['Plus_Jakarta_Sans']">
-                            {plan.nombre}
-                          </h3>
-                          <p className="text-xs text-slate-400 mt-1 min-h-[36px]">
-                            {plan.descripcion}
-                          </p>
-                        </div>
-
-                        {/* Price Tag with Micro-animation */}
-                        <div className="price-tag-anim p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/80 transition-all">
-                          {isCommercial ? (
-                            <div>
-                              <div className="flex items-baseline gap-1">
-                                <span className="text-2xl font-black font-mono text-white">
-                                  ${displayRate.toLocaleString('es-CO')}
-                                </span>
-                                <span className="text-[11px] text-slate-400">/ mes</span>
-                              </div>
-                              {billingCycle === 'ANUAL' && (
-                                <p className="text-[10px] text-emerald-400 font-medium mt-1">
-                                  Cobro anual de ${(displayRate * 12).toLocaleString('es-CO')} COP
-                                </p>
-                              )}
-                            </div>
-                          ) : (
-                            <div>
-                              <span className="text-2xl font-black font-mono text-emerald-400">
-                                14 Días Gratis
-                              </span>
-                              <p className="text-[10px] text-slate-400 mt-1">
-                                Sin tarjeta de crédito requerida
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Límites con Separador shadcn/ui */}
-                        <Separator className="bg-slate-800/80 my-1" />
-                        <div className="space-y-2 text-xs text-slate-300">
-                          <div className="flex justify-between">
-                            <span className="text-slate-400">Propiedades:</span>
-                            <span className="font-semibold text-white font-mono">
-                              Hasta {plan.limitePropiedades}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-400">Unidades:</span>
-                            <span className="font-semibold text-white font-mono">
-                              Hasta {plan.limiteUnidades}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-400">Usuarios Admin:</span>
-                            <span className="font-semibold text-white font-mono">
-                              Hasta {plan.limiteUsuarios}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-6 pt-4 border-t border-slate-800/60 flex items-center justify-between">
-                        <span className="text-xs font-semibold text-cyan-400">
-                          {isSelected ? 'Plan Seleccionado' : 'Hacer clic para elegir'}
-                        </span>
-                        <div
-                          className={`w-5 h-5 rounded-full flex items-center justify-center border ${
-                            isSelected
-                              ? 'bg-cyan-400 border-cyan-400 text-slate-950'
-                              : 'border-slate-700'
-                          }`}
-                        >
-                          {isSelected && <CheckCircle2 className="w-3.5 h-3.5" />}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+            {currentPlan && (
+              <div className="m-pub-rail-summary">
+                <p className="m-pub-rail-title">Tu pedido</p>
+                <dl className="m-pub-dl">
+                  <div>
+                    <dt>Plan</dt>
+                    <dd>{currentPlan.nombre}</dd>
+                  </div>
+                  <div>
+                    <dt>Ciclo</dt>
+                    <dd>{billingCycle === 'ANUAL' ? 'Anual' : 'Mensual'}</dd>
+                  </div>
+                  <div className="is-total">
+                    <dt>Total</dt>
+                    <dd>{totalLabel}</dd>
+                  </div>
+                </dl>
               </div>
             )}
+          </aside>
 
-            <div className="flex items-center justify-between pt-4 gap-3">
-              <Link
-                to="/suscripciones"
-                className="bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-semibold px-5 py-3 flex items-center gap-2 transition-colors shadow-sm"
-              >
-                <ArrowLeft className="w-4 h-4 text-cyan-400" />
-                <span>Volver a Planes</span>
-              </Link>
-              <Button
-                onClick={() => setStep(2)}
-                disabled={!selectedPlanId}
-                className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-8 py-3 rounded-xl flex items-center gap-2 shadow-lg shadow-cyan-500/20"
-              >
-                <span>Continuar a Datos de la Organización</span>
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* PASO 2: Datos de la Empresa o Copropiedad */}
-        {/* ========================================================================= */}
-        {step === 2 && (
-          <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-300">
-            <div className="space-y-1">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="text-xs font-semibold text-slate-200 hover:text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 px-3.5 py-1.5 rounded-xl flex items-center gap-2 mb-3 transition-colors shadow-sm w-fit"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Volver a Planes</span>
-              </button>
-              <h2 className="text-2xl font-black text-white font-['Plus_Jakarta_Sans']">
-                Datos de la Empresa o Copropiedad
-              </h2>
-              <p className="text-xs text-slate-400">
-                Selecciona la modalidad de registro e ingresa la información correspondiente según la normativa colombiana.
-              </p>
-            </div>
-
-            {/* Selector Dual: Empresa (Jurídica) vs Persona Natural (Dueño / Propietario) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={(e) => handleSelectTipoRegistro('JURIDICA', e)}
-                className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3.5 ${
-                  tipoRegistro === 'JURIDICA'
-                    ? 'bg-cyan-950/40 border-cyan-400 ring-1 ring-cyan-400/40 shadow-lg shadow-cyan-950/30'
-                    : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-400'
-                }`}
-              >
-                <div
-                  className={`p-2.5 rounded-xl ${
-                    tipoRegistro === 'JURIDICA' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  <Building2 className="w-5 h-5" />
-                </div>
-                <div className="space-y-1 w-full">
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs font-bold ${tipoRegistro === 'JURIDICA' ? 'text-white' : 'text-slate-300'}`}>
-                      Empresa / Persona Jurídica
-                    </span>
-                    <Badge variant="outline" className="text-[10px] text-cyan-400 border-cyan-500/30">
-                      Requiere NIT
-                    </Badge>
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-snug">
-                    Inmobiliaria, Constructora o Administración PH con NIT.
+          {/* Right page: the current step */}
+          <div className="m-pub-content m-pub-enter" key={step}>
+            {/* PASO 1: Selección de plan y ciclo */}
+            {step === 1 && (
+              <>
+                <div className="m-pub-head">
+                  <h1 className="m-h3">Elige la escala para tu organización</h1>
+                  <p className="m-body">
+                    Selecciona el plan y el ciclo de facturación. Podrás administrar varias propiedades
+                    según los límites del plan.
                   </p>
                 </div>
-              </button>
 
-              <button
-                type="button"
-                onClick={(e) => handleSelectTipoRegistro('NATURAL', e)}
-                className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3.5 ${
-                  tipoRegistro === 'NATURAL'
-                    ? 'bg-cyan-950/40 border-cyan-400 ring-1 ring-cyan-400/40 shadow-lg shadow-cyan-950/30'
-                    : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 text-slate-400'
-                }`}
-              >
-                <div
-                  className={`p-2.5 rounded-xl ${
-                    tipoRegistro === 'NATURAL' ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  <User className="w-5 h-5" />
+                <div className="m-pub-seg" role="group" aria-label="Ciclo de facturación">
+                  <button
+                    type="button"
+                    aria-pressed={billingCycle === 'MENSUAL'}
+                    onClick={() => setBillingCycle('MENSUAL')}
+                  >
+                    Facturación mensual
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={billingCycle === 'ANUAL'}
+                    onClick={() => setBillingCycle('ANUAL')}
+                  >
+                    <span>Facturación anual</span>
+                    <span className="m-pub-seg-tag">-20% DCTO</span>
+                  </button>
                 </div>
-                <div className="space-y-1 w-full">
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs font-bold ${tipoRegistro === 'NATURAL' ? 'text-white' : 'text-slate-300'}`}>
-                      Persona Natural (Dueño / Propietario)
-                    </span>
-                    <Badge variant="outline" className="text-[10px] text-cyan-400 border-cyan-500/30">
-                      Cédula CC / CE
-                    </Badge>
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-snug">
-                    Propietario particular o titular de edificio / copropiedad.
-                  </p>
-                </div>
-              </button>
-            </div>
 
-            <Card className="bg-slate-900/80 border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-              {/* Formulario Modalidad Empresa / Persona Jurídica */}
-              {tipoRegistro === 'JURIDICA' ? (
-                <div className="space-y-4 animate-in fade-in duration-200">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="nombreOrg" className="text-xs text-slate-300 font-semibold">
-                      Nombre de la Organización / Razón Social *
-                    </Label>
-                    <Input
-                      id="nombreOrg"
-                      placeholder="ej. Inversiones Inmobiliarias del Norte S.A.S."
-                      maxLength={80}
-                      value={orgForm.nombreOrganizacion}
-                      onChange={(e) => {
-                        setOrgForm({ ...orgForm, nombreOrganizacion: e.target.value.slice(0, 80) });
-                        markTouched('nombreOrganizacion');
-                      }}
-                      onBlur={() => markTouched('nombreOrganizacion')}
-                      className={getInputClass('nombreOrganizacion', orgErrors.nombreOrganizacion)}
-                    />
-                    {renderFieldFeedback(
-                      'nombreOrganizacion',
-                      orgErrors.nombreOrganizacion,
-                      'Razón social completa inscrita en Cámara de Comercio'
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="nit" className="text-xs text-slate-300 font-semibold">
-                        NIT / Identificación Tributaria *
-                      </Label>
-                      <Input
-                        id="nit"
-                        placeholder="ej. 901234567-8"
-                        maxLength={15}
-                        value={orgForm.nit}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/[^0-9-]/g, '').slice(0, 15);
-                          setOrgForm({ ...orgForm, nit: val });
-                          markTouched('nit');
-                        }}
-                        onBlur={() => markTouched('nit')}
-                        className={getInputClass('nit', orgErrors.nit)}
-                      />
-                      {renderFieldFeedback('nit', orgErrors.nit, '8 a 10 dígitos, opcional guion y dígito de verificación')}
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="emailContacto" className="text-xs text-slate-300 font-semibold">
-                        Correo Electrónico Corporativo *
-                      </Label>
-                      <Input
-                        id="emailContacto"
-                        type="email"
-                        maxLength={60}
-                        placeholder="admin@tuempresa.com"
-                        value={orgForm.emailContacto}
-                        onChange={(e) => {
-                          setOrgForm({ ...orgForm, emailContacto: e.target.value.slice(0, 60) });
-                          markTouched('emailContacto');
-                        }}
-                        onBlur={() => markTouched('emailContacto')}
-                        className={getInputClass('emailContacto', orgErrors.emailContacto)}
-                      />
-                      {renderFieldFeedback('emailContacto', orgErrors.emailContacto, 'Correo corporativo para facturación y notificaciones')}
+                {loadingPlanes ? (
+                  <div role="status" aria-live="polite" style={{ display: 'grid', gap: 14 }}>
+                    <p className="m-pub-status">
+                      <Loader2 className="m-pub-spin" aria-hidden="true" />
+                      Cargando el catálogo de planes...
+                    </p>
+                    <div className="m-pub-choices m-pub-choices--plans" aria-hidden="true">
+                      <div className="m-pub-skel-card" />
+                      <div className="m-pub-skel-card" />
+                      <div className="m-pub-skel-card" />
                     </div>
                   </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="telContacto" className="text-xs text-slate-300 font-semibold">
-                      Teléfono Corporativo / Celular (10 dígitos) *
-                    </Label>
-                    <Input
-                      id="telContacto"
-                      placeholder="ej. 6013004000"
-                      maxLength={10}
-                      value={orgForm.telefonoContacto}
-                      onChange={(e) => {
-                        const val = soloNumeros(e.target.value, 10);
-                        setOrgForm({ ...orgForm, telefonoContacto: val });
-                        markTouched('telefonoContacto');
-                      }}
-                      onBlur={() => markTouched('telefonoContacto')}
-                      className={getInputClass('telefonoContacto', orgErrors.telefonoContacto)}
-                    />
-                    {renderFieldFeedback('telefonoContacto', orgErrors.telefonoContacto, 'Número colombiano de 10 dígitos')}
-                  </div>
-                </div>
-              ) : (
-                /* Formulario Modalidad Persona Natural (Dueño / Propietario) */
-                <div className="space-y-4 animate-in fade-in duration-200">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="nombreEdificio" className="text-xs text-slate-300 font-semibold">
-                      Nombre del Edificio / Inmueble / Copropiedad *
-                    </Label>
-                    <Input
-                      id="nombreEdificio"
-                      placeholder="ej. Inversiones Inmobiliarias del Norte o Edificio Las Palmas"
-                      maxLength={80}
-                      value={orgForm.nombreOrganizacion}
-                      onChange={(e) => {
-                        setOrgForm({ ...orgForm, nombreOrganizacion: e.target.value.slice(0, 80) });
-                        markTouched('nombreOrganizacion');
-                      }}
-                      onBlur={() => markTouched('nombreOrganizacion')}
-                      className={getInputClass('nombreOrganizacion', orgErrors.nombreOrganizacion)}
-                    />
-                    {renderFieldFeedback(
-                      'nombreOrganizacion',
-                      orgErrors.nombreOrganizacion,
-                      'Nombre comercial o identificador de la propiedad de rentas'
-                    )}
-                  </div>
-
-                  <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-                    <span className="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
-                      <User className="w-3.5 h-3.5" />
-                      Datos Personales del Propietario
-                    </span>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label htmlFor="pNombreDueno" className="text-[11px] text-slate-300 font-semibold">
-                          Primer Nombre *
-                        </Label>
-                        <Input
-                          id="pNombreDueno"
-                          placeholder="ej. Carlos"
-                          maxLength={25}
-                          value={orgForm.primerNombreDueno}
-                          onChange={(e) => {
-                            setOrgForm({ ...orgForm, primerNombreDueno: soloLetras(e.target.value, 25) });
-                            markTouched('primerNombreDueno');
-                          }}
-                          onBlur={() => markTouched('primerNombreDueno')}
-                          className={getInputClass('primerNombreDueno', orgErrors.primerNombreDueno)}
-                        />
-                        {renderFieldFeedback('primerNombreDueno', orgErrors.primerNombreDueno, 'Máx. 25 caracteres, solo letras')}
+                ) : planesError ? (
+                  <div className="m-pub-note is-error" role="alert">
+                    <AlertCircle aria-hidden="true" />
+                    <div style={{ display: 'grid', gap: 10, justifyItems: 'start' }}>
+                      <div>
+                        <p className="m-pub-note-title">Catálogo de planes no disponible</p>
+                        <p className="m-pub-note-text">{planesError}</p>
                       </div>
-
-                      <div className="space-y-1">
-                        <Label htmlFor="sNombreDueno" className="text-[11px] text-slate-300 font-semibold">
-                          Segundo Nombre
-                        </Label>
-                        <Input
-                          id="sNombreDueno"
-                          placeholder="ej. Andrés"
-                          maxLength={25}
-                          value={orgForm.segundoNombreDueno}
-                          onChange={(e) => {
-                            setOrgForm({ ...orgForm, segundoNombreDueno: soloLetras(e.target.value, 25) });
-                            markTouched('segundoNombreDueno');
-                          }}
-                          onBlur={() => markTouched('segundoNombreDueno')}
-                          className={getInputClass('segundoNombreDueno', orgErrors.segundoNombreDueno)}
-                        />
-                        {renderFieldFeedback('segundoNombreDueno', orgErrors.segundoNombreDueno, 'Opcional, máx. 25 caracteres')}
-                      </div>
+                      <button type="button" onClick={loadPlanes} className="m-btn m-btn--glass">
+                        <RefreshCw aria-hidden="true" />
+                        <span>Reintentar</span>
+                      </button>
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label htmlFor="pApellidoDueno" className="text-[11px] text-slate-300 font-semibold">
-                          Primer Apellido *
-                        </Label>
-                        <Input
-                          id="pApellidoDueno"
-                          placeholder="ej. Rodríguez"
-                          maxLength={25}
-                          value={orgForm.primerApellidoDueno}
-                          onChange={(e) => {
-                            setOrgForm({ ...orgForm, primerApellidoDueno: soloLetras(e.target.value, 25) });
-                            markTouched('primerApellidoDueno');
-                          }}
-                          onBlur={() => markTouched('primerApellidoDueno')}
-                          className={getInputClass('primerApellidoDueno', orgErrors.primerApellidoDueno)}
-                        />
-                        {renderFieldFeedback('primerApellidoDueno', orgErrors.primerApellidoDueno, 'Máx. 25 caracteres, solo letras')}
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label htmlFor="sApellidoDueno" className="text-[11px] text-slate-300 font-semibold">
-                          Segundo Apellido
-                        </Label>
-                        <Input
-                          id="sApellidoDueno"
-                          placeholder="ej. Pérez"
-                          maxLength={25}
-                          value={orgForm.segundoApellidoDueno}
-                          onChange={(e) => {
-                            setOrgForm({ ...orgForm, segundoApellidoDueno: soloLetras(e.target.value, 25) });
-                            markTouched('segundoApellidoDueno');
-                          }}
-                          onBlur={() => markTouched('segundoApellidoDueno')}
-                          className={getInputClass('segundoApellidoDueno', orgErrors.segundoApellidoDueno)}
-                        />
-                        {renderFieldFeedback('segundoApellidoDueno', orgErrors.segundoApellidoDueno, 'Opcional, máx. 25 caracteres')}
-                      </div>
+                  </div>
+                ) : planes.length === 0 ? (
+                  <div className="m-pub-note">
+                    <Building2 aria-hidden="true" />
+                    <div>
+                      <p className="m-pub-note-title">No hay planes disponibles</p>
+                      <p className="m-pub-note-text">
+                        En este momento no hay planes activos.{' '}
+                        <Link to="/suscripciones" className="m-link">
+                          Consulta los planes
+                        </Link>{' '}
+                        o intenta más tarde.
+                      </p>
                     </div>
+                  </div>
+                ) : (
+                  <div className="m-pub-choices m-pub-choices--plans">
+                    {planes.map((plan) => {
+                      const isSelected = selectedPlanId === plan.idPlan;
+                      const isCommercial = (plan.precioMensual || 0) > 0;
+                      const annualRate =
+                        plan.precioAnual || Math.round((plan.precioMensual || 0) * 12 * 0.8);
+                      const displayRate = isCommercial
+                        ? billingCycle === 'ANUAL'
+                          ? Math.round(annualRate / 12)
+                          : plan.precioMensual
+                        : 0;
+                      const PlanIcon =
+                        plan.codigo === 'ENTERPRISE' ? Crown : plan.codigo === 'PRO' ? Layers : Building2;
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="space-y-1">
-                        <Label htmlFor="tipoDocDueno" className="text-[11px] text-slate-300 font-semibold">
-                          Tipo Documento *
-                        </Label>
-                        <select
-                          id="tipoDocDueno"
-                          value={orgForm.tipoDocumentoDueno}
-                          onChange={(e) => {
-                            setOrgForm({ ...orgForm, tipoDocumentoDueno: e.target.value });
-                            markTouched('numeroDocumentoDueno');
-                          }}
-                          className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-400 text-white rounded-xl text-xs py-3 px-3 outline-none"
+                      return (
+                        <button
+                          type="button"
+                          key={plan.idPlan}
+                          aria-pressed={isSelected}
+                          onClick={() => handleSelectPlan(plan.idPlan)}
+                          className="m-pub-choice"
                         >
-                          <option value="CC">C.C. Cédula Ciudadanía</option>
-                          <option value="CE">C.E. Cédula Extranjería</option>
-                          <option value="PAS">Pasaporte</option>
-                          <option value="PPT">Permiso Protección Temporal</option>
-                          <option value="NIT">NIT Persona Natural</option>
-                        </select>
-                      </div>
+                          <span className="m-pub-choice-head">
+                            <span className="m-pub-choice-icon" aria-hidden="true">
+                              <PlanIcon />
+                            </span>
+                            <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                              {plan.codigo === 'PRO' && <span className="m-pub-tag is-new">Recomendado</span>}
+                              <span className="m-pub-choice-tick" aria-hidden="true">
+                                <Check />
+                              </span>
+                            </span>
+                          </span>
 
-                      <div className="space-y-1 sm:col-span-2">
-                        <Label htmlFor="numDocDueno" className="text-[11px] text-slate-300 font-semibold">
-                          Número de Documento *
-                        </Label>
-                        <Input
-                          id="numDocDueno"
-                          placeholder={getDocPlaceholder(orgForm.tipoDocumentoDueno)}
-                          value={orgForm.numeroDocumentoDueno}
+                          <span>
+                            <span className="m-pub-choice-title">{plan.nombre}</span>
+                            {plan.descripcion && (
+                              <span className="m-pub-choice-text">{plan.descripcion}</span>
+                            )}
+                          </span>
+
+                          <span className="m-pub-price">
+                            {isCommercial ? (
+                              <>
+                                <span className="m-pub-price-value">
+                                  ${displayRate.toLocaleString('es-CO')}
+                                  <span className="m-pub-price-unit">/ mes</span>
+                                </span>
+                                {billingCycle === 'ANUAL' && (
+                                  <span className="m-pub-price-note is-ok">
+                                    Cobro anual de ${(displayRate * 12).toLocaleString('es-CO')} COP
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <span className="m-pub-price-value">{trialLabel(plan)}</span>
+                                <span className="m-pub-price-note">Sin pago para iniciar</span>
+                              </>
+                            )}
+                          </span>
+
+                          <span className="m-pub-limits">
+                            <span>
+                              <span className="m-pub-limits-k">Propiedades</span>
+                              <span className="m-pub-limits-v">Hasta {plan.limitePropiedades}</span>
+                            </span>
+                            <span>
+                              <span className="m-pub-limits-k">Unidades</span>
+                              <span className="m-pub-limits-v">Hasta {plan.limiteUnidades}</span>
+                            </span>
+                            <span>
+                              <span className="m-pub-limits-k">Usuarios administradores</span>
+                              <span className="m-pub-limits-v">Hasta {plan.limiteUsuarios}</span>
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="m-pub-actions">
+                  <Link to="/suscripciones" className="m-btn m-btn--glass">
+                    <ArrowLeft aria-hidden="true" />
+                    <span>Volver a planes</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setStep(2)}
+                    disabled={!selectedPlanId}
+                    className="m-btn m-btn--primary m-btn--lg"
+                  >
+                    <span>Continuar a datos de la organización</span>
+                    <ArrowRight aria-hidden="true" />
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* PASO 2: Datos de la empresa o copropiedad */}
+            {step === 2 && (
+              <>
+                <button type="button" onClick={() => setStep(1)} className="m-btn m-btn--quiet m-pub-back">
+                  <ArrowLeft aria-hidden="true" />
+                  <span>Volver a planes</span>
+                </button>
+                <div className="m-pub-head">
+                  <h1 className="m-h3">Datos de la Empresa o Copropiedad</h1>
+                  <p className="m-body">
+                    Selecciona la modalidad de registro e ingresa la información correspondiente según
+                    la normativa colombiana.
+                  </p>
+                </div>
+
+                <div className="m-pub-choices m-pub-choices--2" role="group" aria-label="Modalidad de registro">
+                  <button
+                    type="button"
+                    aria-pressed={tipoRegistro === 'JURIDICA'}
+                    onClick={() => handleSelectTipoRegistro('JURIDICA')}
+                    className="m-pub-choice"
+                  >
+                    <span className="m-pub-choice-head">
+                      <span className="m-pub-choice-icon" aria-hidden="true">
+                        <Building2 />
+                      </span>
+                      <span className="m-pub-choice-tick" aria-hidden="true">
+                        <Check />
+                      </span>
+                    </span>
+                    <span>
+                      <span className="m-pub-choice-title">Empresa / Persona jurídica</span>
+                      <span className="m-pub-choice-text">
+                        Inmobiliaria, constructora o administración de propiedad horizontal con NIT.
+                      </span>
+                    </span>
+                    <span className="m-pub-tag">Requiere NIT</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    aria-pressed={tipoRegistro === 'NATURAL'}
+                    onClick={() => handleSelectTipoRegistro('NATURAL')}
+                    className="m-pub-choice"
+                  >
+                    <span className="m-pub-choice-head">
+                      <span className="m-pub-choice-icon" aria-hidden="true">
+                        <User />
+                      </span>
+                      <span className="m-pub-choice-tick" aria-hidden="true">
+                        <Check />
+                      </span>
+                    </span>
+                    <span>
+                      <span className="m-pub-choice-title">Persona natural (propietario)</span>
+                      <span className="m-pub-choice-text">
+                        Propietario particular o titular de un edificio o copropiedad.
+                      </span>
+                    </span>
+                    <span className="m-pub-tag">Cédula CC / CE</span>
+                  </button>
+                </div>
+
+                <div className="m-pub-form">
+                  {tipoRegistro === 'JURIDICA' ? (
+                    <div className="m-pub-group">
+                      <Field id="nombreOrg" label="Nombre de la organización / razón social" required>
+                        <input
+                          id="nombreOrg"
+                          placeholder="ej. Inversiones Inmobiliarias del Norte S.A.S."
+                          maxLength={80}
+                          value={orgForm.nombreOrganizacion}
                           onChange={(e) => {
-                            let val = e.target.value;
-                            if (['CC', 'TI', 'RC'].includes(orgForm.tipoDocumentoDueno)) {
-                              val = soloNumeros(val, 10);
-                            } else if (orgForm.tipoDocumentoDueno === 'NIT') {
-                              val = val.replace(/[^0-9-]/g, '').slice(0, 15);
-                            } else {
-                              val = val.replace(/[^A-Za-z0-9]/g, '').slice(0, 16);
-                            }
-                            setOrgForm({ ...orgForm, numeroDocumentoDueno: val });
-                            markTouched('numeroDocumentoDueno');
+                            setOrgForm({
+                              ...orgForm,
+                              nombreOrganizacion: e.target.value.slice(0, 80),
+                            });
+                            markTouched('nombreOrganizacion');
                           }}
-                          onBlur={() => markTouched('numeroDocumentoDueno')}
-                          className={getInputClass('numeroDocumentoDueno', orgErrors.numeroDocumentoDueno)}
+                          onBlur={() => markTouched('nombreOrganizacion')}
+                          className={getInputClass('nombreOrganizacion', orgErrors.nombreOrganizacion)}
+                          {...fieldA11y('nombreOrganizacion', orgErrors.nombreOrganizacion)}
                         />
                         {renderFieldFeedback(
-                          'numeroDocumentoDueno',
-                          orgErrors.numeroDocumentoDueno,
-                          getDocHint(orgForm.tipoDocumentoDueno)
+                          'nombreOrganizacion',
+                          orgErrors.nombreOrganizacion,
+                          'Razón social completa inscrita en la Cámara de Comercio'
                         )}
-                      </div>
-                    </div>
+                      </Field>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label htmlFor="emailDueno" className="text-[11px] text-slate-300 font-semibold">
-                          Correo Electrónico *
-                        </Label>
-                        <Input
-                          id="emailDueno"
-                          type="email"
-                          maxLength={60}
-                          placeholder="propietario@correo.com"
-                          value={orgForm.emailContacto}
-                          onChange={(e) => {
-                            setOrgForm({ ...orgForm, emailContacto: e.target.value.slice(0, 60) });
-                            markTouched('emailContacto');
-                          }}
-                          onBlur={() => markTouched('emailContacto')}
-                          className={getInputClass('emailContacto', orgErrors.emailContacto)}
-                        />
-                        {renderFieldFeedback('emailContacto', orgErrors.emailContacto, 'Correo personal para recepción de notificaciones')}
+                      <div className="m-pub-grid">
+                        <Field id="nit" label="NIT / identificación tributaria" required>
+                          <input
+                            id="nit"
+                            inputMode="numeric"
+                            placeholder="ej. 901234567-8"
+                            maxLength={15}
+                            value={orgForm.nit}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/[^0-9-]/g, '').slice(0, 15);
+                              setOrgForm({ ...orgForm, nit: val });
+                              markTouched('nit');
+                            }}
+                            onBlur={() => markTouched('nit')}
+                            className={getInputClass('nit', orgErrors.nit)}
+                            {...fieldA11y('nit', orgErrors.nit)}
+                          />
+                          {renderFieldFeedback(
+                            'nit',
+                            orgErrors.nit,
+                            '8 a 10 dígitos, guion y dígito de verificación opcionales'
+                          )}
+                        </Field>
+
+                        <Field id="emailContacto" label="Correo electrónico corporativo" required>
+                          <input
+                            id="emailContacto"
+                            type="email"
+                            maxLength={60}
+                            placeholder="admin@tuempresa.com"
+                            autoComplete="email"
+                            value={orgForm.emailContacto}
+                            onChange={(e) => {
+                              setOrgForm({ ...orgForm, emailContacto: e.target.value.slice(0, 60) });
+                              markTouched('emailContacto');
+                            }}
+                            onBlur={() => markTouched('emailContacto')}
+                            className={getInputClass('emailContacto', orgErrors.emailContacto)}
+                            {...fieldA11y('emailContacto', orgErrors.emailContacto)}
+                          />
+                          {renderFieldFeedback(
+                            'emailContacto',
+                            orgErrors.emailContacto,
+                            'Para facturación y notificaciones'
+                          )}
+                        </Field>
                       </div>
 
-                      <div className="space-y-1">
-                        <Label htmlFor="telDueno" className="text-[11px] text-slate-300 font-semibold">
-                          Teléfono Celular (10 dígitos) *
-                        </Label>
-                        <Input
-                          id="telDueno"
-                          placeholder="ej. 3101234567"
+                      <Field id="telContacto" label="Teléfono corporativo o celular (10 dígitos)" required>
+                        <input
+                          id="telContacto"
+                          inputMode="tel"
+                          placeholder="ej. 6013004000"
                           maxLength={10}
                           value={orgForm.telefonoContacto}
                           onChange={(e) => {
@@ -1353,639 +1100,863 @@ export default function RegistroOrganizacionPage() {
                           }}
                           onBlur={() => markTouched('telefonoContacto')}
                           className={getInputClass('telefonoContacto', orgErrors.telefonoContacto)}
+                          {...fieldA11y('telefonoContacto', orgErrors.telefonoContacto)}
                         />
-                        {renderFieldFeedback('telefonoContacto', orgErrors.telefonoContacto, 'Exactamente 10 dígitos')}
-                      </div>
+                        {renderFieldFeedback(
+                          'telefonoContacto',
+                          orgErrors.telefonoContacto,
+                          'Número colombiano de 10 dígitos'
+                        )}
+                      </Field>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="m-pub-group">
+                        <Field id="nombreEdificio" label="Nombre del edificio, inmueble o copropiedad" required>
+                          <input
+                            id="nombreEdificio"
+                            placeholder="ej. Edificio Las Palmas o Reserva del Parque"
+                            maxLength={80}
+                            value={orgForm.nombreOrganizacion}
+                            onChange={(e) => {
+                              setOrgForm({
+                                ...orgForm,
+                                nombreOrganizacion: e.target.value.slice(0, 80),
+                              });
+                              markTouched('nombreOrganizacion');
+                            }}
+                            onBlur={() => markTouched('nombreOrganizacion')}
+                            className={getInputClass('nombreOrganizacion', orgErrors.nombreOrganizacion)}
+                            {...fieldA11y('nombreOrganizacion', orgErrors.nombreOrganizacion)}
+                          />
+                          {renderFieldFeedback(
+                            'nombreOrganizacion',
+                            orgErrors.nombreOrganizacion,
+                            'Nombre comercial o identificador de la propiedad'
+                          )}
+                        </Field>
+                      </div>
 
-                  {/* Checkbox "Soy el administrador principal" */}
-                  <div className="p-3.5 rounded-2xl bg-cyan-950/30 border border-cyan-800/40 flex items-start gap-3 transition-colors">
-                    <input
-                      type="checkbox"
-                      id="esMismoAdmin"
-                      checked={esMismoAdmin}
-                      onChange={(e) => setEsMismoAdmin(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-400 cursor-pointer"
-                    />
-                    <label htmlFor="esMismoAdmin" className="text-xs cursor-pointer select-none">
-                      <span className="font-semibold text-white">Soy el administrador principal de la cuenta</span>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Tus datos se transferirán automáticamente al siguiente paso para que solo debas definir tu usuario único de acceso.
+                      <div className="m-pub-group">
+                        <p className="m-pub-group-title">
+                          <User aria-hidden="true" />
+                          Datos personales del propietario
+                        </p>
+
+                        <div className="m-pub-grid">
+                          <Field id="pNombreDueno" label="Primer nombre" required>
+                            <input
+                              id="pNombreDueno"
+                              placeholder="ej. Carlos"
+                              maxLength={25}
+                              value={orgForm.primerNombreDueno}
+                              onChange={(e) => {
+                                setOrgForm({
+                                  ...orgForm,
+                                  primerNombreDueno: soloLetras(e.target.value, 25),
+                                });
+                                markTouched('primerNombreDueno');
+                              }}
+                              onBlur={() => markTouched('primerNombreDueno')}
+                              className={getInputClass('primerNombreDueno', orgErrors.primerNombreDueno)}
+                              {...fieldA11y('primerNombreDueno', orgErrors.primerNombreDueno)}
+                            />
+                            {renderFieldFeedback(
+                              'primerNombreDueno',
+                              orgErrors.primerNombreDueno,
+                              'Máx. 25 caracteres, solo letras'
+                            )}
+                          </Field>
+
+                          <Field id="sNombreDueno" label="Segundo nombre">
+                            <input
+                              id="sNombreDueno"
+                              placeholder="ej. Andrés"
+                              maxLength={25}
+                              value={orgForm.segundoNombreDueno}
+                              onChange={(e) => {
+                                setOrgForm({
+                                  ...orgForm,
+                                  segundoNombreDueno: soloLetras(e.target.value, 25),
+                                });
+                                markTouched('segundoNombreDueno');
+                              }}
+                              onBlur={() => markTouched('segundoNombreDueno')}
+                              className={getInputClass('segundoNombreDueno', orgErrors.segundoNombreDueno)}
+                              {...fieldA11y('segundoNombreDueno', orgErrors.segundoNombreDueno)}
+                            />
+                            {renderFieldFeedback(
+                              'segundoNombreDueno',
+                              orgErrors.segundoNombreDueno,
+                              'Opcional, máx. 25 caracteres'
+                            )}
+                          </Field>
+
+                          <Field id="pApellidoDueno" label="Primer apellido" required>
+                            <input
+                              id="pApellidoDueno"
+                              placeholder="ej. Rodríguez"
+                              maxLength={25}
+                              value={orgForm.primerApellidoDueno}
+                              onChange={(e) => {
+                                setOrgForm({
+                                  ...orgForm,
+                                  primerApellidoDueno: soloLetras(e.target.value, 25),
+                                });
+                                markTouched('primerApellidoDueno');
+                              }}
+                              onBlur={() => markTouched('primerApellidoDueno')}
+                              className={getInputClass('primerApellidoDueno', orgErrors.primerApellidoDueno)}
+                              {...fieldA11y('primerApellidoDueno', orgErrors.primerApellidoDueno)}
+                            />
+                            {renderFieldFeedback(
+                              'primerApellidoDueno',
+                              orgErrors.primerApellidoDueno,
+                              'Máx. 25 caracteres, solo letras'
+                            )}
+                          </Field>
+
+                          <Field id="sApellidoDueno" label="Segundo apellido">
+                            <input
+                              id="sApellidoDueno"
+                              placeholder="ej. Pérez"
+                              maxLength={25}
+                              value={orgForm.segundoApellidoDueno}
+                              onChange={(e) => {
+                                setOrgForm({
+                                  ...orgForm,
+                                  segundoApellidoDueno: soloLetras(e.target.value, 25),
+                                });
+                                markTouched('segundoApellidoDueno');
+                              }}
+                              onBlur={() => markTouched('segundoApellidoDueno')}
+                              className={getInputClass('segundoApellidoDueno', orgErrors.segundoApellidoDueno)}
+                              {...fieldA11y('segundoApellidoDueno', orgErrors.segundoApellidoDueno)}
+                            />
+                            {renderFieldFeedback(
+                              'segundoApellidoDueno',
+                              orgErrors.segundoApellidoDueno,
+                              'Opcional, máx. 25 caracteres'
+                            )}
+                          </Field>
+                        </div>
+
+                        <div className="m-pub-grid m-pub-grid--doc">
+                          <Field id="tipoDocDueno" label="Tipo de documento" required>
+                            <select
+                              id="tipoDocDueno"
+                              value={orgForm.tipoDocumentoDueno}
+                              onChange={(e) => {
+                                setOrgForm({ ...orgForm, tipoDocumentoDueno: e.target.value });
+                                markTouched('numeroDocumentoDueno');
+                              }}
+                              className={selectClass}
+                            >
+                              <option value="CC">C.C. Cédula de ciudadanía</option>
+                              <option value="CE">C.E. Cédula de extranjería</option>
+                              <option value="PAS">Pasaporte</option>
+                              <option value="PPT">Permiso por protección temporal</option>
+                              <option value="NIT">NIT persona natural</option>
+                            </select>
+                          </Field>
+
+                          <Field id="numDocDueno" label="Número de documento" required>
+                            <input
+                              id="numDocDueno"
+                              placeholder={getDocPlaceholder(orgForm.tipoDocumentoDueno)}
+                              value={orgForm.numeroDocumentoDueno}
+                              onChange={(e) => {
+                                let val = e.target.value;
+                                if (['CC', 'TI', 'RC'].includes(orgForm.tipoDocumentoDueno)) {
+                                  val = soloNumeros(val, 10);
+                                } else if (orgForm.tipoDocumentoDueno === 'NIT') {
+                                  val = val.replace(/[^0-9-]/g, '').slice(0, 15);
+                                } else {
+                                  val = val.replace(/[^A-Za-z0-9]/g, '').slice(0, 16);
+                                }
+                                setOrgForm({ ...orgForm, numeroDocumentoDueno: val });
+                                markTouched('numeroDocumentoDueno');
+                              }}
+                              onBlur={() => markTouched('numeroDocumentoDueno')}
+                              className={getInputClass('numeroDocumentoDueno', orgErrors.numeroDocumentoDueno)}
+                              {...fieldA11y('numeroDocumentoDueno', orgErrors.numeroDocumentoDueno)}
+                            />
+                            {renderFieldFeedback(
+                              'numeroDocumentoDueno',
+                              orgErrors.numeroDocumentoDueno,
+                              getDocHint(orgForm.tipoDocumentoDueno)
+                            )}
+                          </Field>
+                        </div>
+
+                        <div className="m-pub-grid">
+                          <Field id="emailDueno" label="Correo electrónico" required>
+                            <input
+                              id="emailDueno"
+                              type="email"
+                              maxLength={60}
+                              placeholder="propietario@correo.com"
+                              autoComplete="email"
+                              value={orgForm.emailContacto}
+                              onChange={(e) => {
+                                setOrgForm({
+                                  ...orgForm,
+                                  emailContacto: e.target.value.slice(0, 60),
+                                });
+                                markTouched('emailContacto');
+                              }}
+                              onBlur={() => markTouched('emailContacto')}
+                              className={getInputClass('emailContacto', orgErrors.emailContacto)}
+                              {...fieldA11y('emailContacto', orgErrors.emailContacto)}
+                            />
+                            {renderFieldFeedback(
+                              'emailContacto',
+                              orgErrors.emailContacto,
+                              'Para recibir las notificaciones'
+                            )}
+                          </Field>
+
+                          <Field id="telDueno" label="Teléfono celular (10 dígitos)" required>
+                            <input
+                              id="telDueno"
+                              inputMode="tel"
+                              placeholder="ej. 3101234567"
+                              maxLength={10}
+                              value={orgForm.telefonoContacto}
+                              onChange={(e) => {
+                                const val = soloNumeros(e.target.value, 10);
+                                setOrgForm({ ...orgForm, telefonoContacto: val });
+                                markTouched('telefonoContacto');
+                              }}
+                              onBlur={() => markTouched('telefonoContacto')}
+                              className={getInputClass('telefonoContacto', orgErrors.telefonoContacto)}
+                              {...fieldA11y('telefonoContacto', orgErrors.telefonoContacto)}
+                            />
+                            {renderFieldFeedback(
+                              'telefonoContacto',
+                              orgErrors.telefonoContacto,
+                              'Exactamente 10 dígitos'
+                            )}
+                          </Field>
+                        </div>
+
+                        <label htmlFor="esMismoAdmin" className="m-pub-check">
+                          <input
+                            type="checkbox"
+                            id="esMismoAdmin"
+                            checked={esMismoAdmin}
+                            onChange={(e) => setEsMismoAdmin(e.target.checked)}
+                          />
+                          <span>
+                            <span className="m-pub-check-title">
+                              Soy el administrador principal de la cuenta
+                            </span>
+                            <span className="m-pub-check-text">
+                              Tus datos pasarán al siguiente paso y solo tendrás que definir tu usuario de
+                              acceso.
+                            </span>
+                          </span>
+                        </label>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Ubicación territorial en cascada (común a ambas modalidades) */}
+                  <div className="m-pub-group">
+                    <p className="m-pub-group-title">
+                      <MapPin aria-hidden="true" />
+                      Ubicación en Colombia
+                    </p>
+
+                    <div className="m-pub-grid">
+                      <Field id="departamento" label="Departamento" required>
+                        <select
+                          id="departamento"
+                          value={orgForm.departamento}
+                          onChange={(e) => {
+                            const newDep = e.target.value;
+                            const fallbackCities = COLOMBIA_LOCATIONS[newDep] || [];
+                            setOrgForm({
+                              ...orgForm,
+                              departamento: newDep,
+                              ciudad: fallbackCities.length > 0 ? fallbackCities[0] : '',
+                            });
+                            markTouched('departamento');
+                          }}
+                          onBlur={() => markTouched('departamento')}
+                          className={selectClass}
+                          {...fieldA11y('departamento', orgErrors.departamento)}
+                        >
+                          <option value="">Selecciona un departamento</option>
+                          {deptosList.map((dep) => (
+                            <option key={dep} value={dep}>
+                              {dep}
+                            </option>
+                          ))}
+                        </select>
+                        {renderFieldFeedback(
+                          'departamento',
+                          orgErrors.departamento,
+                          '32 departamentos y Bogotá D.C.'
+                        )}
+                      </Field>
+
+                      <Field id="ciudad" label="Ciudad o municipio" required>
+                        <select
+                          id="ciudad"
+                          value={orgForm.ciudad}
+                          onChange={(e) => {
+                            setOrgForm({ ...orgForm, ciudad: e.target.value });
+                            markTouched('ciudad');
+                          }}
+                          onBlur={() => markTouched('ciudad')}
+                          className={selectClass}
+                          aria-busy={loadingCiudades}
+                          {...fieldA11y('ciudad', orgErrors.ciudad)}
+                        >
+                          <option value="">
+                            {orgForm.departamento
+                              ? loadingCiudades && ciudadesList.length === 0
+                                ? 'Cargando municipios...'
+                                : 'Selecciona una ciudad o municipio'
+                              : 'Primero selecciona el departamento'}
+                          </option>
+                          {ciudadesList.map((city) => (
+                            <option key={city} value={city}>
+                              {city}
+                            </option>
+                          ))}
+                        </select>
+                        {renderFieldFeedback(
+                          'ciudad',
+                          orgErrors.ciudad,
+                          loadingCiudades
+                            ? 'Consultando los municipios del departamento...'
+                            : 'Municipio según el departamento'
+                        )}
+                      </Field>
+                    </div>
+
+                    <Field
+                      id="direccion"
+                      label={`Dirección ${tipoRegistro === 'JURIDICA' ? 'comercial' : 'del inmueble o edificio'}`}
+                    >
+                      <input
+                        id="direccion"
+                        placeholder="ej. Calle 100 # 15-20 Of. 501"
+                        maxLength={150}
+                        autoComplete="street-address"
+                        value={orgForm.direccion}
+                        onChange={(e) =>
+                          setOrgForm({ ...orgForm, direccion: e.target.value.slice(0, 150) })
+                        }
+                        className={getInputClass('direccion', null)}
+                        aria-describedby="fb-direccion"
+                      />
+                      <p id="fb-direccion" className="m-pub-hint">
+                        Opcional, para facturación o ubicación del inmueble
                       </p>
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              {/* Ubicación Territorial Colombiana en Cascada (Común a ambos) */}
-              <Separator className="bg-slate-800/80 my-3" />
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-cyan-400" />
-                    Ubicación Territorial (Colombia)
-                  </span>
-                  <Badge variant="outline" className="text-[10px] text-slate-400 border-slate-800 font-mono">
-                    32 Dptos + D.C.
-                  </Badge>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="departamento" className="text-xs text-slate-300 font-semibold">
-                      Departamento *
-                    </Label>
-                    <select
-                      id="departamento"
-                      value={orgForm.departamento}
-                      onChange={(e) => {
-                        const newDep = e.target.value;
-                        const fallbackCities = COLOMBIA_LOCATIONS[newDep] || [];
-                        setOrgForm({
-                          ...orgForm,
-                          departamento: newDep,
-                          ciudad: fallbackCities.length > 0 ? fallbackCities[0] : '',
-                        });
-                        markTouched('departamento');
-                      }}
-                      onBlur={() => markTouched('departamento')}
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-400 text-white rounded-xl text-xs py-3 px-3 outline-none transition-colors"
-                    >
-                      <option value="">-- Seleccionar departamento --</option>
-                      {deptosList.map((dep) => (
-                        <option key={dep} value={dep}>
-                          {dep}
-                        </option>
-                      ))}
-                    </select>
-                    {renderFieldFeedback('departamento', orgErrors.departamento, '32 departamentos + Bogotá D.C. (API Colombia)')}
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="ciudad" className="text-xs text-slate-300 font-semibold">
-                      Ciudad / Municipio *
-                    </Label>
-                    <select
-                      id="ciudad"
-                      value={orgForm.ciudad}
-                      onChange={(e) => {
-                        setOrgForm({ ...orgForm, ciudad: e.target.value });
-                        markTouched('ciudad');
-                      }}
-                      onBlur={() => markTouched('ciudad')}
-                      className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-400 text-white rounded-xl text-xs py-3 px-3 outline-none transition-colors"
-                    >
-                      <option value="">
-                        {orgForm.departamento
-                          ? loadingCiudades && ciudadesList.length === 0
-                            ? '-- Cargando municipios... --'
-                            : '-- Seleccionar ciudad / municipio --'
-                          : '-- Primero seleccione departamento --'}
-                      </option>
-                      {ciudadesList.map((city) => (
-                        <option key={city} value={city}>
-                          {city}
-                        </option>
-                      ))}
-                    </select>
-                    {renderFieldFeedback('ciudad', orgErrors.ciudad, loadingCiudades ? 'Consultando API oficial de municipios...' : 'Municipio oficial según departamento')}
+                    </Field>
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="direccion" className="text-xs text-slate-300 font-semibold">
-                    Dirección {tipoRegistro === 'JURIDICA' ? 'Comercial' : 'del Inmueble / Edificio'}
-                  </Label>
-                  <Input
-                    id="direccion"
-                    placeholder="ej. Calle 100 # 15-20 Of. 501"
-                    maxLength={150}
-                    value={orgForm.direccion}
-                    onChange={(e) => setOrgForm({ ...orgForm, direccion: e.target.value.slice(0, 150) })}
-                    className="bg-slate-950 border-slate-800 focus:border-cyan-400 text-white rounded-xl text-xs py-3"
-                  />
-                  <p className="text-[11px] text-slate-500">Opcional para facturación física o ubicación del inmueble</p>
-                </div>
-              </div>
-            </Card>
-
-            <div className="flex justify-between pt-2">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setStep(1)}
-                className="bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-100 hover:text-white rounded-xl text-xs font-semibold px-5 py-2.5 flex items-center gap-1.5 shadow-sm transition-colors"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 text-slate-400" />
-                <span>Volver</span>
-              </Button>
-              <Button
-                onClick={handleAvanzarPaso2}
-                className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-6 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-cyan-500/20 text-xs"
-              >
-                <span>Continuar a Administrador</span>
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* PASO 3: Datos del Administrador Principal */}
-        {/* ========================================================================= */}
-        {step === 3 && (
-          <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-300">
-            <div className="space-y-1">
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="text-xs font-semibold text-slate-200 hover:text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 px-3.5 py-1.5 rounded-xl flex items-center gap-2 mb-3 transition-colors shadow-sm w-fit"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Volver a Organización</span>
-              </button>
-              <h2 className="text-2xl font-black text-white font-['Plus_Jakarta_Sans']">
-                Administrador Principal de la Cuenta
-              </h2>
-              <p className="text-xs text-slate-400">
-                Esta persona tendrá el rol de <strong className="text-cyan-400">ADMIN_ORGANIZACION</strong> y recibirá las credenciales para su acceso.
-              </p>
-            </div>
-
-            {/* Banner si los datos se pre-cargaron desde Persona Natural */}
-            {tipoRegistro === 'NATURAL' && esMismoAdmin && (
-              <div className="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-800/40 text-xs text-emerald-300 flex items-start gap-2.5 animate-in fade-in duration-200">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div className="space-y-1 w-full">
-                  <div className="flex items-center justify-between">
-                    <p className="font-semibold text-emerald-200">Datos personales transferidos de tu registro de propietario</p>
-                    <Badge variant="success" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] font-medium">
-                      Auto-transferido
-                    </Badge>
-                  </div>
-                  <p className="text-emerald-300/80 text-[11px]">
-                    Hemos precargado tus datos. Por favor define tu <strong>nombre de usuario único</strong> para iniciar sesión en SAED.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <Card className="bg-slate-900/80 border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="pNombre" className="text-xs text-slate-300 font-semibold">
-                    Primer Nombre *
-                  </Label>
-                  <Input
-                    id="pNombre"
-                    placeholder="ej. Carlos"
-                    maxLength={25}
-                    value={adminForm.primerNombre}
-                    onChange={(e) => {
-                      setAdminForm({ ...adminForm, primerNombre: soloLetras(e.target.value, 25) });
-                      markTouched('primerNombre');
-                    }}
-                    onBlur={() => markTouched('primerNombre')}
-                    className={getInputClass('primerNombre', adminErrors.primerNombre)}
-                  />
-                  {renderFieldFeedback('primerNombre', adminErrors.primerNombre, 'Máx. 25 caracteres, solo letras')}
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="sNombre" className="text-xs text-slate-300 font-semibold">
-                    Segundo Nombre
-                  </Label>
-                  <Input
-                    id="sNombre"
-                    placeholder="ej. Andrés"
-                    maxLength={25}
-                    value={adminForm.segundoNombre}
-                    onChange={(e) => {
-                      setAdminForm({ ...adminForm, segundoNombre: soloLetras(e.target.value, 25) });
-                      markTouched('segundoNombre');
-                    }}
-                    onBlur={() => markTouched('segundoNombre')}
-                    className={getInputClass('segundoNombre', adminErrors.segundoNombre)}
-                  />
-                  {renderFieldFeedback('segundoNombre', adminErrors.segundoNombre, 'Opcional, máx. 25 caracteres')}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="pApellido" className="text-xs text-slate-300 font-semibold">
-                    Primer Apellido *
-                  </Label>
-                  <Input
-                    id="pApellido"
-                    placeholder="ej. Rodríguez"
-                    maxLength={25}
-                    value={adminForm.primerApellido}
-                    onChange={(e) => {
-                      setAdminForm({ ...adminForm, primerApellido: soloLetras(e.target.value, 25) });
-                      markTouched('primerApellido');
-                    }}
-                    onBlur={() => markTouched('primerApellido')}
-                    className={getInputClass('primerApellido', adminErrors.primerApellido)}
-                  />
-                  {renderFieldFeedback('primerApellido', adminErrors.primerApellido, 'Máx. 25 caracteres, solo letras')}
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="sApellido" className="text-xs text-slate-300 font-semibold">
-                    Segundo Apellido
-                  </Label>
-                  <Input
-                    id="sApellido"
-                    placeholder="ej. Pérez"
-                    maxLength={25}
-                    value={adminForm.segundoApellido}
-                    onChange={(e) => {
-                      setAdminForm({ ...adminForm, segundoApellido: soloLetras(e.target.value, 25) });
-                      markTouched('segundoApellido');
-                    }}
-                    onBlur={() => markTouched('segundoApellido')}
-                    className={getInputClass('segundoApellido', adminErrors.segundoApellido)}
-                  />
-                  {renderFieldFeedback('segundoApellido', adminErrors.segundoApellido, 'Opcional, máx. 25 caracteres')}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="tipoDoc" className="text-xs text-slate-300 font-semibold">
-                    Tipo Doc. *
-                  </Label>
-                  <select
-                    id="tipoDoc"
-                    value={adminForm.tipoDocumento}
-                    onChange={(e) => {
-                      setAdminForm({ ...adminForm, tipoDocumento: e.target.value });
-                      markTouched('numeroDocumento');
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-400 text-white rounded-xl text-xs py-3 px-3 outline-none"
-                  >
-                    <option value="CC">C.C. Cédula Ciudadanía</option>
-                    <option value="CE">C.E. Cédula Extranjería</option>
-                    <option value="PAS">Pasaporte</option>
-                    <option value="PPT">Permiso Protección Temporal</option>
-                    <option value="NIT">NIT</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="numDoc" className="text-xs text-slate-300 font-semibold">
-                    Número de Documento *
-                  </Label>
-                  <Input
-                    id="numDoc"
-                    placeholder={getDocPlaceholder(adminForm.tipoDocumento)}
-                    value={adminForm.numeroDocumento}
-                    onChange={(e) => {
-                      let val = e.target.value;
-                      if (['CC', 'TI', 'RC'].includes(adminForm.tipoDocumento)) {
-                        val = soloNumeros(val, 10);
-                      } else if (adminForm.tipoDocumento === 'NIT') {
-                        val = val.replace(/[^0-9-]/g, '').slice(0, 15);
-                      } else {
-                        val = val.replace(/[^A-Za-z0-9]/g, '').slice(0, 16);
-                      }
-                      setAdminForm({ ...adminForm, numeroDocumento: val });
-                      markTouched('numeroDocumento');
-                    }}
-                    onBlur={() => markTouched('numeroDocumento')}
-                    className={getInputClass('numeroDocumento', adminErrors.numeroDocumento)}
-                  />
-                  {renderFieldFeedback(
-                    'numeroDocumento',
-                    adminErrors.numeroDocumento,
-                    getDocHint(adminForm.tipoDocumento)
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="adminUsername" className="text-xs text-slate-300 font-semibold">
-                    Usuario para Iniciar Sesión *
-                  </Label>
-                  <Input
-                    id="adminUsername"
-                    placeholder="ej. carlos.admin"
-                    maxLength={30}
-                    value={adminForm.adminUsername}
-                    onChange={(e) => {
-                      const val = e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 30);
-                      setAdminForm({ ...adminForm, adminUsername: val });
-                      markTouched('adminUsername');
-                    }}
-                    onBlur={() => markTouched('adminUsername')}
-                    className={getInputClass('adminUsername', adminErrors.adminUsername)}
-                  />
-                  {renderFieldFeedback(
-                    'adminUsername',
-                    adminErrors.adminUsername,
-                    'Usuario único para acceder (min. 3 caracteres, letras, números, punto o guion)'
-                  )}
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="adminEmail" className="text-xs text-slate-300 font-semibold">
-                    Correo Electrónico (Recepción de Credenciales) *
-                  </Label>
-                  <Input
-                    id="adminEmail"
-                    type="email"
-                    maxLength={60}
-                    placeholder="carlos@tuempresa.com"
-                    value={adminForm.email}
-                    onChange={(e) => {
-                      setAdminForm({ ...adminForm, email: e.target.value.trim().slice(0, 60) });
-                      markTouched('email');
-                    }}
-                    onBlur={() => markTouched('email')}
-                    className={getInputClass('email', adminErrors.email)}
-                  />
-                  {renderFieldFeedback('email', adminErrors.email, 'Aquí despacharemos tu usuario y contraseña de acceso')}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="adminTel" className="text-xs text-slate-300 font-semibold">
-                  Teléfono Celular (10 dígitos) *
-                </Label>
-                <Input
-                  id="adminTel"
-                  placeholder="ej. 3101234567"
-                  maxLength={10}
-                  value={adminForm.telefono}
-                  onChange={(e) => {
-                    const val = soloNumeros(e.target.value, 10);
-                    setAdminForm({ ...adminForm, telefono: val });
-                    markTouched('telefono');
-                  }}
-                  onBlur={() => markTouched('telefono')}
-                  className={getInputClass('telefono', adminErrors.telefono)}
-                />
-                {renderFieldFeedback('telefono', adminErrors.telefono, 'Celular colombiano de 10 dígitos')}
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-cyan-950/40 border border-cyan-800/40 text-xs text-cyan-300 flex items-start gap-3">
-                <Lock className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-cyan-200">Asignación automática de contraseña por seguridad</p>
-                  <p className="text-cyan-300/80 mt-0.5 text-[11px] leading-relaxed">
-                    La contraseña de acceso será generada automáticamente por el sistema con cifrado de alta seguridad y despachada de inmediato a tu correo electrónico. Podrás cambiarla fácilmente una vez inicies sesión.
-                  </p>
-                </div>
-              </div>
-
-              {/* Resumen de Orden */}
-              <div className="mt-4 p-4 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center justify-between">
-                <div>
-                  <span className="text-[11px] text-slate-400">Plan Seleccionado:</span>
-                  <div className="text-sm font-bold text-white flex items-center gap-2 mt-0.5">
-                    <span>{currentPlan?.nombre}</span>
-                    <Badge variant="outline" className="text-[10px] text-cyan-400 border-cyan-500/30 font-mono uppercase">
-                      {billingCycle}
-                    </Badge>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-[11px] text-slate-400">Total Inversión:</span>
-                  <div className="price-tag-anim text-base font-black font-mono text-cyan-400">
-                    {pricing.totalPesos > 0 ? `$${pricing.totalPesos.toLocaleString('es-CO')} COP` : 'GRATIS (14 días)'}
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {submitError && (
-              <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/30 text-rose-200 text-xs flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-                <div className="flex-1 space-y-1">
-                  <p className="font-semibold text-rose-300">No se pudo completar el registro</p>
-                  <p className="text-rose-200/90 leading-relaxed">{submitError}</p>
-                  <button
-                    type="button"
-                    onClick={() => { setSubmitError(null); setStep(2); }}
-                    className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 underline font-semibold mt-1 cursor-pointer"
-                  >
-                    <span>Modificar datos de la organización o copropiedad (Paso 2)</span>
-                    <ArrowLeft className="w-3.5 h-3.5" />
+                <div className="m-pub-actions">
+                  <button type="button" onClick={() => setStep(1)} className="m-btn m-btn--glass">
+                    <ArrowLeft aria-hidden="true" />
+                    <span>Volver</span>
+                  </button>
+                  <button type="button" onClick={handleAvanzarPaso2} className="m-btn m-btn--primary m-btn--lg">
+                    <span>Continuar a administrador</span>
+                    <ArrowRight aria-hidden="true" />
                   </button>
                 </div>
-              </div>
+              </>
             )}
 
-            <div className="flex justify-between pt-2">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setStep(2)}
-                className="bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-100 hover:text-white rounded-xl text-xs font-semibold px-5 py-2.5 flex items-center gap-1.5 shadow-sm transition-colors"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 text-slate-400" />
-                <span>Volver</span>
-              </Button>
-              <Button
-                onClick={handleSubmitRegistro}
-                disabled={submitting}
-                className="bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-300 hover:to-sky-400 text-slate-950 font-extrabold px-8 py-3 rounded-xl flex items-center gap-2 shadow-lg shadow-sky-950/50 text-xs"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Creando Organización...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>
-                      {pricing.totalPesos > 0
-                        ? 'Confirmar y Proceder al Pago Wompi'
-                        : 'Crear Organización y Activar Prueba'}
-                    </span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* PASO 4: Confirmación, Pago Wompi o Activación */}
-        {/* ========================================================================= */}
-        {step === 4 && registroResultado && (
-          <div className="max-w-2xl mx-auto space-y-6 animate-in zoom-in-95 duration-300">
-            {/* Caso 1: Plan Gratuito / Prueba Activada */}
-            {!registroResultado.requierePago ? (
-              <Card className="bg-slate-900/90 border-slate-800 rounded-3xl p-8 text-center space-y-6 shadow-2xl">
-                <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/10">
-                  <CheckCircle2 className="w-8 h-8" />
-                </div>
-
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-black text-white font-['Plus_Jakarta_Sans']">
-                    ¡Organización Creada Exitosamente!
-                  </h2>
-                  <p className="text-sm text-slate-300 max-w-md mx-auto">
-                    Tu período de prueba de 14 días ha sido activado para{' '}
-                    <strong className="text-white">{orgForm.nombreOrganizacion}</strong>.
+            {/* PASO 3: Administrador principal */}
+            {step === 3 && (
+              <>
+                <button type="button" onClick={() => setStep(2)} className="m-btn m-btn--quiet m-pub-back">
+                  <ArrowLeft aria-hidden="true" />
+                  <span>Volver a organización</span>
+                </button>
+                <div className="m-pub-head">
+                  <h1 className="m-h3">Administrador Principal de la Cuenta</h1>
+                  <p className="m-body">
+                    Esta persona administrará la organización en SAED y recibirá el enlace para activar
+                    su acceso.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-left space-y-3 max-w-md mx-auto">
-                  <div className="flex items-center justify-between text-xs text-slate-300">
-                    <span className="text-slate-400">Usuario de acceso:</span>
-                    <strong className="font-mono text-cyan-400 font-bold">{registroResultado.adminUsername || adminForm.adminUsername}</strong>
+                {tipoRegistro === 'NATURAL' && esMismoAdmin && (
+                  <div className="m-pub-note is-ok" role="status">
+                    <CheckCircle2 aria-hidden="true" />
+                    <div>
+                      <p className="m-pub-note-title">
+                        Datos personales transferidos de tu registro de propietario
+                      </p>
+                      <p className="m-pub-note-text">
+                        Precargamos tus datos. Define tu <strong>nombre de usuario</strong> para iniciar
+                        sesión en SAED.
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-xs text-slate-300">
-                    <span className="text-slate-400">Correo registrado:</span>
-                    <strong className="text-white">{registroResultado.email || adminForm.email}</strong>
-                  </div>
-                  <div className="pt-2 border-t border-slate-800/80 text-[11px] text-slate-300">
-                    <p className="font-semibold text-emerald-400 flex items-center gap-1.5 mb-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Credenciales de acceso despachadas por correo
-                    </p>
-                    <p className="text-slate-400 leading-relaxed">
-                      Hemos enviado a tu correo tu <strong>usuario</strong> y tu <strong>contraseña temporal segura</strong> para que puedas ingresar de inmediato. Recuerda que podrás cambiar la contraseña una vez inicies sesión.
-                    </p>
-                  </div>
-                </div>
+                )}
 
-                <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <Link
-                    to="/login"
-                    className="w-full sm:w-auto px-6 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20"
-                  >
-                    <span>Ir al Inicio de Sesión</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </div>
-              </Card>
-            ) : (
-              /* Caso 2: Plan Comercial con Wompi */
-              <Card className="bg-slate-900/90 border-slate-800 rounded-3xl p-8 space-y-6 shadow-2xl">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                  <div>
-                    <h2 className="text-xl font-black text-white font-['Plus_Jakarta_Sans']">
-                      Pago de Membresía SaaS
-                    </h2>
-                    <p className="text-xs text-slate-400">
-                      Organización: <span className="text-white font-semibold">{orgForm.nombreOrganizacion}</span>
-                    </p>
-                  </div>
-                  <div className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-mono font-bold">
-                    {pagoAprobado ? 'PAGO APROBADO' : 'PENDIENTE DE PAGO'}
-                  </div>
-                </div>
+                <div className="m-pub-form">
+                  <div className="m-pub-group">
+                    <div className="m-pub-grid">
+                      <Field id="pNombre" label="Primer nombre" required>
+                        <input
+                          id="pNombre"
+                          placeholder="ej. Carlos"
+                          maxLength={25}
+                          autoComplete="given-name"
+                          value={adminForm.primerNombre}
+                          onChange={(e) => {
+                            setAdminForm({
+                              ...adminForm,
+                              primerNombre: soloLetras(e.target.value, 25),
+                            });
+                            markTouched('primerNombre');
+                          }}
+                          onBlur={() => markTouched('primerNombre')}
+                          className={getInputClass('primerNombre', adminErrors.primerNombre)}
+                          {...fieldA11y('primerNombre', adminErrors.primerNombre)}
+                        />
+                        {renderFieldFeedback(
+                          'primerNombre',
+                          adminErrors.primerNombre,
+                          'Máx. 25 caracteres, solo letras'
+                        )}
+                      </Field>
 
-                {!pagoAprobado ? (
-                  <div className="space-y-6">
-                    <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-400">Referencia de Pago:</span>
-                        <span className="font-mono text-cyan-400 font-bold">{registroResultado.referencia}</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-slate-400">Plan Contratado:</span>
-                        <span className="text-white font-semibold">{currentPlan?.nombre} ({billingCycle})</span>
-                      </div>
-                      <div className="flex justify-between text-sm pt-2 border-t border-slate-800/80">
-                        <span className="text-slate-300 font-bold">Total a Pagar:</span>
-                        <span className="text-lg font-black font-mono text-cyan-400">
-                          ${(registroResultado.montoPesos || pricing.totalPesos).toLocaleString('es-CO')} COP
-                        </span>
-                      </div>
+                      <Field id="sNombre" label="Segundo nombre">
+                        <input
+                          id="sNombre"
+                          placeholder="ej. Andrés"
+                          maxLength={25}
+                          value={adminForm.segundoNombre}
+                          onChange={(e) => {
+                            setAdminForm({
+                              ...adminForm,
+                              segundoNombre: soloLetras(e.target.value, 25),
+                            });
+                            markTouched('segundoNombre');
+                          }}
+                          onBlur={() => markTouched('segundoNombre')}
+                          className={getInputClass('segundoNombre', adminErrors.segundoNombre)}
+                          {...fieldA11y('segundoNombre', adminErrors.segundoNombre)}
+                        />
+                        {renderFieldFeedback(
+                          'segundoNombre',
+                          adminErrors.segundoNombre,
+                          'Opcional, máx. 25 caracteres'
+                        )}
+                      </Field>
+
+                      <Field id="pApellido" label="Primer apellido" required>
+                        <input
+                          id="pApellido"
+                          placeholder="ej. Rodríguez"
+                          maxLength={25}
+                          autoComplete="family-name"
+                          value={adminForm.primerApellido}
+                          onChange={(e) => {
+                            setAdminForm({
+                              ...adminForm,
+                              primerApellido: soloLetras(e.target.value, 25),
+                            });
+                            markTouched('primerApellido');
+                          }}
+                          onBlur={() => markTouched('primerApellido')}
+                          className={getInputClass('primerApellido', adminErrors.primerApellido)}
+                          {...fieldA11y('primerApellido', adminErrors.primerApellido)}
+                        />
+                        {renderFieldFeedback(
+                          'primerApellido',
+                          adminErrors.primerApellido,
+                          'Máx. 25 caracteres, solo letras'
+                        )}
+                      </Field>
+
+                      <Field id="sApellido" label="Segundo apellido">
+                        <input
+                          id="sApellido"
+                          placeholder="ej. Pérez"
+                          maxLength={25}
+                          value={adminForm.segundoApellido}
+                          onChange={(e) => {
+                            setAdminForm({
+                              ...adminForm,
+                              segundoApellido: soloLetras(e.target.value, 25),
+                            });
+                            markTouched('segundoApellido');
+                          }}
+                          onBlur={() => markTouched('segundoApellido')}
+                          className={getInputClass('segundoApellido', adminErrors.segundoApellido)}
+                          {...fieldA11y('segundoApellido', adminErrors.segundoApellido)}
+                        />
+                        {renderFieldFeedback(
+                          'segundoApellido',
+                          adminErrors.segundoApellido,
+                          'Opcional, máx. 25 caracteres'
+                        )}
+                      </Field>
                     </div>
 
-                    <div className="p-4 rounded-2xl bg-sky-950/20 border border-sky-800/40 text-xs text-sky-200 flex items-start gap-3">
-                      <CreditCard className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
-                      <div className="space-y-1">
-                        <p className="font-semibold">Transacción Segura a través de Wompi</p>
-                        <p className="text-[11px] text-sky-300/80">
-                          Acepta tarjetas de crédito, débito, PSE, Nequi y Bancolombia. Tras la confirmación en tiempo real, tu cuenta se activará automáticamente y recibirás el enlace de configuración de contraseña.
+                    <div className="m-pub-grid m-pub-grid--doc">
+                      <Field id="tipoDoc" label="Tipo de documento" required>
+                        <select
+                          id="tipoDoc"
+                          value={adminForm.tipoDocumento}
+                          onChange={(e) => {
+                            setAdminForm({ ...adminForm, tipoDocumento: e.target.value });
+                            markTouched('numeroDocumento');
+                          }}
+                          className={selectClass}
+                        >
+                          <option value="CC">C.C. Cédula de ciudadanía</option>
+                          <option value="CE">C.E. Cédula de extranjería</option>
+                          <option value="PAS">Pasaporte</option>
+                          <option value="PPT">Permiso por protección temporal</option>
+                          <option value="NIT">NIT</option>
+                        </select>
+                      </Field>
+
+                      <Field id="numDoc" label="Número de documento" required>
+                        <input
+                          id="numDoc"
+                          placeholder={getDocPlaceholder(adminForm.tipoDocumento)}
+                          value={adminForm.numeroDocumento}
+                          onChange={(e) => {
+                            let val = e.target.value;
+                            if (['CC', 'TI', 'RC'].includes(adminForm.tipoDocumento)) {
+                              val = soloNumeros(val, 10);
+                            } else if (adminForm.tipoDocumento === 'NIT') {
+                              val = val.replace(/[^0-9-]/g, '').slice(0, 15);
+                            } else {
+                              val = val.replace(/[^A-Za-z0-9]/g, '').slice(0, 16);
+                            }
+                            setAdminForm({ ...adminForm, numeroDocumento: val });
+                            markTouched('numeroDocumento');
+                          }}
+                          onBlur={() => markTouched('numeroDocumento')}
+                          className={getInputClass('numeroDocumento', adminErrors.numeroDocumento)}
+                          {...fieldA11y('numeroDocumento', adminErrors.numeroDocumento)}
+                        />
+                        {renderFieldFeedback(
+                          'numeroDocumento',
+                          adminErrors.numeroDocumento,
+                          getDocHint(adminForm.tipoDocumento)
+                        )}
+                      </Field>
+                    </div>
+                  </div>
+
+                  <div className="m-pub-group">
+                    <div className="m-pub-grid">
+                      <Field id="adminUsername" label="Usuario para iniciar sesión" required>
+                        <input
+                          id="adminUsername"
+                          placeholder="ej. carlos.admin"
+                          maxLength={30}
+                          autoComplete="username"
+                          value={adminForm.adminUsername}
+                          onChange={(e) => {
+                            const val = e.target.value
+                              .toLowerCase()
+                              .replace(/[^a-z0-9._-]/g, '')
+                              .slice(0, 30);
+                            setAdminForm({ ...adminForm, adminUsername: val });
+                            markTouched('adminUsername');
+                          }}
+                          onBlur={() => markTouched('adminUsername')}
+                          className={getInputClass('adminUsername', adminErrors.adminUsername)}
+                          {...fieldA11y('adminUsername', adminErrors.adminUsername)}
+                        />
+                        {renderFieldFeedback(
+                          'adminUsername',
+                          adminErrors.adminUsername,
+                          'Mínimo 3 caracteres: minúsculas, números, punto o guion'
+                        )}
+                      </Field>
+
+                      <Field id="adminEmail" label="Correo electrónico (recibe el enlace de activación)" required>
+                        <input
+                          id="adminEmail"
+                          type="email"
+                          maxLength={60}
+                          placeholder="carlos@tuempresa.com"
+                          autoComplete="email"
+                          value={adminForm.email}
+                          onChange={(e) => {
+                            setAdminForm({ ...adminForm, email: e.target.value.trim().slice(0, 60) });
+                            markTouched('email');
+                          }}
+                          onBlur={() => markTouched('email')}
+                          className={getInputClass('email', adminErrors.email)}
+                          {...fieldA11y('email', adminErrors.email)}
+                        />
+                        {renderFieldFeedback(
+                          'email',
+                          adminErrors.email,
+                          'Aquí enviaremos el enlace para crear tu contraseña'
+                        )}
+                      </Field>
+                    </div>
+
+                    <Field id="adminTel" label="Teléfono celular (10 dígitos)" required>
+                      <input
+                        id="adminTel"
+                        inputMode="tel"
+                        placeholder="ej. 3101234567"
+                        maxLength={10}
+                        autoComplete="tel-national"
+                        value={adminForm.telefono}
+                        onChange={(e) => {
+                          const val = soloNumeros(e.target.value, 10);
+                          setAdminForm({ ...adminForm, telefono: val });
+                          markTouched('telefono');
+                        }}
+                        onBlur={() => markTouched('telefono')}
+                        className={getInputClass('telefono', adminErrors.telefono)}
+                        {...fieldA11y('telefono', adminErrors.telefono)}
+                      />
+                      {renderFieldFeedback('telefono', adminErrors.telefono, 'Celular colombiano de 10 dígitos')}
+                    </Field>
+                  </div>
+
+                  <div className="m-pub-note is-info">
+                    <Mail aria-hidden="true" />
+                    <div>
+                      <p className="m-pub-note-title">La contraseña la defines tú</p>
+                      <p className="m-pub-note-text">
+                        Al completar el registro enviaremos un enlace de activación al correo del
+                        administrador para que cree su contraseña.
+                      </p>
+                    </div>
+                  </div>
+
+                  <dl className="m-pub-dl">
+                    <div>
+                      <dt>Plan seleccionado</dt>
+                      <dd>
+                        {currentPlan?.nombre}{' '}
+                        <span className="m-pub-tag">{billingCycle === 'ANUAL' ? 'Anual' : 'Mensual'}</span>
+                      </dd>
+                    </div>
+                    <div className="is-total">
+                      <dt>Total</dt>
+                      <dd>{totalLabel}</dd>
+                    </div>
+                  </dl>
+                </div>
+
+                {submitError && (
+                  <div className="m-pub-note is-error" role="alert">
+                    <AlertCircle aria-hidden="true" />
+                    <div style={{ display: 'grid', gap: 8, justifyItems: 'start' }}>
+                      <div>
+                        <p className="m-pub-note-title">No se pudo completar el registro</p>
+                        <p className="m-pub-note-text">{submitError}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSubmitError(null);
+                          setStep(2);
+                        }}
+                        className="m-link"
+                        style={{ minHeight: 40, fontWeight: 700 }}
+                      >
+                        Modificar los datos de la organización (paso 2)
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="m-pub-actions">
+                  <button type="button" onClick={() => setStep(2)} className="m-btn m-btn--glass">
+                    <ArrowLeft aria-hidden="true" />
+                    <span>Volver</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmitRegistro}
+                    disabled={submitting}
+                    className="m-btn m-btn--primary m-btn--lg"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="m-pub-spin" aria-hidden="true" />
+                        <span>Creando organización...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>
+                          {pricing.totalPesos > 0
+                            ? 'Confirmar y proceder al pago Wompi'
+                            : 'Crear organización y activar prueba'}
+                        </span>
+                        <ArrowRight aria-hidden="true" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* PASO 4: Confirmación, pago Wompi o activación */}
+            {step === 4 && registroResultado && (
+              <>
+                {!registroResultado.requierePago ? (
+                  <div className="m-pub-result">
+                    <span className="m-pub-result-piece is-ok" aria-hidden="true">
+                      <CheckCircle2 />
+                    </span>
+                    <div className="m-pub-head">
+                      <h1 className="m-h3">Organización creada</h1>
+                      <p className="m-body">
+                        El período de prueba quedó activo para{' '}
+                        <strong className="m-strong">{orgForm.nombreOrganizacion}</strong>.
+                      </p>
+                    </div>
+                    <dl className="m-pub-dl m-pub-block">
+                      <div>
+                        <dt>Usuario de acceso</dt>
+                        <dd className="m-pub-mono">
+                          {registroResultado.adminUsername || adminForm.adminUsername}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Correo registrado</dt>
+                        <dd>{registroResultado.email || adminForm.email}</dd>
+                      </div>
+                    </dl>
+                    <div className="m-pub-note is-ok m-pub-block">
+                      <Mail aria-hidden="true" />
+                      <div>
+                        <p className="m-pub-note-title">Revisa tu correo</p>
+                        <p className="m-pub-note-text">
+                          Enviamos un enlace de activación para que crees tu contraseña. Después podrás
+                          iniciar sesión.
+                        </p>
+                      </div>
+                    </div>
+                    <Link to="/login" className="m-btn m-btn--primary m-btn--lg">
+                      <span>Ir al inicio de sesión</span>
+                      <ArrowRight aria-hidden="true" />
+                    </Link>
+                  </div>
+                ) : !pagoAprobado ? (
+                  <>
+                    <div className="m-pub-head">
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                        <h1 className="m-h3">Pago de la membresía</h1>
+                        <span className="m-pub-tag is-warn">Pendiente de pago</span>
+                      </div>
+                      <p className="m-body">
+                        Organización: <strong className="m-strong">{orgForm.nombreOrganizacion}</strong>
+                      </p>
+                    </div>
+
+                    <dl className="m-pub-dl">
+                      <div>
+                        <dt>Referencia de pago</dt>
+                        <dd className="m-pub-mono">{registroResultado.referencia}</dd>
+                      </div>
+                      <div>
+                        <dt>Plan contratado</dt>
+                        <dd>
+                          {currentPlan?.nombre} ({billingCycle === 'ANUAL' ? 'anual' : 'mensual'})
+                        </dd>
+                      </div>
+                      <div className="is-total">
+                        <dt>Total a pagar</dt>
+                        <dd>
+                          ${(registroResultado.montoPesos || pricing.totalPesos).toLocaleString('es-CO')}{' '}
+                          COP
+                        </dd>
+                      </div>
+                    </dl>
+
+                    <div className="m-pub-note is-info">
+                      <CreditCard aria-hidden="true" />
+                      <div>
+                        <p className="m-pub-note-title">Pago seguro con Wompi</p>
+                        <p className="m-pub-note-text">
+                          Puedes pagar con PSE o con tarjeta. Cuando la pasarela confirme el pago, la
+                          cuenta se activa y enviamos el enlace de activación al administrador.
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-center gap-3">
-                      <Button
-                        onClick={() => lanzarWidgetWompi(registroResultado)}
-                        className="w-full bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-300 hover:to-sky-400 text-slate-950 font-extrabold py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-sky-950/50 text-xs"
-                      >
-                        <CreditCard className="w-4 h-4" />
-                        <span>Abrir Pasarela de Pago Wompi</span>
-                      </Button>
-
-                      <Button
+                    <div className="m-pub-actions">
+                      <button type="button" onClick={verificarEstadoPago} className="m-btn m-btn--glass">
+                        <RefreshCw aria-hidden="true" />
+                        <span>Verificar estado</span>
+                      </button>
+                      <button
                         type="button"
-                        variant="ghost"
-                        onClick={async () => {
-                          try {
-                            const res = await api.get(`/auth/onboarding/estado-pago?referencia=${encodeURIComponent(registroResultado.referencia)}`);
-                            const data = res?.data || res;
-                            const status = data?.estadoPasarela || data?.estado;
-                            if (status === 'APROBADO' || data?.estadoOrganizacion === 'ACTIVA') {
-                              setPagoAprobado(true);
-                              toast.success('¡Pago confirmado exitosamente!');
-                            } else {
-                              toast.info('La transacción aún está en proceso o pendiente.');
-                            }
-                          } catch (e) {
-                            toast.error('Error verificando estado.');
-                          }
-                        }}
-                        className="w-full sm:w-auto bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-100 hover:text-white rounded-xl text-xs py-3.5 px-5 font-semibold flex items-center justify-center gap-2 shadow-sm transition-colors"
+                        onClick={() => lanzarWidgetWompi(registroResultado)}
+                        className="m-btn m-btn--primary m-btn--lg"
                       >
-                        <RefreshCw className="w-4 h-4 text-cyan-400" />
-                        <span>Verificar Estado</span>
-                      </Button>
+                        <CreditCard aria-hidden="true" />
+                        <span>Abrir pasarela de pago Wompi</span>
+                      </button>
                     </div>
 
                     {pollingPago && (
-                      <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
-                        <span>Esperando confirmación automática de la pasarela...</span>
-                      </div>
+                      <p className="m-pub-status" role="status" aria-live="polite">
+                        <Loader2 className="m-pub-spin" aria-hidden="true" />
+                        Esperando la confirmación automática de la pasarela...
+                      </p>
                     )}
-                  </div>
+                  </>
                 ) : (
-                  /* Pago Aprobado */
-                  <div className="text-center space-y-6">
-                    <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/10">
-                      <CheckCircle2 className="w-8 h-8" />
-                    </div>
-
-                    <div className="space-y-2">
-                      <h3 className="text-2xl font-black text-white font-['Plus_Jakarta_Sans']">
-                        ¡Pago Aprobado y Organización Activada!
-                      </h3>
-                      <p className="text-xs text-slate-300 max-w-md mx-auto">
-                        Hemos recibido el pago de tu membresía correctamente. Despachamos las credenciales de acceso (usuario <strong className="text-cyan-400 font-mono">{adminForm.adminUsername}</strong> y contraseña generada) a <strong className="text-white">{adminForm.email}</strong>.
+                  <div className="m-pub-result" role="status">
+                    <span className="m-pub-result-piece is-ok" aria-hidden="true">
+                      <CheckCircle2 />
+                    </span>
+                    <div className="m-pub-head">
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                        <h1 className="m-h3">Pago aprobado y organización activada</h1>
+                        <span className="m-pub-tag is-ok">Pago aprobado</span>
+                      </div>
+                      <p className="m-body">
+                        Recibimos el pago de la membresía. Enviamos el enlace de activación del usuario{' '}
+                        <strong className="m-strong m-pub-mono">{adminForm.adminUsername}</strong> a{' '}
+                        <strong className="m-strong">{adminForm.email}</strong>.
                       </p>
                     </div>
-
-                    <div className="pt-2 flex justify-center">
-                      <Link
-                        to="/login"
-                        className="px-6 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/20"
-                      >
-                        <span>Ir a la Plataforma SAED</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </Link>
-                    </div>
+                    <Link to="/login" className="m-btn m-btn--primary m-btn--lg">
+                      <span>Ir a la plataforma SAED</span>
+                      <ArrowRight aria-hidden="true" />
+                    </Link>
                   </div>
                 )}
-              </Card>
+              </>
             )}
           </div>
-        )}
         </div>
       </main>
+    </div>
+  );
+}
+
+function Field({ id, label, required = false, children }) {
+  return (
+    <div className="m-pub-field">
+      <label htmlFor={id} className="m-pub-label">
+        {label}
+        {required && (
+          <span className="m-pub-req" aria-hidden="true">
+            *
+          </span>
+        )}
+      </label>
+      {children}
     </div>
   );
 }
