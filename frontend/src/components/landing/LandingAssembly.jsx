@@ -115,7 +115,7 @@ export default function LandingAssembly({ units }) {
             <div className="m-stage-sticky m-studs" data-step={active}>
               <ComplexModel units={units} activeStep={active} showLabels>
                 <StepMark step={active} className="m-stage-mark" />
-                <ActiveCallout className="m-stage-callout m-glass" />
+                <ActiveCallout key={active} className="m-stage-callout m-glass m-callout-in" />
               </ComplexModel>
             </div>
           </div>

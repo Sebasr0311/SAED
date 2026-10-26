@@ -2,77 +2,36 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import {
-  Activity,
   AlertCircle,
   ArrowLeft,
   ArrowRight,
-  Building2,
-  Check,
-  CreditCard,
   Eye,
   EyeOff,
-  LayoutDashboard,
+  House,
   Loader2,
   Lock,
-  Package,
-  QrCode,
-  Settings,
-  ShieldCheck,
-  Users,
+  Moon,
+  Sun,
   UserRound,
+  UsersRound,
 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { ROLE_HOME, roleCanAccess } from '../lib/access.js';
 import { valUsername, valPassword } from '../lib/validation.js';
 import { warmUpBackend } from '../lib/api.js';
+import { useSaedTheme } from '../lib/theme.js';
+import ComplexModel from '../components/landing/ComplexModel.jsx';
+import '../components/landing/manual.css';
+import '../components/landing/manual-login.css';
 
-const SAED_LOGO = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/saed_logo_final_blue%20%281%29-RiV76ZtVQPCe5rZu3uEXDaXwmdxT7w.png';
-const menuItems = [
-  ['Inicio', LayoutDashboard], ['Residentes', Users], ['Visitas', QrCode], ['Cartera', CreditCard],
-  ['Pagos', CreditCard], ['Portería', ShieldCheck], ['Paquetería', Package], ['Configuración', Settings],
-];
-const activityItems = [
-  ['Visita autorizada', 'María González · Apto 402', 'bg-cyan-400'],
-  ['Paquete recibido', 'Mercado Libre · Apto 301', 'bg-amber-400'],
-  ['Pago registrado', 'Apto 502 · $320.000', 'bg-emerald-400'],
-  ['Nueva PQRS', 'Fuga de agua · Apto 201', 'bg-blue-400'],
-];
-
-function ProductShowcase() {
-  return (
-    <section className="login-showcase motion-safe:animate-[fadeUp_.7s_ease-out_both]" aria-label="Vista previa de SAED">
-      <div className="mb-7 max-w-xl">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">Plataforma PropTech Enterprise</p>
-        <h2 className="text-4xl font-extrabold leading-[1.05] tracking-[-0.04em] text-slate-50 xl:text-6xl">
-          Todo tu conjunto,<br /><span className="text-cyan-300">bajo control.</span>
-        </h2>
-        <p className="mt-5 max-w-lg text-sm leading-6 text-slate-300 xl:text-base">SAED conecta administración, residentes y portería en una sola plataforma.</p>
-      </div>
-      <div className="relative rounded-2xl border border-cyan-300/20 bg-[#0d1b2f]/85 p-2 shadow-2xl shadow-cyan-950/40 backdrop-blur-xl transition-transform duration-500 hover:-translate-y-1">
-        <div className="overflow-hidden rounded-xl border border-white/10 bg-[#081426]">
-          <div className="flex h-10 items-center justify-between border-b border-white/10 px-3">
-            <div className="flex items-center gap-2"><img src={SAED_LOGO} alt="SAED" className="h-6 w-auto rounded bg-white px-1 object-contain" /><span className="rounded bg-cyan-400/15 px-1.5 text-[9px] font-bold text-cyan-300">2.0</span></div>
-            <div className="flex items-center gap-2"><div className="hidden h-6 w-32 rounded-full border border-white/10 bg-white/[.04] sm:block" /><span className="h-6 w-6 rounded-full border border-cyan-300/30 bg-cyan-400/20" /></div>
-          </div>
-          <div className="flex min-h-[340px]">
-            <aside className="hidden w-32 shrink-0 border-r border-white/10 p-2 sm:block"><p className="px-2 pb-3 pt-1 text-[8px] font-semibold uppercase tracking-widest text-slate-500">SAED 2.0</p>{menuItems.map(([label, Icon], index) => <div key={label} className={`mb-0.5 flex items-center gap-2 rounded-md px-2 py-2 text-[9px] transition-colors ${index === 0 ? 'bg-cyan-400/15 text-cyan-200' : 'text-slate-500'}`}><Icon className="h-3 w-3" />{label}</div>)}</aside>
-            <div className="min-w-0 flex-1 space-y-3 p-4"><div><p className="text-[9px] text-slate-500">Resumen de tu comunidad</p><h3 className="mt-1 text-base font-bold text-slate-100">Hola, María</h3></div>
-              <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">{[['Residentes', '248', Users, 'text-cyan-300'], ['Visitas hoy', '18', QrCode, 'text-emerald-300'], ['Paquetes', '23', Package, 'text-blue-300'], ['Cartera', '$12.840.000', CreditCard, 'text-amber-300']].map(([label, value, Icon, color]) => <div key={label} className="rounded-lg border border-white/10 bg-white/[.035] p-2.5 transition-colors hover:border-cyan-300/30"><Icon className={`mb-2 h-3.5 w-3.5 ${color}`} /><p className="text-[8px] text-slate-500">{label}</p><p className={`mt-1 truncate text-xs font-bold ${color}`}>{value}</p></div>)}</div>
-              <div className="grid gap-2 lg:grid-cols-[1.25fr_.75fr]"><div className="rounded-lg border border-white/10 bg-white/[.025] p-3"><div className="mb-3 flex items-center justify-between"><p className="text-[9px] font-semibold text-slate-300">Actividad de la comunidad</p><Activity className="h-3 w-3 text-cyan-300" /></div><div className="flex h-24 items-end gap-1">{[30,42,36,58,45,70,55,76,64,88,73,94].map((height, index) => <span key={index} className={`flex-1 origin-bottom rounded-t-sm motion-safe:animate-[grow_.8s_ease-out_both] ${index % 3 === 0 ? 'bg-cyan-400' : index % 3 === 1 ? 'bg-blue-500' : 'bg-emerald-400'}`} style={{ height: `${height}%`, animationDelay: `${index * 45}ms` }} />)}</div><div className="mt-2 flex justify-between text-[8px] text-slate-600"><span>Lun</span><span>Mié</span><span>Vie</span><span>Dom</span></div></div><div className="rounded-lg border border-white/10 bg-white/[.025] p-3"><p className="mb-1 text-[9px] font-semibold text-slate-300">Actividad reciente</p>{activityItems.map(([title, detail, color]) => <div key={title} className="flex items-center gap-2 border-b border-white/5 py-2 last:border-0"><span className={`h-5 w-5 shrink-0 rounded-md ${color}/20`}><span className={`m-1 block h-3 w-3 rounded-full ${color}`} /></span><span className="min-w-0"><strong className="block truncate text-[8px] font-medium text-slate-300">{title}</strong><small className="block truncate text-[7px] text-slate-500">{detail}</small></span></div>)}</div></div>
-              <div className="flex gap-2 border-t border-white/5 pt-2">{['Registrar visita', 'Nuevo residente', 'Registrar pago'].map((item) => <div key={item} className="flex-1 rounded-md bg-white/[.03] px-2 py-2 text-center text-[8px] text-slate-400">{item}</div>)}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="mt-6 flex items-center gap-6 text-xs text-slate-400"><span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-cyan-300" />Conexión segura · TLS</span><span className="hidden h-4 w-px bg-white/10 sm:block" /><span className="hidden sm:block">SAED 2.0 · Gestión residencial inteligente</span></div>
-    </section>
-  );
-}
+const SAED_EMBLEM = '/imagenes/saed_logo_emblem_only.png';
 
 export default function LoginPage() {
-  const { login, loading, isAuthenticated, user } = useAuth();
+  const { login, loginDemo, loading, isAuthenticated, user } = useAuth();
+  const { theme, toggleTheme } = useSaedTheme();
   const navigate = useNavigate();
   const location = useLocation();
+
   const [username, setUsername] = useState(() => localStorage.getItem('remembered_user') || '');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(() => !!localStorage.getItem('remembered_user'));
@@ -80,54 +39,285 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [slowNotice, setSlowNotice] = useState(false);
 
-  useEffect(() => { document.title = 'Iniciar sesión — SAED'; warmUpBackend(); }, []);
-  useEffect(() => { let timer; if (loading) timer = setTimeout(() => setSlowNotice(true), 3500); else setSlowNotice(false); return () => clearTimeout(timer); }, [loading]);
-  useEffect(() => { if (isAuthenticated && user) { const dest = ROLE_HOME[user.rol] || '/dashboard'; const from = location.state?.from?.pathname; navigate(from && roleCanAccess(from, user.rol) ? from : dest, { replace: true }); } }, [isAuthenticated, user, navigate, location]);
+  useEffect(() => {
+    document.title = 'Iniciar sesión — SAED 2.0';
+    warmUpBackend();
+  }, []);
+
+  useEffect(() => {
+    let timer;
+    if (loading) timer = setTimeout(() => setSlowNotice(true), 3500);
+    else setSlowNotice(false);
+    return () => clearTimeout(timer);
+  }, [loading]);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const dest = ROLE_HOME[user.rol] || '/dashboard';
+      const from = location.state?.from?.pathname;
+      navigate(from && roleCanAccess(from, user.rol) ? from : dest, { replace: true });
+    }
+  }, [isAuthenticated, user, navigate, location]);
 
   async function handleSubmit(event) {
-    event.preventDefault(); setError('');
-    const validatedUsername = valUsername(username); if (!validatedUsername.ok) { setError(validatedUsername.mensaje); return; }
-    const validatedPassword = valPassword(password); if (!validatedPassword.ok) { setError(validatedPassword.mensaje); return; }
-    try { await login(username.trim(), password); if (remember) localStorage.setItem('remembered_user', username.trim()); else localStorage.removeItem('remembered_user'); toast.success(`Bienvenido, ${validatedUsername.username}`); }
-    catch (err) { setError(err.message); toast.error(err.message); }
+    event.preventDefault();
+    setError('');
+    const validatedUsername = valUsername(username);
+    if (!validatedUsername.ok) {
+      setError(validatedUsername.mensaje);
+      return;
+    }
+    const validatedPassword = valPassword(password);
+    if (!validatedPassword.ok) {
+      setError(validatedPassword.mensaje);
+      return;
+    }
+    try {
+      await login(username.trim(), password);
+      if (remember) localStorage.setItem('remembered_user', username.trim());
+      else localStorage.removeItem('remembered_user');
+      toast.success(`Bienvenido, ${validatedUsername.username}`);
+    } catch (err) {
+      setError(err.message);
+      toast.error(err.message);
+    }
   }
 
-  return <div className="min-h-screen overflow-x-hidden bg-[#061525] text-slate-50 selection:bg-cyan-300/20 selection:text-cyan-200"><div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_75%_35%,rgba(34,211,238,.11),transparent_28%),radial-gradient(circle_at_15%_80%,rgba(59,130,246,.12),transparent_30%)]" /><div className="pointer-events-none fixed inset-0 opacity-[.12] [background-image:linear-gradient(rgba(148,163,184,.18)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,.18)_1px,transparent_1px)] [background-size:48px_48px]" />
-    <header className="relative z-10 flex items-center justify-between px-5 py-5 sm:px-8 lg:px-12"><Link to="/" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-cyan-300/30 px-4 text-sm font-medium text-slate-300 transition-colors hover:border-cyan-300/70 hover:text-white"><ArrowLeft className="h-4 w-4 text-cyan-300" />Volver al inicio</Link><span className="flex items-center gap-2 text-xs text-slate-400"><ShieldCheck className="h-4 w-4 text-cyan-300" />Acceso seguro</span></header>
-    <main className="relative z-10 mx-auto grid w-full max-w-[1440px] items-center gap-10 px-5 pb-10 pt-5 sm:px-8 md:grid-cols-[minmax(300px,.72fr)_minmax(0,1.28fr)] md:gap-8 lg:gap-16 lg:px-12 lg:pb-16 lg:pt-8"><section className="motion-safe:animate-[fadeUp_.6s_ease-out_both] lg:max-w-md"><div className="rounded-2xl border border-white/10 bg-[#0d1b2f]/90 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-8"><div className="mb-9"><div className="mb-7 flex items-center gap-3"><div className="rounded-lg bg-white px-2 py-1.5"><img src={SAED_LOGO} alt="SAED" className="h-10 w-auto object-contain" /></div><span className="rounded border border-cyan-300/30 bg-cyan-300/10 px-2 py-1 text-xs font-bold text-cyan-300">2.0</span></div><h1 className="text-3xl font-extrabold tracking-[-.03em] sm:text-4xl">Bienvenido de nuevo</h1><p className="mt-3 text-sm leading-6 text-slate-400">La plataforma que conecta tu comunidad.</p><p className="mt-1 text-sm leading-6 text-slate-500">Administra residentes, operación y finanzas en un solo lugar.</p></div>
-      <form onSubmit={handleSubmit} className="space-y-5" noValidate><div><label htmlFor="login-username" className="mb-2 block text-sm font-semibold text-slate-200">Usuario</label><div className="relative"><UserRound className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input id="login-username" type="text" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Nombre de usuario o correo electrónico" autoComplete="username" required aria-invalid={Boolean(error)} style={{ color: '#ffffff', backgroundColor: '#081426', WebkitTextFillColor: '#ffffff' }} className="h-12 w-full rounded-xl border border-[#20344F] bg-[#081426] pl-11 pr-4 text-sm text-white outline-none transition-all placeholder:text-slate-600 focus:border-cyan-300 focus:ring-2 focus:ring-cyan-300/20 aria-invalid:border-rose-400 aria-invalid:ring-rose-400/20 aria-invalid:text-white aria-invalid:bg-[#081426]" /></div></div><div><label htmlFor="login-password" className="mb-2 block text-sm font-semibold text-slate-200">Contraseña</label><div className="relative"><Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input id="login-password" type={showPwd ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Ingresa tu contraseña" autoComplete="current-password" required aria-invalid={Boolean(error)} style={{ color: '#ffffff', backgroundColor: '#081426', WebkitTextFillColor: '#ffffff' }} className="h-12 w-full rounded-xl border border-[#20344F] bg-[#081426] pl-11 pr-12 text-sm text-white outline-none transition-all placeholder:text-slate-600 focus:border-cyan-300 focus:ring-2 focus:ring-cyan-300/20 aria-invalid:border-rose-400 aria-invalid:ring-rose-400/20 aria-invalid:text-white aria-invalid:bg-[#081426]" /><button type="button" onClick={() => setShowPwd((value) => !value)} aria-label={showPwd ? 'Ocultar contraseña' : 'Mostrar contraseña'} className="absolute right-0 top-0 flex h-12 w-12 items-center justify-center text-slate-500 transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-300">{showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div></div><div className="flex items-center justify-between gap-3 text-xs"><label className="flex min-h-11 items-center gap-2 text-slate-300"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} className="h-4 w-4 rounded border-[#20344F] bg-[#081426] text-cyan-300 focus:ring-cyan-300/30" />Recordarme</label><button type="button" onClick={() => toast.info('Contacte a la administración de su copropiedad para restablecer su acceso')} className="min-h-11 text-right font-medium text-cyan-300 transition-colors hover:text-cyan-200 focus:outline-none focus:underline">¿Necesitas ayuda para acceder?</button></div>{error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" /><span>{error}</span></div>}<button type="submit" disabled={loading} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-5 text-sm font-bold text-[#061525] shadow-lg shadow-cyan-950/30 transition-all hover:from-cyan-300 hover:to-blue-400 active:scale-[.99] focus:outline-none focus:ring-2 focus:ring-cyan-300/60 disabled:cursor-not-allowed disabled:opacity-60">{loading ? <><Loader2 className="h-4 w-4 animate-spin" />Iniciando sesión...</> : <>Iniciar sesión<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></>}</button>{slowNotice && <div className="flex items-center gap-2 text-xs text-cyan-200"><Loader2 className="h-3.5 w-3.5 animate-spin" />Conectando con el servidor seguro...</div>}</form><div className="mt-8 border-t border-white/10 pt-5 text-xs text-slate-500">SAED 2.0 <span className="mx-2 text-slate-700">·</span> Gestión residencial inteligente</div></div></section><ProductShowcase /></main>
-    <style>{`
-      @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-      @keyframes grow{from{transform:scaleY(0);opacity:.2}to{transform:scaleY(1);opacity:1}}
-      #login-username, #login-password {
-        color: #ffffff !important;
-        background-color: #081426 !important;
-        -webkit-text-fill-color: #ffffff !important;
-        caret-color: #22d3ee !important;
-      }
-      #login-username:-webkit-autofill,
-      #login-username:-webkit-autofill:hover,
-      #login-username:-webkit-autofill:focus,
-      #login-username:-webkit-autofill:active,
-      #login-password:-webkit-autofill,
-      #login-password:-webkit-autofill:hover,
-      #login-password:-webkit-autofill:focus,
-      #login-password:-webkit-autofill:active {
-        -webkit-box-shadow: 0 0 0 1000px #081426 inset !important;
-        -webkit-text-fill-color: #ffffff !important;
-        caret-color: #22d3ee !important;
-        color: #ffffff !important;
-        background-color: #081426 !important;
-      }
-      #login-username[aria-invalid="true"],
-      #login-password[aria-invalid="true"] {
-        border-color: #fb7185 !important;
-        box-shadow: 0 0 0 1px #fb7185, 0 0 0 3px rgba(251, 113, 133, 0.2) !important;
-        color: #ffffff !important;
-        background-color: #081426 !important;
-        -webkit-text-fill-color: #ffffff !important;
-      }
-      @media(prefers-reduced-motion:reduce){*,::before,::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
-    `}</style>
-  </div>;
+  function handleDemoLogin(rol) {
+    const isConv = rol === 'RESIDENTE_CONVIVENCIA';
+    const demoUser = {
+      idUsuario: isConv ? 102 : 101,
+      idPersona: isConv ? 102 : 101,
+      idResidente: isConv ? 102 : 101,
+      username: isConv ? 'conviviente_demo' : 'residente_titular_demo',
+      nombreUsuario: isConv ? 'conviviente_demo' : 'residente_titular_demo',
+      nombreCompleto: isConv ? 'Valentina Restrepo' : 'Carlos Andrés Mendoza',
+      primerNombre: isConv ? 'Valentina' : 'Carlos Andrés',
+      primerApellido: isConv ? 'Restrepo' : 'Mendoza',
+      numeroDocumento: isConv ? '1098765432' : '79865432',
+      tipoDocumentoNombre: 'Cédula de Ciudadanía (CC)',
+      email: isConv ? 'valentina.conviviente@saed.com.co' : 'carlos.titular@saed.com.co',
+      telefono: '3157894561',
+      rol: rol,
+      rolCodigo: rol,
+      tipoResidente: isConv ? 'CONVIVIENTE' : 'TITULAR',
+      tipoRelacion: isConv ? 'CONVIVIENTE' : 'TITULAR',
+      idUnidad: 1,
+      identificadorUnidad: 'Apto 402',
+      numeroApartamento: 'Apto 402',
+      numeroApto: 'Apto 402',
+      nombreBloque: 'Torre Reserva',
+      pisoApto: 4,
+      areaApto: '84.5 m²',
+      nombrePropiedad: 'Altos del Parque Residencial',
+      direccionPropiedad: 'Calle 127 # 15 - 34',
+      ciudadPropiedad: 'Bogotá D.C.',
+    };
+    loginDemo(demoUser);
+    toast.success(`Iniciando sesión como ${isConv ? 'Residente Conviviente' : 'Residente Titular'}`);
+    navigate('/residente-dashboard', { replace: true });
+  }
+
+  return (
+    <div className={`saed-manual m-root m-login ${theme === 'dark' ? 'dark' : ''}`}>
+      <header className="m-strip">
+        <div className="m-container m-strip-inner">
+          <Link to="/" className="m-brand">
+            <img src={SAED_EMBLEM} alt="" className="m-brand-mark" width="32" height="32" />
+            <span className="m-brand-name">SAED</span>
+            <span className="m-brand-ver">2.0</span>
+            <span className="m-sr">, ir al inicio</span>
+          </Link>
+          <div className="m-strip-actions">
+            <Link to="/" className="m-btn m-btn--quiet m-hide-mobile">
+              <ArrowLeft aria-hidden="true" />
+              <span>Volver al inicio</span>
+            </Link>
+            <Link to="/suscripciones" className="m-btn m-btn--glass m-hide-mobile">
+              Ver planes
+            </Link>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="m-icon-btn"
+              aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+            >
+              {theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="m-container m-login-main">
+        <div className="m-spread m-login-spread">
+          {/* Left page: the form, a glass piece on the stud grid */}
+          <section className="m-page m-login-page m-studs" aria-labelledby="m-login-title">
+            <div className="m-login-piece">
+              <div className="m-login-head">
+                <h1 id="m-login-title" className="m-h2">
+                  Iniciar sesión
+                </h1>
+                <p className="m-body">
+                  Ingresa tus credenciales para acceder al panel de tu copropiedad u organización.
+                </p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="m-login-form" noValidate>
+                <div className="m-field">
+                  <label htmlFor="login-username" className="m-field-label">
+                    Usuario o correo electrónico
+                  </label>
+                  <div className="m-field-control">
+                    <UserRound aria-hidden="true" className="m-field-icon" />
+                    <input
+                      id="login-username"
+                      type="text"
+                      value={username}
+                      onChange={(event) => setUsername(event.target.value)}
+                      placeholder="ej. carlos.admin o correo@copropiedad.com"
+                      autoComplete="username"
+                      required
+                      aria-invalid={Boolean(error)}
+                      className="m-input"
+                    />
+                  </div>
+                </div>
+
+                <div className="m-field">
+                  <label htmlFor="login-password" className="m-field-label">
+                    Contraseña
+                  </label>
+                  <div className="m-field-control">
+                    <Lock aria-hidden="true" className="m-field-icon" />
+                    <input
+                      id="login-password"
+                      type={showPwd ? 'text' : 'password'}
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="Ingresa tu contraseña"
+                      autoComplete="current-password"
+                      required
+                      aria-invalid={Boolean(error)}
+                      className="m-input m-input--pwd"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPwd((value) => !value)}
+                      aria-label={showPwd ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      className="m-field-toggle"
+                    >
+                      {showPwd ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="m-login-row">
+                  <label className="m-check">
+                    <input
+                      type="checkbox"
+                      checked={remember}
+                      onChange={(event) => setRemember(event.target.checked)}
+                    />
+                    <span>Recordar mi usuario</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      toast.info(
+                        'Contacte a la administración de su copropiedad para restablecer su acceso o solicite un enlace en /activar-cuenta'
+                      )
+                    }
+                    className="m-text-btn"
+                  >
+                    ¿Problemas para ingresar?
+                  </button>
+                </div>
+
+                {error && (
+                  <div role="alert" className="m-login-error">
+                    <AlertCircle aria-hidden="true" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <button type="submit" disabled={loading} className="m-btn m-btn--primary m-btn--lg m-login-submit">
+                  {loading ? (
+                    <>
+                      <Loader2 aria-hidden="true" className="m-spin" />
+                      <span>Iniciando sesión...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Iniciar sesión</span>
+                      <ArrowRight aria-hidden="true" />
+                    </>
+                  )}
+                </button>
+
+                {slowNotice && (
+                  <div className="m-login-slow" role="status">
+                    <Loader2 aria-hidden="true" className="m-spin" />
+                    <span>Conectando con el servidor seguro...</span>
+                  </div>
+                )}
+              </form>
+
+              <div className="m-login-demo">
+                <p className="m-field-label">Acceso de demostración</p>
+                <div className="m-login-demo-row">
+                  <button
+                    type="button"
+                    onClick={() => handleDemoLogin('RESIDENTE_CONVIVENCIA')}
+                    className="m-btn m-btn--glass"
+                  >
+                    <UsersRound aria-hidden="true" />
+                    <span>Conviviente</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDemoLogin('RESIDENTE')}
+                    className="m-btn m-btn--glass"
+                  >
+                    <House aria-hidden="true" />
+                    <span>Titular</span>
+                  </button>
+                </div>
+              </div>
+
+              <dl className="m-login-links">
+                <div>
+                  <dt>¿Recibiste un enlace de bienvenida?</dt>
+                  <dd>
+                    <Link to="/activar-cuenta" className="m-link">
+                      Activar mi cuenta
+                    </Link>
+                  </dd>
+                </div>
+                <div>
+                  <dt>¿Aún no registras tu conjunto?</dt>
+                  <dd>
+                    <Link to="/registro-organizacion" className="m-link">
+                      Registrar mi organización
+                    </Link>
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+
+          {/* Right page: the finished build */}
+          <aside className="m-page m-page--right m-login-aside" aria-label="Modelo ilustrativo">
+            <p className="m-h3 m-login-aside-title">Un mismo registro para todo el conjunto</p>
+            <p className="m-body">
+              Administración, portería y residentes entran por aquí y ven la misma información, cada
+              uno con sus permisos.
+            </p>
+            <ComplexModel units={240} activeStep={7} rows={19} className="m-login-model" />
+            <p className="m-model-caption">Modelo ilustrativo</p>
+          </aside>
+        </div>
+      </main>
+    </div>
+  );
 }

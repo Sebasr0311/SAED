@@ -66,6 +66,15 @@ export function AuthProvider({ children }) {
     }
   }
 
+  function loginDemo(usuarioData) {
+    clearAuth();
+    const usuario = normalizeUser(usuarioData);
+    setTokens('demo-token-saed-2026', 'demo-refresh-token');
+    sessionStorage.setItem(USER_KEY, JSON.stringify(usuario));
+    setUser(usuario);
+    return usuario;
+  }
+
   function logout() {
     clearAuth();
     setUser(null);
@@ -78,6 +87,7 @@ export function AuthProvider({ children }) {
     user,
     loading,
     login,
+    loginDemo,
     logout,
     isAuthenticated: !!user,
     isAdmin: user?.rol === 'ADMIN_PROPIEDAD' || user?.rol === 'ADMIN_ORGANIZACION' || user?.rol === 'SUPERADMIN',

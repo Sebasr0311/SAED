@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import LandingNavbar from '../components/landing/LandingNavbar.jsx';
 import LandingHero from '../components/landing/LandingHero.jsx';
@@ -10,6 +10,7 @@ import LandingFAQ from '../components/landing/LandingFAQ.jsx';
 import LandingCTA from '../components/landing/LandingCTA.jsx';
 import LandingFooter from '../components/landing/LandingFooter.jsx';
 import { UNITS_DEFAULT } from '../components/landing/manualModel.js';
+import useManualReveal from '../components/landing/useManualReveal.js';
 import { applyTheme, persistTheme } from '../lib/theme.js';
 import '../components/landing/manual.css';
 
@@ -18,6 +19,8 @@ const LANDING_THEME_KEY = 'saed_landing_theme';
 export default function LandingPage() {
   const { hash } = useLocation();
   const [units, setUnits] = useState(UNITS_DEFAULT);
+  const mainRef = useRef(null);
+  useManualReveal(mainRef);
   const [theme, setTheme] = useState(() => {
     try {
       const saved = localStorage.getItem(LANDING_THEME_KEY);
@@ -68,11 +71,11 @@ export default function LandingPage() {
       </a>
       <LandingNavbar theme={theme} onToggleTheme={handleToggleTheme} />
 
-      <main id="m-main" className="m-main">
+      <main id="m-main" ref={mainRef} className="m-main">
+        <LandingFilm />
         <LandingHero units={units} onUnitsChange={setUnits} />
         <LandingParts />
         <LandingAssembly units={units} />
-        <LandingFilm />
         <LandingSpecs />
         <LandingFAQ />
         <LandingCTA units={units} />

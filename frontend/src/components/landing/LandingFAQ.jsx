@@ -40,22 +40,27 @@ const FAQS = [
   },
 ];
 
-export default function LandingFAQ() {
+export default function LandingFAQ({
+  items = FAQS,
+  id = 'preguntas',
+  title = 'Preguntas frecuentes',
+  intro = 'Respuestas cortas sobre cómo funciona SAED hoy.',
+}) {
   const [openIdx, setOpenIdx] = useState(0);
   const baseId = useId();
 
   return (
-    <section id="preguntas" className="m-section" aria-labelledby="m-faq-title">
+    <section id={id} className="m-section" aria-labelledby={`${baseId}-title`}>
       <div className="m-container m-faq-layout">
         <div className="m-section-head">
-          <h2 id="m-faq-title" className="m-h2">
-            Preguntas frecuentes
+          <h2 id={`${baseId}-title`} className="m-h2">
+            {title}
           </h2>
-          <p className="m-body">Respuestas cortas sobre cómo funciona SAED hoy.</p>
+          <p className="m-body">{intro}</p>
         </div>
 
         <div className="m-faq">
-          {FAQS.map((faq, idx) => {
+          {items.map((faq, idx) => {
             const isOpen = openIdx === idx;
             const buttonId = `${baseId}-q-${idx}`;
             const panelId = `${baseId}-a-${idx}`;

@@ -7,7 +7,7 @@ const SPECS = [
   { part: 'Cuentas', spec: 'Activación por enlace enviado al correo. SAED no envía contraseñas.' },
   { part: 'Equipos', spec: 'Funciona en el navegador, sin hardware adicional.' },
   { part: 'Marco legal', spec: 'Pensado para propiedad horizontal (Ley 675 de 2001): coeficientes, asambleas y actas.' },
-  { part: 'Roles', spec: 'Administración, portería y residentes, más una consola para administradoras con varios conjuntos.' },
+  { part: 'Roles', spec: 'Organización, administrador, portería, residente, residente de convivencia y propietario no residente, cada uno con sus propios permisos.' },
 ];
 
 const UNBUILT = [
@@ -37,8 +37,8 @@ export default function LandingSpecs() {
               </tr>
             </thead>
             <tbody>
-              {SPECS.map((row) => (
-                <tr key={row.part}>
+              {SPECS.map((row, i) => (
+                <tr key={row.part} style={{ '--r': i }}>
                   <th scope="row">{row.part}</th>
                   <td>{row.spec}</td>
                 </tr>

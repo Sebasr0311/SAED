@@ -1,27 +1,33 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import {
-  ShieldCheck,
-  Lock,
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  Circle,
   Eye,
   EyeOff,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  ArrowRight,
-  RefreshCw,
+  KeyRound,
+  Loader2,
+  Lock,
   Mail,
-  User,
+  Moon,
+  Sun,
 } from 'lucide-react';
-import api from '../lib/api.js';
-import { Button } from '../components/ui/button.tsx';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/card.tsx';
 import { toast } from 'sonner';
+import api from '../lib/api.js';
+import { useSaedTheme } from '../lib/theme.js';
+import '../components/landing/manual.css';
+import '../components/landing/manual-public.css';
+
+const SAED_EMBLEM = '/imagenes/saed_logo_emblem_only.png';
 
 export default function ActivarCuentaPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useSaedTheme();
 
   const [loading, setLoading] = useState(true);
   const [tokenInfo, setTokenInfo] = useState(null);
@@ -37,6 +43,10 @@ export default function ActivarCuentaPage() {
   const [reenvioEmail, setReenvioEmail] = useState('');
   const [reenviando, setReenviando] = useState(false);
   const [reenvioExito, setReenvioExito] = useState(false);
+
+  useEffect(() => {
+    document.title = 'Activar cuenta — SAED 2.0';
+  }, []);
 
   useEffect(() => {
     async function validar() {
@@ -78,6 +88,10 @@ export default function ActivarCuentaPage() {
     };
   }, [password, confirmPassword]);
 
+  const metCount = useMemo(() => {
+    return Object.values(criteria).filter(Boolean).length;
+  }, [criteria]);
+
   const isValidPassword =
     criteria.length &&
     criteria.upper &&
@@ -85,6 +99,8 @@ export default function ActivarCuentaPage() {
     criteria.number &&
     criteria.special &&
     criteria.match;
+
+  const mismatch = confirmPassword.length > 0 && password !== confirmPassword;
 
   async function handleActivar(e) {
     e.preventDefault();
@@ -101,7 +117,7 @@ export default function ActivarCuentaPage() {
         confirmPassword,
       });
       setSuccess(true);
-      toast.success('¡Cuenta activada con éxito!');
+      toast.success('Cuenta activada con éxito.');
     } catch (err) {
       toast.error(err.message || 'No se pudo activar la cuenta. Intente nuevamente.');
     } finally {
@@ -128,218 +144,293 @@ export default function ActivarCuentaPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A1628] flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden">
-      {/* Background glow effects */}
-      <div className="absolute top-1/4 -left-32 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Header / Logo */}
-      <div className="mb-8 text-center">
-        <Link to="/" className="inline-flex items-center gap-2">
-          <span className="text-3xl font-extrabold tracking-tight text-white">
-            SAED <span className="text-emerald-400">2.0</span>
-          </span>
-        </Link>
-        <p className="text-xs text-slate-400 mt-1 uppercase tracking-widest font-mono">
-          Activación y Seguridad de Acceso
-        </p>
-      </div>
-
-      <div className="w-full max-w-md">
-        {loading ? (
-          <Card className="bg-[#0F213A] border-slate-800 text-slate-100 p-8 text-center space-y-4">
-            <RefreshCw className="h-10 w-10 animate-spin mx-auto text-primary" />
-            <div className="space-y-1">
-              <h3 className="text-base font-semibold text-white">Verificando enlace de activación...</h3>
-              <p className="text-xs text-slate-400">Validando autenticidad del token criptográfico</p>
-            </div>
-          </Card>
-        ) : success ? (
-          <Card className="bg-[#0F213A] border-emerald-500/30 text-slate-100 p-8 text-center space-y-5 shadow-2xl">
-            <div className="h-16 w-16 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mx-auto">
-              <CheckCircle2 className="h-8 w-8" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-xl font-bold text-white">¡Cuenta Activada con Éxito!</h2>
-              <p className="text-xs sm:text-sm text-slate-300">
-                Tu contraseña ha sido establecida de forma segura. Ya puedes ingresar al portal con tu nombre de usuario o correo.
-              </p>
-            </div>
-            <Button
-              variant="primary"
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5"
-              onClick={() => navigate('/login')}
+    <div className={`saed-manual m-root ${theme === 'dark' ? 'dark' : ''}`}>
+      <header className="m-strip">
+        <div className="m-container m-strip-inner">
+          <Link to="/" className="m-brand">
+            <img src={SAED_EMBLEM} alt="" className="m-brand-mark" width="32" height="32" />
+            <span className="m-brand-name">SAED</span>
+            <span className="m-brand-ver">2.0</span>
+            <span className="m-sr">, ir al inicio</span>
+          </Link>
+          <div className="m-strip-actions">
+            <Link to="/" className="m-btn m-btn--quiet m-hide-mobile">
+              <ArrowLeft aria-hidden="true" />
+              <span>Volver al inicio</span>
+            </Link>
+            <Link to="/login" className="m-btn m-btn--glass">
+              Iniciar sesión
+            </Link>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="m-icon-btn"
+              aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
             >
-              Ir a Iniciar Sesión
-              <ArrowRight className="h-4 w-4 ml-1.5" />
-            </Button>
-          </Card>
-        ) : tokenError ? (
-          <Card className="bg-[#0F213A] border-rose-500/30 text-slate-100 shadow-2xl overflow-hidden">
-            <CardHeader className="text-center pb-3">
-              <div className="h-12 w-12 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-full flex items-center justify-center mx-auto mb-2">
-                <AlertTriangle className="h-6 w-6" />
-              </div>
-              <CardTitle className="text-lg font-bold text-white">Enlace No Válido o Expirado</CardTitle>
-              <p className="text-xs text-slate-400 mt-1">{tokenError}</p>
-            </CardHeader>
+              {theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
+            </button>
+          </div>
+        </div>
+      </header>
 
-            <CardContent className="space-y-4 pt-2">
-              {reenvioExito ? (
-                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-xs text-emerald-300 text-center">
-                  Si la cuenta existe, recibirás un nuevo enlace en tu correo electrónico registrado.
-                </div>
-              ) : (
-                <form onSubmit={handleSolicitarReenvio} className="space-y-3">
-                  <p className="text-xs text-slate-300">
-                    Ingresa tu correo o usuario para recibir un nuevo enlace de activación:
-                  </p>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                    <input
-                      type="text"
-                      required
-                      value={reenvioEmail}
-                      onChange={(e) => setReenvioEmail(e.target.value)}
-                      placeholder="correo@ejemplo.com o usuario"
-                      className="w-full pl-9 pr-3 py-2 text-xs bg-[#070B14] border border-slate-800 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
+      <main className="m-container m-pub-main">
+        <div className="m-pub-narrow">
+          <section className="m-pub-frame m-studs" aria-labelledby="activar-title" aria-busy={loading}>
+            <div className="m-pub-frame-body">
+              {loading ? (
+                <div className="m-pub-enter" role="status" aria-live="polite">
+                  <div className="m-pub-head">
+                    <h1 id="activar-title" className="m-h3">
+                      Verificando el enlace de activación
+                    </h1>
+                    <p className="m-pub-status">
+                      <Loader2 className="m-pub-spin" aria-hidden="true" />
+                      Comprobando que el enlace sea válido y siga vigente.
+                    </p>
                   </div>
-                  <Button
-                    type="submit"
-                    variant="ghost"
-                    size="sm"
-                    disabled={reenviando}
-                    className="w-full bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-white shadow-sm transition-colors"
+                  <div className="m-pub-skel" aria-hidden="true" style={{ marginTop: 20 }}>
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                </div>
+              ) : success ? (
+                <div className="m-pub-result m-pub-enter">
+                  <span className="m-pub-result-piece is-ok" aria-hidden="true">
+                    <CheckCircle2 />
+                  </span>
+                  <div className="m-pub-head">
+                    <h1 id="activar-title" className="m-h3">
+                      Cuenta activada
+                    </h1>
+                    <p className="m-body">
+                      Tu contraseña quedó establecida. Ya puedes ingresar con tu usuario o tu correo
+                      electrónico.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="m-btn m-btn--primary m-btn--lg m-pub-block"
+                    onClick={() => navigate('/login')}
                   >
-                    {reenviando ? 'Enviando enlace...' : 'Solicitar Nuevo Enlace'}
-                  </Button>
-                </form>
-              )}
-            </CardContent>
-
-            <CardFooter className="border-t border-slate-800 pt-3 justify-center">
-              <Link to="/login" className="text-xs text-sky-400 hover:text-sky-300 hover:underline flex items-center gap-1 font-medium">
-                Regresar al Inicio de Sesión
-              </Link>
-            </CardFooter>
-          </Card>
-        ) : (
-          <Card className="bg-[#0F213A] border-slate-800 text-slate-100 shadow-2xl">
-            <CardHeader className="pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
-                  <ShieldCheck className="h-5 w-5" />
+                    <span>Ir a iniciar sesión</span>
+                    <ArrowRight aria-hidden="true" />
+                  </button>
                 </div>
-                <div>
-                  <CardTitle className="text-base font-bold text-white">
-                    Configuración de Contraseña
-                  </CardTitle>
-                  <p className="text-xs text-slate-400">
-                    Hola <strong className="text-slate-200">{tokenInfo?.primerNombre || tokenInfo?.nombreUsuario}</strong>, define tu clave de acceso
-                  </p>
-                </div>
-              </div>
-            </CardHeader>
-
-            <form onSubmit={handleActivar}>
-              <CardContent className="space-y-4 pt-4">
-                {/* Datos de cuenta */}
-                <div className="bg-[#070B14] border border-slate-800 rounded-lg p-3 space-y-1 text-xs text-slate-400">
-                  <div className="flex justify-between">
-                    <span>Usuario:</span>
-                    <span className="font-mono text-slate-200 font-semibold">{tokenInfo?.nombreUsuario}</span>
+              ) : tokenError ? (
+                <div className="m-pub-result m-pub-enter">
+                  <span className="m-pub-result-piece is-error" aria-hidden="true">
+                    <AlertTriangle />
+                  </span>
+                  <div className="m-pub-head">
+                    <h1 id="activar-title" className="m-h3">
+                      Enlace no válido o expirado
+                    </h1>
+                    <p className="m-body" role="alert">
+                      {tokenError}
+                    </p>
                   </div>
-                  {tokenInfo?.email && (
-                    <div className="flex justify-between">
-                      <span>Correo:</span>
-                      <span className="text-slate-200">{tokenInfo?.email}</span>
+
+                  {reenvioExito ? (
+                    <div className="m-pub-note is-ok m-pub-block" role="status">
+                      <CheckCircle2 aria-hidden="true" />
+                      <div>
+                        <p className="m-pub-note-title">Solicitud recibida</p>
+                        <p className="m-pub-note-text">
+                          Si la cuenta existe, recibirás un nuevo enlace en el correo electrónico
+                          registrado.
+                        </p>
+                      </div>
                     </div>
+                  ) : (
+                    <form onSubmit={handleSolicitarReenvio} className="m-pub-form m-pub-block">
+                      <div className="m-pub-field">
+                        <label htmlFor="reenvio-identificador" className="m-pub-label">
+                          Correo electrónico o usuario
+                        </label>
+                        <div className="m-pub-control">
+                          <Mail aria-hidden="true" />
+                          <input
+                            id="reenvio-identificador"
+                            type="text"
+                            required
+                            value={reenvioEmail}
+                            onChange={(e) => setReenvioEmail(e.target.value)}
+                            placeholder="correo@ejemplo.com o usuario"
+                            autoComplete="username"
+                            className="m-pub-input"
+                          />
+                        </div>
+                        <p className="m-pub-hint">Te enviaremos un nuevo enlace de activación.</p>
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={reenviando || !reenvioEmail.trim()}
+                        className="m-btn m-btn--primary m-pub-block"
+                      >
+                        {reenviando ? (
+                          <>
+                            <Loader2 className="m-pub-spin" aria-hidden="true" />
+                            <span>Enviando enlace...</span>
+                          </>
+                        ) : (
+                          <span>Solicitar nuevo enlace</span>
+                        )}
+                      </button>
+                    </form>
                   )}
-                </div>
 
-                {/* Password input */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-200 block">
-                    Nueva Contraseña *
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••••••"
-                      className="w-full px-3 py-2 pr-10 text-xs sm:text-sm bg-[#070B14] border border-slate-800 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Confirm Password input */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-200 block">
-                    Confirmar Contraseña *
-                  </label>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="w-full px-3 py-2 text-xs sm:text-sm bg-[#070B14] border border-slate-800 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  />
-                </div>
-
-                {/* Checklist de requisitos de seguridad */}
-                <div className="bg-[#070B14]/70 border border-slate-800/80 rounded-lg p-3 space-y-1.5 text-[11px]">
-                  <p className="font-semibold text-slate-300 mb-1">Requisitos de seguridad:</p>
-                  <div className="grid grid-cols-1 gap-1">
-                    <RequirementItem met={criteria.length} text="Mínimo 8 caracteres" />
-                    <RequirementItem met={criteria.upper} text="Al menos una letra mayúscula (A-Z)" />
-                    <RequirementItem met={criteria.lower} text="Al menos una letra minúscula (a-z)" />
-                    <RequirementItem met={criteria.number} text="Al menos un número (0-9)" />
-                    <RequirementItem met={criteria.special} text="Al menos un carácter especial (@#$%^&+=!._*-)" />
-                    <RequirementItem met={criteria.match} text="Las contraseñas coinciden" />
-                  </div>
-                </div>
-              </CardContent>
-
-              <CardFooter className="border-t border-slate-800 pt-4 flex flex-col gap-2">
-                <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={!isValidPassword || submitting}
-                  className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-2.5 disabled:opacity-50"
-                >
-                  {submitting ? 'Activando cuenta...' : 'Activar Cuenta y Establecer Contraseña'}
-                </Button>
-                <div className="text-center">
-                  <Link to="/login" className="text-xs text-slate-400 hover:text-white">
-                    ¿Ya tienes cuenta activa? Iniciar sesión
+                  <Link to="/login" className="m-link">
+                    Regresar al inicio de sesión
                   </Link>
                 </div>
-              </CardFooter>
-            </form>
-          </Card>
-        )}
-      </div>
+              ) : (
+                <div className="m-pub-enter" style={{ display: 'grid', gap: 22 }}>
+                  <div className="m-pub-head">
+                    <h1 id="activar-title" className="m-h3">
+                      Crea tu contraseña
+                    </h1>
+                    <p className="m-body">
+                      Hola{' '}
+                      <strong className="m-strong">
+                        {tokenInfo?.primerNombre || tokenInfo?.nombreUsuario}
+                      </strong>
+                      , define la clave con la que ingresarás a SAED.
+                    </p>
+                  </div>
+
+                  <dl className="m-pub-dl">
+                    <div>
+                      <dt>Usuario</dt>
+                      <dd className="m-pub-mono">{tokenInfo?.nombreUsuario}</dd>
+                    </div>
+                    {tokenInfo?.email && (
+                      <div>
+                        <dt>Correo</dt>
+                        <dd>{tokenInfo?.email}</dd>
+                      </div>
+                    )}
+                  </dl>
+
+                  <form onSubmit={handleActivar} className="m-pub-form" noValidate>
+                    <div className="m-pub-field">
+                      <label htmlFor="activar-password" className="m-pub-label">
+                        Nueva contraseña<span className="m-pub-req" aria-hidden="true">*</span>
+                      </label>
+                      <div className="m-pub-control">
+                        <Lock aria-hidden="true" />
+                        <input
+                          id="activar-password"
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          autoComplete="new-password"
+                          aria-describedby="activar-reqs"
+                          className="m-pub-input m-pub-input--pwd"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="m-pub-toggle"
+                          aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                          aria-pressed={showPassword}
+                        >
+                          {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="m-pub-field">
+                      <label htmlFor="activar-confirm" className="m-pub-label">
+                        Confirmar contraseña<span className="m-pub-req" aria-hidden="true">*</span>
+                      </label>
+                      <div className="m-pub-control">
+                        <KeyRound aria-hidden="true" />
+                        <input
+                          id="activar-confirm"
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          autoComplete="new-password"
+                          aria-invalid={mismatch}
+                          aria-describedby={mismatch ? 'activar-confirm-error' : undefined}
+                          className="m-pub-input"
+                        />
+                      </div>
+                      {mismatch && (
+                        <p id="activar-confirm-error" className="m-pub-error">
+                          <AlertTriangle aria-hidden="true" />
+                          <span>Las contraseñas no coinciden.</span>
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="m-pub-reqs" id="activar-reqs">
+                      <div className="m-pub-reqs-head">
+                        <span>Requisitos de seguridad</span>
+                        <span className="m-pub-mono" aria-live="polite">
+                          {metCount} de 6
+                        </span>
+                      </div>
+                      <div className="m-pub-meter" data-full={metCount === 6 ? '' : undefined} aria-hidden="true">
+                        {Array.from({ length: 6 }, (_, i) => (
+                          <span key={i} data-on={i < metCount ? '' : undefined} />
+                        ))}
+                      </div>
+                      <ul>
+                        <RequirementItem met={criteria.length} text="Mínimo 8 caracteres" />
+                        <RequirementItem met={criteria.upper} text="Una letra mayúscula (A-Z)" />
+                        <RequirementItem met={criteria.lower} text="Una letra minúscula (a-z)" />
+                        <RequirementItem met={criteria.number} text="Un número (0-9)" />
+                        <RequirementItem
+                          met={criteria.special}
+                          text="Un carácter especial (@#$%^&+=!._*-)"
+                        />
+                        <RequirementItem met={criteria.match} text="Las contraseñas coinciden" />
+                      </ul>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={!isValidPassword || submitting}
+                      className="m-btn m-btn--primary m-btn--lg m-pub-block"
+                    >
+                      {submitting ? (
+                        <>
+                          <Loader2 className="m-pub-spin" aria-hidden="true" />
+                          <span>Activando cuenta...</span>
+                        </>
+                      ) : (
+                        <span>Activar cuenta y establecer contraseña</span>
+                      )}
+                    </button>
+                  </form>
+
+                  <p className="m-pub-hint">
+                    ¿Ya activaste tu cuenta?{' '}
+                    <Link to="/login" className="m-link">
+                      Iniciar sesión
+                    </Link>
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      </main>
     </div>
   );
 }
 
 function RequirementItem({ met, text }) {
   return (
-    <div className={`flex items-center gap-1.5 ${met ? 'text-emerald-400' : 'text-slate-500'}`}>
-      {met ? <CheckCircle2 className="h-3 w-3 shrink-0" /> : <XCircle className="h-3 w-3 shrink-0" />}
+    <li data-met={met ? '' : undefined}>
+      {met ? <CheckCircle2 aria-hidden="true" /> : <Circle aria-hidden="true" />}
       <span>{text}</span>
-    </div>
+      <span className="m-sr">{met ? ', cumplido' : ', pendiente'}</span>
+    </li>
   );
 }
