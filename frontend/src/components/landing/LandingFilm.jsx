@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Pause, Play } from 'lucide-react';
 
 const POSTER = '/videos/SAED_Poster.jpg';
+const WEBM = '/videos/SAED_Landing_15s_Web.webm';
+const MP4 = '/videos/SAED_Landing_15s_FullHD.mp4';
 
 function usePrefersReducedMotion() {
   const [reduced, setReduced] = useState(
@@ -52,16 +54,33 @@ export default function LandingFilm() {
     }
   };
 
+  // A decode error after media data has loaded does not fall through to the next <source>,
+  // so switch to the MP4 explicitly.
+  const handleError = () => {
+    const video = videoRef.current;
+    if (!video || video.currentSrc.endsWith('.mp4')) return;
+    video.src = MP4;
+    video.load();
+    if (!reduced && !userPaused.current) video.play().catch(() => {});
+  };
+
+  // Fallback in case `loop` is ignored by the engine.
+  const handleEnded = () => {
+    const video = videoRef.current;
+    if (!video || reduced || userPaused.current) return;
+    video.currentTime = 0;
+    video.play().catch(() => {});
+  };
+
   return (
-    <section id="conjunto" className="m-section" aria-labelledby="m-film-title">
+    <section id="inicio" className="m-section m-film" aria-labelledby="m-film-title">
       <div className="m-container">
-        <div className="m-section-head">
-          <h2 id="m-film-title" className="m-h2">
-            El conjunto armado
-          </h2>
-          <p className="m-body">
-            Con todas las piezas en su lugar, así se ven administración, portería y residente
-            trabajando sobre el mismo registro.
+        <div className="m-film-head">
+          <h1 id="m-film-title" className="m-display m-film-title">
+            SAED en 15 segundos
+          </h1>
+          <p className="m-lede">
+            Administración, portería y residentes trabajando sobre el mismo registro de tu conjunto.
           </p>
         </div>
 
@@ -79,10 +98,12 @@ export default function LandingFilm() {
               poster={POSTER}
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
+              onEnded={handleEnded}
+              onError={handleError}
               aria-label="Video de 15 segundos con pantallas ilustrativas de SAED"
             >
-              <source src="/videos/SAED_Landing_15s_Web.webm" type="video/webm" />
-              <source src="/videos/SAED_Landing_15s_FullHD.mp4" type="video/mp4" />
+              <source src={WEBM} type="video/webm" onError={handleError} />
+              <source src={MP4} type="video/mp4" />
             </video>
           </div>
           <figcaption className="m-screen-bar">

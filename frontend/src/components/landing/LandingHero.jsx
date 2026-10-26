@@ -69,13 +69,13 @@ export default function LandingHero({ units, onUnitsChange }) {
   const last = towers[towers.length - 1];
   const cols = Math.max(19, Math.ceil(last.x + last.w + 1));
   return (
-    <section id="inicio" className="m-hero" aria-labelledby="m-hero-title">
+    <section id="manual" className="m-hero" aria-labelledby="m-hero-title">
       <div className="m-container">
         <div className="m-spread">
           <div className="m-page m-page--left">
-            <h1 id="m-hero-title" className="m-display">
+            <h2 id="m-hero-title" className="m-display">
               Tu conjunto, armado pieza por pieza.
-            </h1>
+            </h2>
             <p className="m-lede">
               Administración, portería, residentes y cartera sobre un mismo registro. Cada módulo
               de SAED encaja en la misma base, pensada para propiedad horizontal en Colombia.
@@ -98,7 +98,7 @@ export default function LandingHero({ units, onUnitsChange }) {
           <div className="m-page m-page--right m-studs">
             <ComplexModel units={units} activeStep={2} cols={cols} rows={16} intro className="m-hero-model">
               <StepMark step={2} className="m-hero-mark" />
-              <QrInviteCallout className="m-hero-callout m-glass" />
+              <QrInviteCallout className="m-hero-callout m-glass m-callout-in" />
             </ComplexModel>
             <p className="m-model-caption">
               Paso 2: la portería encaja sobre la base de unidades y residentes.

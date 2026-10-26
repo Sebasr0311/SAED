@@ -30,6 +30,7 @@ function SectionLink({ href, onLanding, className, onClick, children }) {
 
 export default function LandingNavbar({ theme = 'light', onToggleTheme, onLanding = true }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [condensed, setCondensed] = useState(false);
   const toggleRef = useRef(null);
   const menuRef = useRef(null);
   const isDark = theme === 'dark';
@@ -47,10 +48,17 @@ export default function LandingNavbar({ theme = 'light', onToggleTheme, onLandin
     return () => document.removeEventListener('keydown', onKey);
   }, [menuOpen]);
 
+  useEffect(() => {
+    const onScroll = () => setCondensed(window.scrollY > 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   const closeMenu = () => setMenuOpen(false);
 
   return (
-    <header className="saed-manual m-strip">
+    <header className="saed-manual m-strip" data-condensed={condensed ? 'true' : undefined}>
       <div className="m-container m-strip-inner">
         <SectionLink href="#inicio" onLanding={onLanding} className="m-brand">
           <img src={SAED_EMBLEM} alt="" className="m-brand-mark" width="32" height="32" />

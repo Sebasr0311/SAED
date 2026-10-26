@@ -1,0 +1,1188 @@
+/* Public pages (activation, organization registration, 404) in the build-manual system.
+   Scoped to .saed-manual so app pages are untouched. Builds on manual.css tokens. */
+
+.saed-manual {
+  --m-error-line: #b4233c;
+  --m-error-ink: #9a1c32;
+  --m-error-bg: #fde8ec;
+  --m-warn-ink: #8a4b08;
+  --m-warn-bg: #fdf1dc;
+  --m-info-bg: #eef2fa;
+  --m-control: #8792aa;
+}
+
+:is(.dark, [data-theme='dark']) .saed-manual,
+.saed-manual.dark {
+  --m-error-line: #ff8fa3;
+  --m-error-ink: #ff8fa3;
+  --m-error-bg: rgba(255, 143, 163, 0.12);
+  --m-warn-ink: #fcd27a;
+  --m-warn-bg: rgba(252, 210, 122, 0.12);
+  --m-info-bg: rgba(163, 176, 255, 0.1);
+  --m-control: #5c6886;
+}
+
+/* ---- Layout ---- */
+
+.m-pub-main {
+  flex: 1;
+  padding-block: 20px 48px;
+}
+
+.m-pub-narrow {
+  width: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+}
+
+.m-pub-frame {
+  border: 1.5px solid var(--m-keyline);
+  background: var(--m-page);
+  box-shadow: var(--m-shadow-lg);
+}
+
+.m-pub-frame-body {
+  display: grid;
+  gap: 24px;
+  padding: 24px 18px;
+}
+
+@media (min-width: 640px) {
+  .m-pub-frame-body {
+    padding: 36px 36px;
+  }
+}
+
+.m-pub-head {
+  display: grid;
+  gap: 8px;
+}
+
+.m-pub-head .m-body {
+  font-size: 1rem;
+}
+
+/* Registration: steps rail on the left page, the step on the right page. */
+.m-pub-spread {
+  display: grid;
+  border: 1.5px solid var(--m-keyline);
+  background: var(--m-page);
+  box-shadow: var(--m-shadow-lg);
+}
+
+.m-pub-rail {
+  display: grid;
+  align-content: start;
+  gap: 20px;
+  padding: 18px 16px;
+  border-bottom: 1.5px dashed var(--m-keyline);
+}
+
+.m-pub-content {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 24px;
+  padding: 24px 16px 28px;
+}
+
+@media (min-width: 640px) {
+  .m-pub-rail {
+    padding: 24px;
+  }
+
+  .m-pub-content {
+    padding: 32px 32px 36px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .m-pub-spread {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .m-pub-rail {
+    position: relative;
+    padding: 32px 24px;
+    border-bottom: 0;
+    border-right: 1.5px dashed var(--m-keyline);
+  }
+
+  .m-pub-content {
+    padding: 36px 40px 40px;
+  }
+}
+
+/* ---- Steps (the manual's step mark, as a list) ---- */
+
+.m-pub-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+
+.m-pub-step {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.m-pub-step-mark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.m-pub-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: 1.5px dashed var(--m-ghost-line);
+  background: var(--m-paper);
+  color: var(--m-ink-2);
+  font-family: var(--m-display);
+  font-weight: 850;
+  font-stretch: 118%;
+  font-variation-settings: 'wdth' 118, 'wght' 850;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-size: 1rem;
+  line-height: 1;
+  transition:
+    background-color 200ms var(--m-ease),
+    border-color 200ms var(--m-ease),
+    color 200ms var(--m-ease);
+}
+
+.m-pub-step-num svg {
+  width: 16px;
+  height: 16px;
+}
+
+.m-pub-step[data-state='now'] .m-pub-step-num {
+  border: 1.5px solid var(--m-new-line);
+  background: var(--m-indigo);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), var(--m-shadow);
+}
+
+.m-pub-step[data-state='done'] .m-pub-step-num {
+  border: 1.5px solid var(--m-keyline);
+  background: var(--m-ok-bg);
+  color: var(--m-ok);
+}
+
+.m-pub-step-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--m-ink-2);
+}
+
+.m-pub-step[data-state='now'] .m-pub-step-label {
+  font-weight: 800;
+  color: var(--m-ink);
+}
+
+@media (max-width: 479px) {
+  .m-pub-step-label {
+    font-size: 0.75rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .m-pub-steps {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .m-pub-step {
+    position: relative;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding-block: 10px;
+  }
+
+  .m-pub-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 16px;
+    top: 44px;
+    height: calc(100% - 34px);
+    border-left: 1.5px dashed var(--m-keyline-soft);
+  }
+
+  .m-pub-step-label {
+    font-size: 0.9375rem;
+  }
+}
+
+.m-pub-rail-title {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: var(--m-ink);
+}
+
+.m-pub-rail-summary {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .m-pub-rail-summary {
+    display: grid;
+    gap: 10px;
+    padding-top: 18px;
+    border-top: 1.5px dashed var(--m-keyline);
+  }
+}
+
+/* ---- Fields ---- */
+
+.m-pub-form {
+  display: grid;
+  gap: 18px;
+}
+
+.m-pub-group {
+  display: grid;
+  gap: 16px;
+}
+
+.m-pub-group + .m-pub-group {
+  padding-top: 20px;
+  border-top: 1.5px dashed var(--m-keyline-soft);
+}
+
+.m-pub-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--m-ink);
+}
+
+.m-pub-group-title svg {
+  width: 18px;
+  height: 18px;
+  color: var(--m-indigo-text);
+}
+
+.m-pub-grid {
+  display: grid;
+  gap: 16px;
+}
+
+@media (min-width: 640px) {
+  .m-pub-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .m-pub-grid--doc {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  }
+}
+
+.m-pub-field {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.m-pub-label {
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--m-ink);
+}
+
+.m-pub-req {
+  margin-left: 2px;
+  color: var(--m-error-ink);
+}
+
+.m-pub-control {
+  position: relative;
+}
+
+.m-pub-control > svg {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  width: 18px;
+  height: 18px;
+  transform: translateY(-50%);
+  color: var(--m-ink-2);
+  pointer-events: none;
+}
+
+.saed-manual .m-pub-input {
+  display: block;
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  border: 1.5px solid var(--m-control);
+  border-radius: 6px;
+  background-color: var(--m-paper);
+  color: var(--m-ink);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.3;
+  caret-color: var(--m-indigo);
+  box-shadow: none;
+  outline: none;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.saed-manual .m-pub-control > svg + .m-pub-input {
+  padding-left: 44px;
+}
+
+.saed-manual .m-pub-input--pwd {
+  padding-right: 52px;
+}
+
+.saed-manual .m-pub-input::placeholder {
+  color: var(--m-ink-2);
+  opacity: 0.8;
+}
+
+.saed-manual .m-pub-input:hover {
+  border-color: var(--m-keyline);
+}
+
+.saed-manual .m-pub-input:focus-visible {
+  border-color: var(--m-focus);
+  outline: none;
+  border-radius: 6px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--m-focus) 30%, transparent);
+}
+
+.saed-manual .m-pub-input[aria-invalid='true'] {
+  border-color: var(--m-error-line);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--m-error-line) 22%, transparent);
+}
+
+.saed-manual select.m-pub-input {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 40px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--m-ink-2) 50%),
+    linear-gradient(135deg, var(--m-ink-2) 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 14px) 50%;
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+.saed-manual .m-pub-input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--m-paper) inset;
+  -webkit-text-fill-color: var(--m-ink);
+}
+
+.m-pub-toggle {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--m-ink-2);
+}
+
+.m-pub-toggle:hover {
+  color: var(--m-ink);
+}
+
+.m-pub-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+.m-pub-hint {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--m-ink-2);
+}
+
+.m-pub-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--m-error-ink);
+}
+
+.m-pub-error svg {
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.m-pub-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1.5px solid var(--m-keyline);
+  background: var(--m-paper);
+  cursor: pointer;
+}
+
+.m-pub-check input {
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  flex-shrink: 0;
+  accent-color: var(--m-indigo);
+  cursor: pointer;
+}
+
+.m-pub-check-title {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: var(--m-ink);
+}
+
+.m-pub-check-text {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--m-ink-2);
+}
+
+/* ---- Notes (state call-outs) ---- */
+
+.m-pub-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--m-keyline);
+  background: var(--m-paper);
+  color: var(--m-ink);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.m-pub-note > svg {
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  flex-shrink: 0;
+  color: var(--m-indigo-text);
+}
+
+.m-pub-note-title {
+  font-weight: 800;
+  color: var(--m-ink);
+}
+
+.m-pub-note-text {
+  margin-top: 2px;
+  font-size: 0.875rem;
+  color: var(--m-ink-2);
+}
+
+.m-pub-note.is-ok {
+  background: var(--m-ok-bg);
+}
+
+.m-pub-note.is-ok > svg {
+  color: var(--m-ok);
+}
+
+.m-pub-note.is-error {
+  border-color: var(--m-error-line);
+  background: var(--m-error-bg);
+}
+
+.m-pub-note.is-error > svg,
+.m-pub-note.is-error .m-pub-note-title {
+  color: var(--m-error-ink);
+}
+
+.m-pub-note.is-warn {
+  background: var(--m-warn-bg);
+}
+
+.m-pub-note.is-warn > svg {
+  color: var(--m-warn-ink);
+}
+
+.m-pub-note.is-info {
+  background: var(--m-info-bg);
+}
+
+/* Large status piece at the top of a result panel. */
+.m-pub-result {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+}
+
+.m-pub-result-piece {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: 1.5px solid var(--m-keyline);
+  background: var(--m-paper);
+  color: var(--m-indigo-text);
+  box-shadow: var(--m-shadow);
+}
+
+.m-pub-result-piece::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  right: 0;
+  bottom: calc(100% + 1.5px);
+  height: 6px;
+  background-image: linear-gradient(90deg, var(--m-keyline) 0 58%, transparent 58%);
+  background-size: 16px 100%;
+}
+
+.m-pub-result-piece svg {
+  width: 26px;
+  height: 26px;
+}
+
+.m-pub-result-piece.is-ok {
+  background: var(--m-ok-bg);
+  color: var(--m-ok);
+}
+
+.m-pub-result-piece.is-error {
+  background: var(--m-error-bg);
+  color: var(--m-error-ink);
+}
+
+.m-pub-result-piece.is-new {
+  border-color: var(--m-new-line);
+  background: var(--m-indigo);
+  color: #ffffff;
+}
+
+/* ---- Definition rows ---- */
+
+.m-pub-dl {
+  display: grid;
+  margin: 0;
+  border: 1.5px solid var(--m-keyline);
+  background: var(--m-paper);
+}
+
+.m-pub-dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 10px 14px;
+}
+
+.m-pub-dl > div + div {
+  border-top: 1px dashed var(--m-keyline-soft);
+}
+
+.m-pub-dl dt {
+  font-size: 0.875rem;
+  color: var(--m-ink-2);
+}
+
+.m-pub-dl dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--m-ink);
+  text-align: right;
+}
+
+.m-pub-dl .is-total dt {
+  font-weight: 800;
+  color: var(--m-ink);
+}
+
+.m-pub-dl .is-total dd {
+  font-family: var(--m-display);
+  font-weight: 850;
+  font-stretch: 118%;
+  font-variation-settings: 'wdth' 118, 'wght' 850;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-size: 1.25rem;
+}
+
+.m-pub-mono {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  letter-spacing: 0.01em;
+}
+
+/* ---- Segmented control and choices ---- */
+
+.m-pub-seg {
+  display: inline-flex;
+  justify-self: start;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border: 1.5px solid var(--m-keyline);
+  border-radius: 6px;
+  background: var(--m-paper);
+}
+
+.m-pub-seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1.5px solid transparent;
+  border-radius: 4px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--m-ink-2);
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.m-pub-seg button:hover {
+  color: var(--m-ink);
+}
+
+.m-pub-seg button[aria-pressed='true'] {
+  border-color: var(--m-new-line);
+  background: var(--m-indigo);
+  color: #ffffff;
+}
+
+.m-pub-seg-tag {
+  padding: 0 6px;
+  border: 1px solid currentColor;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.m-pub-seg button[aria-pressed='false'] .m-pub-seg-tag {
+  border-color: var(--m-ok);
+  background: var(--m-ok-bg);
+  color: var(--m-ok);
+}
+
+.m-pub-choices {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .m-pub-choices--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .m-pub-choices--plans {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+
+/* A choice is a part: ghosted until picked, then the Índigo piece. */
+.m-pub-choice {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  width: 100%;
+  padding: 16px;
+  border: 1.5px dashed var(--m-ghost-line);
+  border-radius: 3px;
+  background: var(--m-glass-strong);
+  color: var(--m-ink);
+  text-align: left;
+  transition:
+    border-color 180ms var(--m-ease),
+    background-color 180ms var(--m-ease),
+    box-shadow 180ms var(--m-ease);
+}
+
+.m-pub-choice:hover {
+  border-style: solid;
+  border-color: var(--m-keyline);
+}
+
+.m-pub-choice[aria-pressed='true'] {
+  border: 1.5px solid var(--m-new-line);
+  background: var(--m-paper);
+  box-shadow: 0 0 0 1.5px var(--m-new-line), var(--m-shadow);
+}
+
+.m-pub-choice-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.m-pub-choice-title {
+  display: block;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--m-ink);
+}
+
+.m-pub-choice-text {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--m-ink-2);
+}
+
+.m-pub-choice-tick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--m-keyline);
+  border-radius: 3px;
+  background: var(--m-paper);
+  color: transparent;
+}
+
+.m-pub-choice-tick svg {
+  width: 14px;
+  height: 14px;
+}
+
+.m-pub-choice[aria-pressed='true'] .m-pub-choice-tick {
+  border-color: var(--m-new-line);
+  background: var(--m-indigo);
+  color: #ffffff;
+}
+
+.m-pub-choice-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid var(--m-keyline);
+  background: var(--m-lav);
+  color: var(--m-ink);
+}
+
+.m-pub-choice-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.m-pub-price {
+  display: grid;
+  gap: 2px;
+  padding-block: 10px;
+  border-block: 1px dashed var(--m-keyline-soft);
+}
+
+.m-pub-price-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-family: var(--m-display);
+  font-weight: 850;
+  font-stretch: 118%;
+  font-variation-settings: 'wdth' 118, 'wght' 850;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-size: 1.625rem;
+  line-height: 1.1;
+  color: var(--m-ink);
+}
+
+.m-pub-price-unit {
+  font-family: var(--m-sans);
+  font-variation-settings: normal;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--m-ink-2);
+}
+
+.m-pub-price-note {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--m-ink-2);
+}
+
+.m-pub-price-note.is-ok {
+  color: var(--m-ok);
+}
+
+.m-pub-limits {
+  display: grid;
+  gap: 6px;
+  font-size: 0.875rem;
+}
+
+.m-pub-limits > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.m-pub-limits-k {
+  color: var(--m-ink-2);
+}
+
+.m-pub-limits-v {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--m-ink);
+}
+
+.m-pub-tag {
+  display: inline-flex;
+  justify-self: start;
+  align-items: center;
+  padding: 0 6px;
+  border: 1.5px solid var(--m-keyline);
+  background: var(--m-page);
+  color: var(--m-ink);
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.m-pub-tag.is-new {
+  border-color: var(--m-new-line);
+  background: var(--m-indigo);
+  color: #ffffff;
+}
+
+.m-pub-tag.is-ok {
+  background: var(--m-ok-bg);
+  color: var(--m-ok);
+}
+
+.m-pub-tag.is-warn {
+  background: var(--m-warn-bg);
+  color: var(--m-warn-ink);
+}
+
+/* ---- Password requirements ---- */
+
+.m-pub-reqs {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1.5px solid var(--m-keyline);
+  background: var(--m-paper);
+}
+
+.m-pub-reqs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.m-pub-meter {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.m-pub-meter > span {
+  height: 8px;
+  border: 1.5px solid var(--m-keyline);
+  background: var(--m-paper);
+  transition: background-color 200ms var(--m-ease);
+}
+
+.m-pub-meter > span[data-on] {
+  background: var(--m-indigo);
+}
+
+.m-pub-meter[data-full] > span {
+  background: var(--m-ok);
+  border-color: var(--m-keyline);
+}
+
+.m-pub-reqs ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.m-pub-reqs li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  color: var(--m-ink-2);
+}
+
+.m-pub-reqs li svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.m-pub-reqs li[data-met] {
+  color: var(--m-ink);
+  font-weight: 700;
+}
+
+.m-pub-reqs li[data-met] svg {
+  color: var(--m-ok);
+}
+
+/* ---- Actions ---- */
+
+.m-pub-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.m-pub-actions--end {
+  justify-content: flex-end;
+}
+
+.m-pub-actions .m-btn {
+  white-space: normal;
+  text-align: center;
+}
+
+@media (max-width: 479px) {
+  .m-pub-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}
+
+.m-pub-block {
+  width: 100%;
+}
+
+.saed-manual .m-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.m-pub-back {
+  justify-self: start;
+  min-height: 40px;
+  padding: 0 12px;
+  font-size: 0.875rem;
+}
+
+/* ---- Loading ---- */
+
+.m-pub-skel {
+  display: grid;
+  gap: 10px;
+}
+
+.m-pub-skel > span {
+  display: block;
+  height: 12px;
+  border: 1px solid var(--m-keyline-soft);
+  background: linear-gradient(90deg, var(--m-ground) 0%, var(--m-paper) 50%, var(--m-ground) 100%);
+  background-size: 200% 100%;
+  animation: m-pub-sweep 1.4s ease-in-out infinite;
+}
+
+.m-pub-skel > span:nth-child(2) {
+  width: 82%;
+}
+
+.m-pub-skel > span:nth-child(3) {
+  width: 64%;
+}
+
+.m-pub-skel-card {
+  height: 260px;
+  border: 1.5px dashed var(--m-ghost-line);
+  background: var(--m-glass);
+}
+
+@keyframes m-pub-sweep {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
+  }
+}
+
+.m-pub-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--m-ink-2);
+}
+
+.m-pub-status svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.m-pub-spin {
+  animation: m-pub-spin 900ms linear infinite;
+}
+
+@keyframes m-pub-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Step change: content settles in place (state transition, not choreography). */
+.m-pub-enter {
+  animation: m-pub-enter 260ms var(--m-ease) both;
+}
+
+@keyframes m-pub-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.m-pub-foot {
+  padding-block: 0 24px;
+  font-size: 0.8125rem;
+  color: var(--m-ink-2);
+  text-align: center;
+}
+
+/* ---- 404 inside the app shell ---- */
+
+.saed-manual.m-pub-embed {
+  display: grid;
+  border: 1.5px solid var(--m-keyline);
+  background-color: var(--m-ground);
+  background-image: radial-gradient(circle, var(--m-dot-strong) 1.6px, transparent 2.1px);
+  background-size: 24px 24px;
+  box-shadow: var(--m-shadow);
+}
+
+.m-pub-404 {
+  display: grid;
+  gap: 28px;
+  align-items: center;
+  padding: 28px 18px;
+}
+
+@media (min-width: 768px) {
+  .m-pub-404 {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 48px;
+    padding: 48px;
+  }
+}
+
+.m-pub-404-text {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+  padding: 22px 20px;
+  border: 1.5px solid var(--m-keyline);
+  background: var(--m-glass-strong);
+}
+
+.m-pub-404-numeral {
+  font-size: clamp(4rem, 3rem + 4vw, 6rem);
+  color: var(--m-indigo-text);
+}
+
+/* The missing piece: a dashed ghost brick on a plate of built ones. */
+.m-pub-404-plate {
+  display: grid;
+  grid-template-columns: repeat(3, 56px);
+  gap: 6px;
+  justify-content: center;
+}
+
+.m-pub-404-plate > span {
+  position: relative;
+  height: 40px;
+  border: 1.5px solid var(--m-keyline);
+  background: var(--m-paper);
+}
+
+.m-pub-404-plate > span::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  right: 0;
+  bottom: calc(100% + 1.5px);
+  height: 6px;
+  background-image: linear-gradient(90deg, var(--m-keyline) 0 58%, transparent 58%);
+  background-size: 16px 100%;
+}
+
+.m-pub-404-plate > span.is-missing {
+  border-style: dashed;
+  border-color: var(--m-ghost-line);
+  background: transparent;
+}
+
+.m-pub-404-plate > span.is-missing::before {
+  background-image: linear-gradient(90deg, var(--m-ghost-line) 0 58%, transparent 58%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saed-manual .m-pub-enter,
+  .saed-manual .m-pub-skel > span,
+  .saed-manual .m-pub-spin {
+    animation: none;
+  }
+
+  .saed-manual .m-pub-step-num,
+  .saed-manual .m-pub-choice,
+  .saed-manual .m-pub-meter > span {
+    transition: none;
+  }
+}

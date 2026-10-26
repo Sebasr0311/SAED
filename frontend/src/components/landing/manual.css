@@ -1955,3 +1955,199 @@ html:is(.dark, [data-theme='dark']):has(.m-root) {
     animation: none;
   }
 }
+
+/* ==== Round 3: film first, role tray, motion language ==== */
+
+.m-film {
+  padding-block: 36px 64px;
+}
+
+.m-film-head {
+  display: grid;
+  gap: 10px;
+  max-width: 760px;
+  margin-bottom: 28px;
+}
+
+.m-film-title {
+  max-width: none;
+  font-size: clamp(2rem, 1.4rem + 2.4vw, 3.25rem);
+}
+
+.m-film .m-screen {
+  max-width: 1000px;
+}
+
+/* Roles: wide pieces with a one-line job description stitched underneath. */
+.m-part.is-L {
+  --rows: 3;
+  grid-column: span 12;
+  grid-row: span 8;
+}
+
+.m-part-desc {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--m-sans);
+  font-weight: 500;
+  font-stretch: 100%;
+  font-variation-settings: normal;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--m-ink-2);
+  text-wrap: pretty;
+}
+
+@media (max-width: 639px) {
+  .m-part.is-L {
+    grid-column: 1 / -1;
+    grid-row: span 7;
+  }
+}
+
+/* Nav strip condenses once the page scrolls. */
+.m-strip-inner {
+  transition: height 300ms var(--m-ease);
+}
+
+.m-strip {
+  transition: box-shadow 300ms ease;
+}
+
+.m-strip[data-condensed] .m-strip-inner {
+  height: 52px;
+}
+
+.m-strip[data-condensed] {
+  box-shadow: inset 0 -1px 0 var(--m-glass-hi), 0 10px 22px -16px rgba(29, 41, 66, 0.45);
+}
+
+/* Towers grow from the plate when they appear and when the unit count changes. */
+.m-piece--tower {
+  animation: m-rise 600ms var(--m-ease) backwards;
+  transition:
+    opacity 600ms var(--m-ease),
+    transform 600ms var(--m-ease),
+    background-color 300ms ease,
+    border-color 300ms ease,
+    left 600ms var(--m-ease),
+    height 600ms var(--m-ease);
+}
+
+@keyframes m-rise {
+  from {
+    clip-path: inset(100% -20% 0 -20%);
+  }
+  to {
+    clip-path: inset(-20% -20% 0 -20%);
+  }
+}
+
+/* Glass call-outs slide onto the page. */
+.m-callout-in {
+  animation: m-callout-in 600ms var(--m-ease) both;
+}
+
+.m-hero-callout.m-callout-in {
+  animation-delay: 700ms;
+}
+
+@keyframes m-callout-in {
+  from {
+    opacity: 0;
+    translate: 18px 0;
+  }
+}
+
+/* Scroll reveals: set only by useManualReveal, so content is visible without JS. */
+.m-section-head > * {
+  transition:
+    opacity 600ms var(--m-ease),
+    transform 700ms var(--m-ease),
+    clip-path 700ms var(--m-ease);
+}
+
+.m-section-head > :nth-child(2) {
+  transition-delay: 90ms;
+}
+
+.m-section-head[data-reveal='pending'] > * {
+  opacity: 0;
+  transform: translateY(18px);
+  clip-path: inset(0 0 100% 0);
+}
+
+[data-reveal-group] .m-part,
+[data-reveal-group] .m-parts-title,
+.m-unbuilt-list > li {
+  transition:
+    opacity 500ms var(--m-ease),
+    transform 600ms var(--m-ease);
+  transition-delay: calc(min(var(--i, 0), 12) * 40ms);
+}
+
+[data-reveal-group][data-reveal='pending'] .m-part,
+.m-unbuilt-list[data-reveal='pending'] > li {
+  opacity: 0;
+  transform: translateY(-28px);
+}
+
+[data-reveal-group][data-reveal='pending'] .m-parts-title {
+  opacity: 0;
+}
+
+.m-unbuilt-list > li:nth-child(2) {
+  --i: 2;
+}
+
+.m-unbuilt-list > li:nth-child(3) {
+  --i: 4;
+}
+
+/* Spec rows draw their keylines left to right. */
+.m-spec-table tbody th,
+.m-spec-table tbody td {
+  border-bottom: 0;
+  background: linear-gradient(var(--m-keyline-soft), var(--m-keyline-soft)) no-repeat left bottom / 100% 1px;
+  transition: background-size 700ms var(--m-ease);
+  transition-delay: calc(var(--r, 0) * 70ms);
+}
+
+.m-spec-table tbody td {
+  transition-delay: calc(var(--r, 0) * 70ms + 140ms);
+}
+
+.m-spec-table[data-reveal='pending'] tbody th,
+.m-spec-table[data-reveal='pending'] tbody td {
+  background-size: 0% 1px;
+}
+
+.m-spec-table tbody tr:last-child > * {
+  background: none;
+}
+
+.m-faq {
+  transition:
+    opacity 600ms var(--m-ease),
+    transform 700ms var(--m-ease);
+}
+
+.m-faq[data-reveal='pending'] {
+  opacity: 0;
+  transform: translateY(18px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saed-manual .m-piece--tower,
+  .saed-manual .m-callout-in {
+    animation: none;
+  }
+
+  .saed-manual .m-strip-inner {
+    transition: none;
+  }
+}
+
+.m-part:not(.is-M):not(.is-L) {
+  grid-column: span 6;
+}

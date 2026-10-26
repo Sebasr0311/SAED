@@ -1,0 +1,331 @@
+/* Login in the build-manual system. Scoped to .m-login so app pages are untouched. */
+
+.saed-manual.m-login {
+  --m-error-line: #b4233c;
+}
+
+.saed-manual.m-login.dark,
+:is(.dark, [data-theme='dark']) .saed-manual.m-login {
+  --m-error-line: #ff8fa3;
+}
+
+.m-login-main {
+  padding-block: 20px 48px;
+}
+
+.m-login-spread {
+  overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  .m-login-spread {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  }
+}
+
+.m-login-page {
+  display: flex;
+  justify-content: center;
+  padding: 28px 16px;
+}
+
+@media (min-width: 640px) {
+  .m-login-page {
+    padding: 48px 40px;
+  }
+}
+
+/* The form is a glass piece seated on the stud grid. */
+.m-login-piece {
+  position: relative;
+  display: grid;
+  gap: 22px;
+  width: 100%;
+  max-width: 440px;
+  padding: 24px 20px;
+  border: 1.5px solid var(--m-keyline);
+  border-radius: 3px;
+  background: var(--m-glass-callout);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow: inset 0 1px 0 var(--m-glass-hi), var(--m-shadow-lg);
+  animation: m-login-seat 650ms var(--m-ease) both;
+}
+
+@media (min-width: 640px) {
+  .m-login-piece {
+    padding: 32px 30px;
+  }
+}
+
+.m-login-piece::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  right: 0;
+  bottom: calc(100% + 1.5px);
+  height: 7px;
+  background-image: linear-gradient(90deg, var(--m-new-line) 0 58%, transparent 58%);
+  background-size: 24px 100%;
+}
+
+@keyframes m-login-seat {
+  from {
+    opacity: 0;
+    transform: translateY(-24px);
+  }
+}
+
+.m-login-head {
+  display: grid;
+  gap: 8px;
+}
+
+.m-login-form {
+  display: grid;
+  gap: 18px;
+}
+
+.m-field {
+  display: grid;
+  gap: 8px;
+}
+
+.m-field-label {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--m-ink);
+}
+
+.m-field-control {
+  position: relative;
+}
+
+.m-field-icon {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  width: 18px;
+  height: 18px;
+  transform: translateY(-50%);
+  color: var(--m-ink-2);
+  pointer-events: none;
+}
+
+/* index.css pins #login-* inputs to a dark palette with !important; re-theme them here. */
+.saed-manual.m-login :is(#login-username, #login-password).m-input,
+.saed-manual.m-login :is(#login-username, #login-password).m-input:focus {
+  width: 100%;
+  height: 50px;
+  padding: 0 14px 0 44px;
+  border: 1.5px solid var(--m-keyline) !important;
+  border-radius: 6px;
+  background-color: var(--m-paper) !important;
+  color: var(--m-ink) !important;
+  -webkit-text-fill-color: var(--m-ink) !important;
+  caret-color: var(--m-indigo) !important;
+  font-size: 1rem;
+  font-weight: 500;
+  outline: none;
+  transition:
+    box-shadow 150ms ease,
+    border-color 150ms ease;
+}
+
+.saed-manual.m-login :is(#login-username, #login-password).m-input::placeholder {
+  color: var(--m-ink-2);
+  -webkit-text-fill-color: var(--m-ink-2);
+  opacity: 0.85;
+}
+
+.saed-manual.m-login :is(#login-username, #login-password).m-input:focus-visible {
+  border-color: var(--m-focus) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--m-focus) 30%, transparent) !important;
+}
+
+.saed-manual.m-login :is(#login-username, #login-password).m-input:-webkit-autofill,
+.saed-manual.m-login :is(#login-username, #login-password).m-input:-webkit-autofill:hover,
+.saed-manual.m-login :is(#login-username, #login-password).m-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--m-paper) inset !important;
+  -webkit-text-fill-color: var(--m-ink) !important;
+}
+
+.saed-manual.m-login :is(#login-username, #login-password).m-input[aria-invalid='true'] {
+  border-color: var(--m-error-line, #b4233c) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--m-error-line, #b4233c) 25%, transparent) !important;
+}
+
+.saed-manual.m-login :is(#login-username, #login-password).m-input--pwd {
+  padding-right: 52px;
+}
+
+.m-field-toggle {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--m-ink-2);
+}
+
+.m-field-toggle:hover {
+  color: var(--m-ink);
+}
+
+.m-field-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+.m-login-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  font-size: 0.875rem;
+}
+
+.m-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-weight: 600;
+  color: var(--m-ink);
+  cursor: pointer;
+}
+
+.m-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--m-indigo);
+}
+
+.m-text-btn {
+  min-height: 44px;
+  font-weight: 700;
+  color: var(--m-indigo-text);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+}
+
+.m-login-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--m-error-line, #b4233c);
+  background: var(--m-paper);
+  color: var(--m-ink);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.m-login-error svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  color: var(--m-error-line, #b4233c);
+}
+
+.m-login-submit {
+  width: 100%;
+}
+
+.m-login-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.m-login-slow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px dashed var(--m-keyline);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.m-login-slow svg {
+  width: 16px;
+  height: 16px;
+}
+
+.m-spin {
+  animation: m-spin 900ms linear infinite;
+}
+
+@keyframes m-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.m-login-demo {
+  display: grid;
+  gap: 10px;
+  padding-top: 18px;
+  border-top: 1.5px dashed var(--m-keyline);
+}
+
+.m-login-demo-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.m-login-links {
+  display: grid;
+  gap: 10px;
+  padding-top: 18px;
+  border-top: 1.5px dashed var(--m-keyline);
+  font-size: 0.875rem;
+}
+
+.m-login-links > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.m-login-links dt {
+  color: var(--m-ink-2);
+}
+
+.m-login-links dd {
+  font-weight: 700;
+}
+
+.m-login-aside {
+  justify-content: center;
+  gap: 14px;
+}
+
+.m-login-aside-title {
+  max-width: 22ch;
+}
+
+.m-login-model {
+  margin-top: 12px;
+}
+
+@media (max-width: 1023px) {
+  .m-login-aside .m-body {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saed-manual .m-login-piece,
+  .saed-manual .m-spin {
+    animation: none;
+  }
+}
